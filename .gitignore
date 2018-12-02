@@ -1,6 +1,6 @@
-Debug
-Release
+/Debug/
+/Release/
 .xdchelp
 \.config
 \.launches
-src
+/src/
