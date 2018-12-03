@@ -12,6 +12,7 @@
 #define BUFFER_MAX_SIZE 32
 #define BUFFER_MAX_DEPTH 32
 
+#define UART_INT_STATUS_ADDR (SOC_EMIFA_CS2_ADDR + (0x20<<1))
 #define UART_RESET_ADDR (SOC_EMIFA_CS2_ADDR + (0x22<<1))
 #define UART_INT_ENABLE_ADDR (SOC_EMIFA_CS2_ADDR + (0x24<<1))
 #define UART_INT_MASK_ADDR (SOC_EMIFA_CS2_ADDR + (0x25<<1))
@@ -35,6 +36,9 @@
     
 #define UartNs550HardIntUnMaskAll() \
     (*(volatile u16 *) (UART_INT_MASK_ADDR) = 0)
+
+#define UartNs550GetHardIntStatus() \
+    (*(volatile u16 *) (UART_INT_STATUS_ADDR))
 
 typedef struct HW_UART_BUFFER
 {
