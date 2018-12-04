@@ -14,48 +14,50 @@
 #include "gpio_app.h"
 #include "uartStdio.h"
 #include "emifa/emifa_app.h"
+#include "uartns550.h"
 
-/*
- *  ======== taskFxn ========
- */
-Void taskFxn(UArg a0, UArg a1)
-{
-    System_printf("enter taskFxn()\n");
-    while(1){
-		gpio_toggle_led();
-		Task_sleep(1000);
-		UARTPuts("Tronlong SYS/BIOS UART1 Application......\r\n", -1);
-    }
-
-    System_printf("exit taskFxn()\n");
-}
+#include "Message/Message.h"
+#include "Test_.h"
 
 
 void PeriphInit()
 {
-	gpio_init();
+
+	//GPIO---------------------
+	gpio_init();       //初始化gpio
 	gpio_fpga_rst();  //复位FPGA
 
+	//DSP UART----------------------
 	UARTStdioInit();  //DSP调试串口1初始化
 
+	//EMIFA--------------------------
 	EMIFA_init();     //初始化EMIFA
+
+	//FPGA UART--------------------------
+
+    // 串口0硬件中断MASK
+//    UartNs550HardIntMask (UART0_DEVICE);
+
+    // MASK所有串口硬件中断；
+    UartNs550HardIntMaskAll();
+
+    // 使能串口硬件中断
+    UartNs550HardIntEnable ();
+
+
 }
 
 void ThreadInit()
 {
-	//task
-	Task_Handle task;
-	Error_Block eb;
-
-	System_printf("enter main()\n");
-	System_flush();
-	Error_init(&eb);
-	task = Task_create(taskFxn, NULL, &eb);
-	if (task == NULL) {
-		System_printf("Task_create() failed!\n");
-		BIOS_exit(0);
-	}
+	//task==========================
 }
+
+void SyncInit()
+{
+	//消息队列初始化
+	Message_init();
+}
+
 /*
  *  ======== main ========
  */
@@ -63,8 +65,11 @@ Int main()
 {
 	PeriphInit();
 
+	SyncInit();
+
 	ThreadInit();
 
+	TestEntry();
 
     BIOS_start();    /* does not return */
     return(0);

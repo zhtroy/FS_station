@@ -28,7 +28,6 @@ Void DecisionTask(UArg a0, UArg a1)
 	Watch_init();
 	while(1){
 		msg= Message_pend();
-		System_printf("msg type = %s \n", Message_getNameByType(msg->type));
 
 		//将msg (数据消息) 进行处理，映射到HSM的消息上去
 
@@ -55,7 +54,7 @@ Void DecisionTask(UArg a0, UArg a1)
 
 		//hsm input
 
-//		Watch_Event(e);
+		Watch_Event(e);
 	}
 }
 
@@ -137,15 +136,12 @@ void TimerTask(UArg a0, UArg a1)
 	}
 }
 
-void testWatch_init()
+void testStateMachine_init()
 {
 	Task_Handle task;
 	Error_Block eb;
 	Task_Params taskParams;
 
-
-	//msg init
-	Message_init();
 
 	Error_init(&eb);
     Task_Params_init(&taskParams);

@@ -25,6 +25,7 @@ typedef struct MsgObj {
 	Queue_Elem elem; /* first field for Queue */
 	msg_type_t type; /*msg type */
 	uint8_t data[MSGSIZE]; /* message value */
+	uint32_t dataLen;      //数据长度
 } msg_t, *p_msg_t;
 
 

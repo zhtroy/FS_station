@@ -16,7 +16,7 @@
 //#include "sja1000.h"
 //#include "emifa_app.h"
 
-static void cfg_gpio_int(void);
+static void GPIOBankPinInterruputInit(void);
 static void GPIOBankPinMuxSet(void);
 static void GPIOBankPinInit(void);
 static void GPIOBank6Pin0PinMuxSetup(void);
@@ -43,9 +43,9 @@ static void rst_delay(uint32_t n)
 /*              Ӳ���ж�                                                    */
 /*                                                                          */
 /****************************************************************************/
-static void cfg_gpio_int(void)
+static void GPIOBankPinInterruputInit(void)
 {
-    // �����ⲿ�ж�Ϊ�����ش���
+    // 配置UART为上升沿中断
     GPIOIntTypeSet(SOC_GPIO_0_REGS, 111, GPIO_INT_TYPE_RISEDGE);
     GPIOIntTypeSet(SOC_GPIO_0_REGS, 1, GPIO_INT_TYPE_RISEDGE);
     GPIOIntTypeSet(SOC_GPIO_0_REGS, 2, GPIO_INT_TYPE_RISEDGE);
@@ -234,5 +234,5 @@ void gpio_init(void)
 	PSCInit();
     GPIOBankPinMuxSet();
     GPIOBankPinInit();
-    cfg_gpio_int();
+    GPIOBankPinInterruputInit();
 }

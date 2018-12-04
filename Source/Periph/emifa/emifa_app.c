@@ -33,24 +33,24 @@ static void PSCInit(void)
 
 static void EMIFASetup(void)
 {
-    /*����EMIFA��ظ������*/
-    EMIFAPinMuxSetup();
 
-    /*�����������16bit*/
-    EMIFAAsyncDevDataBusWidthSelect(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
-                                    EMIFA_DATA_BUSWITTH_16BIT);
+	EMIFAPinMuxSetup();
 
-    /*ѡ��Normalģʽ*/
-    EMIFAAsyncDevOpModeSelect(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
-                               EMIFA_ASYNC_INTERFACE_NORMAL_MODE);
 
-    /*��ֹWAIT���*/
-    EMIFAExtendedWaitConfig(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
-                             EMIFA_EXTENDED_WAIT_DISABLE);
+	EMIFAAsyncDevDataBusWidthSelect(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
+									EMIFA_DATA_BUSWITTH_16BIT);
 
-    /*����W_SETUP/R_SETUP   W_STROBE/R_STROBE    W_HOLD/R_HOLD    TA�Ȳ���*/
-    EMIFAWaitTimingConfig(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
-                           EMIFA_ASYNC_WAITTIME_CONFIG(0, 3, 0, 0, 8, 0, 0 ));   //TODO:待确定
+	/*异步Normal模式*/
+	EMIFAAsyncDevOpModeSelect(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
+							   EMIFA_ASYNC_INTERFACE_NORMAL_MODE);
+
+	/* Disable WAIT信号 */
+	EMIFAExtendedWaitConfig(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
+							 EMIFA_EXTENDED_WAIT_DISABLE);
+
+	/* 时序参数W_SETUP/R_SETUP   W_STROBE/R_STROBE    W_HOLD/R_HOLD	TA */
+	EMIFAWaitTimingConfig(SOC_EMIFA_0_REGS,EMIFA_CHIP_SELECT_2,
+						   EMIFA_ASYNC_WAITTIME_CONFIG(0, 3, 1, 1, 8, 2, 0 ));
 }
 
 uint8_t EMIFAReadUart(uintptr_t *Addr,uint8_t offset)
