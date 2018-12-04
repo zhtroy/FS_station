@@ -13,6 +13,7 @@
 #include "interrupt.h"
 #include "gpio.h"
 #include "soc_C6748.h"
+#include "canModule.h"
 
 #define GPIO_UART_INT 1
 #define GPIO_CAN_INT  2
@@ -22,6 +23,7 @@ void HWI_4_Isr(void)
     unsigned char IntStatus,DeviceIndex;
 	//Disable UART 中断
 	UartNs550HardIntDisable ();
+    canHardIntDisable();
 
     // 关闭 GPIO BANK 0 中断
     GPIOBankIntDisable(SOC_GPIO_0_REGS, 0);
@@ -42,7 +44,21 @@ void HWI_4_Isr(void)
 
     }
 
+
+    if(GPIOPinIntStatus(SOC_GPIO_0_REGS, GPIO_CAN_INT) == GPIO_INT_PEND)
+    {
+		
+		GPIOPinIntClear(SOC_GPIO_0_REGS, GPIO_CAN_INT);
+        IntStatus = canGetHardIntStatus();
+        for(DeviceIndex = 0;DeviceIndex < 8;DeviceIndex++)
+        {
+            if(IntStatus & (1 << DeviceIndex))
+                canIsr(DeviceIndex);
+        }
+        
+    }
 	// 使能 GPIO BANK 0 中断 */
     GPIOBankIntEnable(SOC_GPIO_0_REGS, 0);
     UartNs550HardIntEnable();
+    canHardIntEnable();
 }

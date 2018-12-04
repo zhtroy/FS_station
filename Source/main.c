@@ -18,6 +18,7 @@
 
 #include "Message/Message.h"
 #include "Test_.h"
+#include "canModule.h"
 
 
 void PeriphInit()
@@ -43,6 +44,12 @@ void PeriphInit()
 
     // 使能串口硬件中断
     UartNs550HardIntEnable ();
+
+    // MASK所有串口硬件中断；
+    canHardIntMaskAll();
+
+    // 使能串口硬件中断
+    canHardIntEnable ();
 
 
 }

@@ -11,6 +11,7 @@
 #include "hw_types.h"
 #include "hw_syscfg0_C6748.h"
 #include "psc.h"
+#include "canModule.h"
 //#include "interrupt.h"
 //#include "uart_pro.h"
 //#include "sja1000.h"

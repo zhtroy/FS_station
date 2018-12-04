@@ -11,6 +11,7 @@
 #define TEST_CONFIG_H_
 
 //#define TEST_STATE_MACHINE
-#define TEST_RFID_TASK
+//#define TEST_RFID_TASK
 
+#define TEST_CAN_TASK
 #endif /* TEST_CONFIG_H_ */

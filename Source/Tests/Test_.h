@@ -13,5 +13,7 @@ void TestEntry();
 
 void testStateMachine_init();
 void testRFIDtask();
+void testCantaskInit();
+
 
 #endif /* TESTS_H_ */

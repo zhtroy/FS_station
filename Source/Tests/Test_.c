@@ -18,4 +18,7 @@ void TestEntry()
 	testRFIDtask();
 #endif
 
+#ifdef TEST_CAN_TASK
+    testCantaskInit();
+#endif
 }
