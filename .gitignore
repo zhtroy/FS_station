@@ -4,3 +4,4 @@
 \.config
 \.launches
 /src/
+/Source/Tests/Test_config.h
