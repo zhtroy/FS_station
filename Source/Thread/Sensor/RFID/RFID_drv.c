@@ -17,55 +17,28 @@
 #include "assert.h"
 
 
-
-
-//macro
-#define RFID_HEAD  0xBB
-#define RFID_END1  0x0D
-#define RFID_END2  0x0A
-#define RFID_CMD_LOOPCHECK_EPC 0x17
-
-#define RFID_REPONSE_LEN     128
-#define RFID_TX_BUFFER_SIZE  128
-
-typedef enum  {
-	Init,
-	Ready,
-	Head,
-	Type,
-	Len,
-	Data,
-	CRC,
-	CRCcorrect,
-	END1,
-	END2,
-	Recv
-}RFID_state;
-
-
-typedef struct {
-	RFID_state state;
-	unsigned char type;
-	unsigned char msgLen;
-	unsigned char curLen;
-	unsigned char msg[RFID_REPONSE_LEN];
-	unsigned char crc;
-
-} RFID_instance_t;
-
-
-
 /****************************************************************************/
 /*                                                                          */
 /*              变量定义                                                        */
 /*                                                                          */
 /****************************************************************************/
 
-//目前是单例
-static uint16_t m_deviceNum = 0xFFFF;
-static RFID_instance_t m_inst;
-static RFIDcallback m_callback = 0;
-static Semaphore_Handle sem_rfid_dataReady;
+//RFID配置表
+static RFID_instance_t rfid_cfg_table[]={
+		//RFID设备0
+		{
+		  //串口设备号,不能重复
+		  0
+		},
+		//RFID设备1
+		{
+		  //串口设备号,不能重复
+		  1
+		}
+
+};
+
+
 
 /****************************************************************************/
 /*                                                                          */
@@ -73,7 +46,7 @@ static Semaphore_Handle sem_rfid_dataReady;
 /*                                                                          */
 /****************************************************************************/
 static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData);
-static void InitSem();
+static RFID_instance_t * getInstanceByDeviceNum(uint16_t deviceNum);
 
 
 //utils function====================
@@ -95,9 +68,15 @@ static unsigned char calculateCRC(unsigned char * data, int len)
 }
 
 
-static int RFID_send_packet(unsigned char *data , int len)
+static int RFID_send_packet(uint16_t deviceNum, unsigned char *data , int len)
 {
+
 	assert((len+4)<=RFID_TX_BUFFER_SIZE);
+	RFID_instance_t * pinst;
+
+	pinst =getInstanceByDeviceNum(deviceNum);
+
+
 
 	unsigned char buffer[RFID_TX_BUFFER_SIZE];
 	buffer[0] = 0xBB;
@@ -107,23 +86,15 @@ static int RFID_send_packet(unsigned char *data , int len)
 	buffer[len+3] = 0x0A;
 
 
-	UartNs550Send(m_deviceNum, &(buffer[0]), len+4);
+	UartNs550Send(pinst->uartDeviceNum, &(buffer[0]), len+4);
 
 
 	return 1;
 }
 
-static void InitSem()
-{
 
-	Semaphore_Params semParams;
 
-	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_COUNTING;
-	sem_rfid_dataReady = Semaphore_create(0, &semParams, NULL);
-}
-
-static void RFIDInstanceReset(RFID_instance_t * inst)
+static void RFIDstateMachineReset(RFID_stateMachine_t * inst)
 {
     inst->crc = 0;
     inst->curLen = 0;
@@ -132,29 +103,82 @@ static void RFIDInstanceReset(RFID_instance_t * inst)
     inst->state = Ready;
 }
 
+
+static RFID_instance_t * getInstanceByDeviceNum(uint16_t deviceNum)
+{
+	RFID_instance_t * pinst;
+	int rfid_cfg_num;
+
+	rfid_cfg_num = sizeof(rfid_cfg_table)/ sizeof (rfid_cfg_table[0]);
+
+	if(deviceNum>=rfid_cfg_num){
+		Log_error2("RFID: requested deviceNum [%d], total devices [%d]",deviceNum, rfid_cfg_num);
+		BIOS_exit(0);
+	}
+
+	pinst = &(rfid_cfg_table[deviceNum]);
+
+	return pinst;
+}
+
+// 根据UART devicenum 获取RFID num
+static uint16_t getRFIDnumByUartNum(uint16_t uartNum)
+{
+	uint16_t i;
+	RFID_instance_t * pinst;
+	int rfid_cfg_num;
+
+	rfid_cfg_num = sizeof(rfid_cfg_table)/ sizeof (rfid_cfg_table[0]);
+
+	for(i=0;i<rfid_cfg_num;i++){
+		if(rfid_cfg_table[i].uartDeviceNum ==  uartNum)
+		{
+			return i;
+		}
+	}
+	return 0xFFFF;
+
+}
+
 //API
 //-----------------------------//
 
 
 
 
-void RFIDDeviceInit(uint16_t deviceNum)
-{
-	UartNs550Init(deviceNum,UartRFIDIntrHandler);
-	InitSem();
-	m_deviceNum = deviceNum;
-	RFIDInstanceReset(&m_inst);
 
-}
-void RFIDRegisterReadCallBack(RFIDcallback cb)
+void RFIDDeviceOpen(uint16_t deviceNum)
 {
-	m_callback = cb;
+	RFID_instance_t * pinst;
+	Semaphore_Params semParams;
+
+	pinst = getInstanceByDeviceNum(deviceNum);
+	//连接串口
+	UartNs550Init(pinst->uartDeviceNum,UartRFIDIntrHandler);
+
+	//创建信号量
+	Semaphore_Params_init(&semParams);
+	semParams.mode = Semaphore_Mode_COUNTING;
+	pinst->sem_rfid_dataReady = Semaphore_create(0, &semParams, NULL);
+
+
+	RFIDstateMachineReset(&(pinst->sminst));
+}
+
+
+void RFIDRegisterReadCallBack(uint16_t deviceNum, RFIDcallback cb)
+{
+	RFID_instance_t * pinst;
+
+	pinst = getInstanceByDeviceNum(deviceNum);
+	pinst->callback = cb;
+
 }
 
 
 
 //开始循环查询EPC
-int RFIDStartLoopCheckEpc()
+int RFIDStartLoopCheckEpc(uint16_t deviceNum)
 {
 	unsigned char data[4];
 
@@ -163,17 +187,17 @@ int RFIDStartLoopCheckEpc()
 	data[2] = 0x00;
 	data[3] = 0x00;
 
-	return RFID_send_packet(data, 4);
+	return RFID_send_packet(deviceNum, data, 4);
 }
 
-int RFIDStopLoopCheckEpc()
+int RFIDStopLoopCheckEpc(uint16_t deviceNum)
 {
 	unsigned char data[2];
 
 	data[0] = 0x18;
 	data[1] = 0x00;
 
-	return RFID_send_packet(data,2);
+	return RFID_send_packet(deviceNum,data,2);
 
 }
 
@@ -182,20 +206,29 @@ int RFIDStopLoopCheckEpc()
 
 
 
-void RFIDPendForData()
+void RFIDPendForData(uint16_t deviceNum)
 {
-	Semaphore_pend(sem_rfid_dataReady, BIOS_WAIT_FOREVER);
+	RFID_instance_t * pinst;
+
+	pinst =getInstanceByDeviceNum(deviceNum);
+
+	Semaphore_pend(pinst->sem_rfid_dataReady, BIOS_WAIT_FOREVER);
 }
-
-
 
 
 
 
 //RFID 状态机
-static RFID_state protocolStateMachine(uint8_t c,RFID_instance_t * inst)
+static RFID_state protocolStateMachine(uint8_t c,uint16_t deviceNum)
 {
+
+	RFID_instance_t * pinst;
+	RFID_stateMachine_t *inst;
 	unsigned char calCRC;
+
+	pinst =getInstanceByDeviceNum(deviceNum);
+	inst = &(pinst->sminst);
+
 	switch(inst->state)
 	{
 		case Ready:
@@ -234,13 +267,13 @@ static RFID_state protocolStateMachine(uint8_t c,RFID_instance_t * inst)
 					inst->state = END1;
 				}
 				else {
-				    RFIDInstanceReset(inst);
+				    RFIDstateMachineReset(inst);
 				}
 			}
 			else
 			{
 			    Log_warning2("RFID CRC error, recv %d ,calc %d\n",  inst->crc, calCRC);
-			    RFIDInstanceReset(inst);
+			    RFIDstateMachineReset(inst);
 
 			}
 			break;
@@ -251,19 +284,19 @@ static RFID_state protocolStateMachine(uint8_t c,RFID_instance_t * inst)
 				inst->state = END2;
 			}
 			else{
-			    RFIDInstanceReset(inst);
+			    RFIDstateMachineReset(inst);
 			}
 			break;
 
 		case END2:
-			if(m_callback==0)
+			if(pinst->callback==0)
 			{
 				Log_error0("RFID state machine error, need to register call back fucntion\n");
 			}
 			else{
-				m_callback(inst->type, inst->msg, inst->msgLen);
+				pinst->callback(deviceNum, inst->type, inst->msg, inst->msgLen);
 			}
-			RFIDInstanceReset(inst);
+			RFIDstateMachineReset(inst);
 			break;
 
 		default:
@@ -277,16 +310,19 @@ static RFID_state protocolStateMachine(uint8_t c,RFID_instance_t * inst)
 }
 
 
-void RFIDProcess()
+void RFIDProcess(uint16_t deviceNum)
 {
 	UART550_BUFFER * Buff;
 	int i;
+	RFID_instance_t * pinst;
 
-	Buff = UartNs550PopBuffer(m_deviceNum);
+	pinst =getInstanceByDeviceNum(deviceNum);
+
+	Buff = UartNs550PopBuffer(pinst->uartDeviceNum);
 
 	for(i=0;i<Buff->Length;i++)
 	{
-        protocolStateMachine(Buff->Buffer[i], &m_inst );
+        protocolStateMachine(Buff->Buffer[i], deviceNum );
     }
 
 
@@ -295,9 +331,15 @@ void RFIDProcess()
 static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
 {
 	u8 Errors;
-	u16 DeviceNum = *((u16 *)CallBackRef);
+	u16 UartDeviceNum = *((u16 *)CallBackRef);
+	u16 RFIDDeviceNum;
     u8 *NextBuffer;
+    RFID_instance_t * pinst;
 
+
+    RFIDDeviceNum = getRFIDnumByUartNum(UartDeviceNum);
+
+    pinst =getInstanceByDeviceNum(RFIDDeviceNum);
 	/*
 	 * All of the data has been sent.
 	 */
@@ -311,9 +353,9 @@ static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int Event
 	 */
 	if (Event == XUN_EVENT_RECV_DATA) {
 //		TotalReceivedCount = EventData;
-        NextBuffer = UartNs550PushBuffer(DeviceNum,EventData);
-        UartNs550Recv(DeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-        Semaphore_post(sem_rfid_dataReady);
+        NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
+        UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
+        Semaphore_post(pinst->sem_rfid_dataReady);
 	}
 
 	/*
@@ -321,10 +363,10 @@ static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int Event
 	 * timeout just indicates the data stopped for 4 character times.
 	 */
 	if (Event == XUN_EVENT_RECV_TIMEOUT) {
-        NextBuffer = UartNs550PushBuffer(DeviceNum,EventData);
-        UartNs550Recv(DeviceNum, NextBuffer, BUFFER_MAX_SIZE);
+        NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
+        UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
 //		TotalReceivedCount = EventData;
-		Semaphore_post(sem_rfid_dataReady);
+		Semaphore_post(pinst->sem_rfid_dataReady);
 	}
 
 	/*
@@ -334,7 +376,7 @@ static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int Event
 	if (Event == XUN_EVENT_RECV_ERROR) {
 //		TotalReceivedCount = EventData;
 //		TotalErrorCount++;
-		Errors = UartNs550GetLastErrors(DeviceNum);
+		Errors = UartNs550GetLastErrors(UartDeviceNum);
 	}
 }
 

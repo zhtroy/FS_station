@@ -19,18 +19,18 @@
 #include <xdc/runtime/Log.h>
 #include "Message/Message.h"
 
-#define UART0_DEVICE  0  //TODO: 放入一个配置表中
+#define RFID_DEVICENUM  0  //TODO: 放入一个配置表中
 
 
 
-void rfid_callBack(uint8_t type, uint8_t data[], uint32_t len )
+void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
 {
 	p_msg_t msg;
 
 	switch(type)
 	{
 		case 0x97:  //循环查询EPC的返回
-			Log_info1("EPC:\t%2X ", data[13]);
+			Log_info2("RFID[%d] EPC:\t%2X ", deviceNum,data[13]);
 			msg = Message_getEmpty();
 			msg->type = rfid;
 			msg->data[0] = data[13];
@@ -49,16 +49,16 @@ void rfid_callBack(uint8_t type, uint8_t data[], uint32_t len )
 Void taskRFID(UArg a0, UArg a1)
 {
 
-	RFIDDeviceInit (UART0_DEVICE);
-	RFIDRegisterReadCallBack(rfid_callBack);   //回调函数会在RFIDProcess里面调用
-	RFIDStartLoopCheckEpc();
+	RFIDDeviceOpen (RFID_DEVICENUM);
+	RFIDRegisterReadCallBack(RFID_DEVICENUM, rfid_callBack);   //回调函数会在RFIDProcess里面调用
+	RFIDStartLoopCheckEpc(RFID_DEVICENUM);
 
 	while(1)
 	{
 
-		RFIDPendForData();
+		RFIDPendForData(RFID_DEVICENUM);
 
-		RFIDProcess();
+		RFIDProcess(RFID_DEVICENUM);
 
 	}
 
