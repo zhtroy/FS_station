@@ -21,4 +21,8 @@ void TestEntry()
 #ifdef TEST_CAN_TASK
     testCantaskInit();
 #endif
+
+#ifdef TEST_YAKINDU_SM
+    testYAKINDU_SM_init();
+#endif
 }
