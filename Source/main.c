@@ -25,7 +25,7 @@ void PeriphInit()
 {
 
 	//GPIO---------------------
-	gpio_init();       //初始化gpio
+	gpio_init();       //初始化GPIO
 	gpio_fpga_rst();  //复位FPGA
 
 	//DSP UART----------------------
