@@ -2,7 +2,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h> 
-#include <stdlib.h>  
+#include <stdlib.h>
+#include <xdc/runtime/System.h>
+#include "uartStdio.h"
+
 
 /*
 @brief:can底层接口注册  片级需要实现以下接口
@@ -409,9 +412,13 @@ void canHardIntUnmask(UINT8 devsNum)
     *(volatile UINT16 *) (CAN_INT_MASK_ADDR) =  Reg & (~(1 << devsNum));
 }
 
-void logMsg(INT32 level,INT8 *fmt, ...)
+void logMsg(INT32 index,INT8 *fmt, ...)
 {
-    //valist vp;
-    
+	va_list vp;
+    INT8 func[128];
+    INT8 * str = func;
+    va_start(vp,fmt);
+    vsprintf(str,fmt,vp);
+    UARTprintf("%d:%s",index,str);
 }
 

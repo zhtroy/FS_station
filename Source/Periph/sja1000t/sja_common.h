@@ -17,7 +17,7 @@
 #define null		0
 #endif
 
-#define DBG_LEVEL   0
+#define DBG_LEVEL   3
 #define DBG_OFF     0
 #define DBG_ERROR   1
 #define DBG_INVALID 2
@@ -60,7 +60,7 @@ typedef void (*ISRPFUNC)(INT32 arg,INT32 event);
 #define xIoWrite(baseAddr,regAddr,data) \
 	(*((volatile INT16 *)baseAddr + regAddr) = data)
 
-extern void logMsg(INT32 level,INT8 *fmt, ...);
+extern void logMsg(INT32 index,INT8 *fmt, ...);
 
  /*sja1000底层驱动函数声明*/
 extern INT32 sja1000Open(void * sja1000DrvObj);
