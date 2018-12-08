@@ -21,4 +21,12 @@ void TestEntry()
 #ifdef TEST_CAN_TASK
     testCantaskInit();
 #endif
+
+#ifdef TEST_YAKINDU_SM
+    testYAKINDU_SM_init();
+#endif
+
+#ifdef TEST_SONIC_RADAR
+    testSonicRadar_init();
+#endif
 }

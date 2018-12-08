@@ -14,6 +14,9 @@ void TestEntry();
 void testStateMachine_init();
 void testRFIDtask();
 void testCantaskInit();
+void testYAKINDU_SM_init();
+void testSonicRadar_init();
+
 
 
 #endif /* TESTS_H_ */

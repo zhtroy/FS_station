@@ -18,6 +18,7 @@ typedef enum{
 	mmradar,
 	uart,
 	timer,
+	sonicradar,
 	Empty               //缺省类型
 }msg_type_t;
 
