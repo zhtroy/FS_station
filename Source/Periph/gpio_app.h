@@ -95,6 +95,7 @@ extern "C" {
 /* Pin Multiplexing bit mask to select GP6[0] pin. */
 #define PINMUX1_GPIO0_1_ENABLE (SYSCFG_PINMUX1_PINMUX1_27_24_GPIO0_1 << SYSCFG_PINMUX1_PINMUX1_27_24_SHIFT)
 
+#define PINMUX19_GPIO2_15_ENABLE (SYSCFG_PINMUX5_PINMUX5_3_0_GPIO2_15 << SYSCFG_PINMUX5_PINMUX5_3_0_SHIFT)
 
 /*****************************************************************************
 **                   FUNCTION DECLARATIONS

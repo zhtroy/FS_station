@@ -24,7 +24,9 @@ static void GPIOBank6Pin0PinMuxSetup(void);
 static void GPIOBank6Pin15PinMuxSetup(void);
 static void GPIOBank6Pin14PinMuxSetup(void); //test int
 static void GPIOBank0Pin0PinMuxSetup(void);  //uart int
-static void GPIOBank0Pin1PinMuxSetup(void);  //can int
+static void GPIOBank0Pin1PinMuxSetup(void);  //can int
+static void GPIOBank2Pin5PinMuxSetup(void);
+
 
 /****************************************************************************/
 /*                                                                          */
@@ -115,6 +117,7 @@ static void GPIOBankPinMuxSet(void)
     GPIOBank6Pin14PinMuxSetup(); //test int
     GPIOBank0Pin0PinMuxSetup();  //uart int
     GPIOBank0Pin1PinMuxSetup();  //can int
+    GPIOBank2Pin5PinMuxSetup();  //LTE Reset
 }
 
 static void GPIOBankPinInit(void)
@@ -124,6 +127,10 @@ static void GPIOBankPinInit(void)
     GPIODirModeSet(SOC_GPIO_0_REGS, 111, GPIO_DIR_INPUT);  // GPIO6[14]
     GPIODirModeSet(SOC_GPIO_0_REGS, 1, GPIO_DIR_INPUT);    // GPIO0[0]
     GPIODirModeSet(SOC_GPIO_0_REGS, 2, GPIO_DIR_INPUT);    // GPIO0[1]
+    GPIODirModeSet(SOC_GPIO_0_REGS, 48, GPIO_DIR_OUTPUT);  // GPIO2[15]
+    GPIOPinWrite(SOC_GPIO_0_REGS, 48, GPIO_PIN_LOW);
+    rst_delay(1000);
+    GPIOPinWrite(SOC_GPIO_0_REGS, 48, GPIO_PIN_HIGH);
 }
 
 static void GPIOBank6Pin0PinMuxSetup(void)  
@@ -142,6 +149,24 @@ static void GPIOBank6Pin0PinMuxSetup(void)
           (PINMUX19_GPIO6_0_ENABLE | savePinmux);
 
 }
+
+static void GPIOBank2Pin5PinMuxSetup(void)  
+{
+     unsigned int savePinmux = 0;
+
+     /*
+     ** Clearing the bit in context and retaining the other bit values
+     ** in PINMUX19 register.
+     */
+     savePinmux = (HWREG(SOC_SYSCFG_0_REGS + SYSCFG0_PINMUX(5)) &
+                  ~(SYSCFG_PINMUX5_PINMUX5_3_0));
+
+     /* Setting the pins corresponding to GP6[0] in PINMUX19 register.*/
+     HWREG(SOC_SYSCFG_0_REGS + SYSCFG0_PINMUX(5)) =
+          (PINMUX19_GPIO2_15_ENABLE | savePinmux);
+
+}
+
 
 static void GPIOBank6Pin15PinMuxSetup(void)  
 {
