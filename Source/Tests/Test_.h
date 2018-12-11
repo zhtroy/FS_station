@@ -16,6 +16,7 @@ void testRFIDtask();
 void testCantaskInit();
 void testYAKINDU_SM_init();
 void testSonicRadar_init();
+void testUARTCommandLineInit();
 
 
 

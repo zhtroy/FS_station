@@ -29,4 +29,8 @@ void TestEntry()
 #ifdef TEST_SONIC_RADAR
     testSonicRadar_init();
 #endif
+
+#ifdef TEST_UART_COMMAND_LINE
+    testUARTCommandLineInit();
+#endif 
 }

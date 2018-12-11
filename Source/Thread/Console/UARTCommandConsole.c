@@ -1,0 +1,255 @@
+/* Standard includes. */
+#include "string.h"
+#include "stdio.h"
+#include <stdint.h>
+
+/* SysBios includes. */
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Semaphore.h>
+#include <xdc/runtime/Error.h>
+
+#include "FreeRTOS_CLI.h"
+
+/* Dimensions the buffer into which input characters are placed. */
+#define cmdMAX_INPUT_SIZE		50
+#define cmdMAX_HISTORY 16
+/* DEL acts as a backspace. */
+#define cmdASCII_DEL		( 0x7F )
+#define INVILID_COMBKEY (0)
+#define COMBKEY_UPARROW (1)
+#define COMBKEY_DOWNARROW (2)
+
+/*-----------------------------------------------------------*/
+
+/*
+ * The task that implements the command console processing.
+ */
+static void prvUARTCommandConsoleTask( void *pvParameters );
+//void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority );
+extern void vRegisterSampleCLICommands( void );
+/*-----------------------------------------------------------*/
+
+/* Const messages output by the command console. */
+static const char * const pcWelcomeMessage = "SysBIOS command server.\r\nType Help to view a list of registered commands.\r\n\r\n>";
+static const char * const pcNewLine = "\r\n";
+static const char * const pcEndOfOutputMessage = "\r\n>";
+static const char * const pcDelchar = "\b \b";
+
+/* Used to guard access to the UART in case messages are sent to the UART from
+more than one task. */
+static Semaphore_Handle xTxMutex = NULL;
+ 
+/*-----------------------------------------------------------*/
+
+void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority )
+{
+    Semaphore_Params semParams;
+    Error_Block eb;
+    Task_Params taskParams;
+    Task_Handle taskHdl;
+
+    vRegisterSampleCLICommands();
+	/* Create the semaphore used to access the UART Tx. */
+    Semaphore_Params_init(&semParams);
+    semParams.mode = Semaphore_Mode_BINARY;
+    xTxMutex = Semaphore_create(1, &semParams, NULL);
+	configASSERT( xTxMutex );
+
+    
+    Error_init(&eb);
+    Task_Params_init(&taskParams);
+	taskParams.priority = uxPriority;
+	taskParams.stackSize = usStackSize;
+	/* Create that task that handles the console itself. */
+    taskHdl = Task_create(prvUARTCommandConsoleTask, &taskParams, &eb);
+	configASSERT( taskHdl );
+}
+/*-----------------------------------------------------------*/
+
+static void prvUARTCommandConsoleTask( void *pvParameters )
+{
+unsigned char cRxedChar;
+uint8_t ucInputIndex = 0;
+uint8_t ucHisIndex = 0;
+uint8_t ucHisCnt = 0;
+uint8_t ucHisPos = 0;
+uint8_t i = 0;
+uint8_t cCombKeyFlag = 0;
+uint8_t cCombKeyIndex = 0;
+uint8_t cCombKey = INVILID_COMBKEY;
+unsigned char cCombKeyArray[2];
+
+char *pcOutputString; 
+static char cInputString[ cmdMAX_INPUT_SIZE ], cLastInputString[cmdMAX_HISTORY][ cmdMAX_INPUT_SIZE ];
+BaseType_t xReturned;
+
+	( void ) pvParameters;
+
+	/* Obtain the address of the output buffer.  Note there is no mutual
+	exclusion on this buffer as it is assumed only one command console interface
+	will be used at any one time. */
+	pcOutputString = FreeRTOS_CLIGetOutputBuffer();
+
+	/* Initialise the UART. */
+	//xPort = xSerialPortInitMinimal( configCLI_BAUD_RATE, cmdQUEUE_LENGTH );
+
+	/* Send the welcome message. */
+	vSerialPutString(  ( signed char * ) pcWelcomeMessage, ( unsigned short ) strlen( pcWelcomeMessage ) );
+
+	for( ;; )
+	{
+		/* Wait for the next character.  The while loop is used in case
+		INCLUDE_vTaskSuspend is not set to 1 - in which case portMAX_DELAY will
+		be a genuine block time rather than an infinite block time. */
+		//while( xSerialGetChar( xPort, &cRxedChar, portMAX_DELAY ) != pdPASS );
+		cRxedChar = xSerialGetChar();
+
+		/* Ensure exclusive access to the UART Tx. */
+        
+		if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
+		{
+			/* Echo the character back. */
+            if( cRxedChar == 27 )
+            {
+                cCombKeyFlag = 1;
+                cCombKeyIndex = 0;
+            }
+            else if (cCombKeyFlag == 1)
+            {
+                cCombKeyArray[cCombKeyIndex] = cRxedChar;
+                cCombKeyIndex++;
+                if(cCombKeyIndex >= 2)
+                {
+                    cCombKeyFlag = 0;
+                    if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'A')
+                        cCombKey = COMBKEY_UPARROW;
+                    else if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'B')
+                        cCombKey = COMBKEY_DOWNARROW;
+                    else
+                        cCombKey = INVILID_COMBKEY;
+                }
+                    
+            }
+			else if( ( cRxedChar == '\b' ) || ( cRxedChar == cmdASCII_DEL ) )
+            {
+                if(ucInputIndex > 0)
+                {
+                    vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
+                }
+            }
+            else
+            {
+                xSerialPutChar( cRxedChar);
+            }
+			
+
+			/* Was it the end of the line? */
+            if( cRxedChar == 27 || cCombKeyFlag == 1)
+            {
+                /* do Nothing */
+            }
+            else if(cCombKey == COMBKEY_UPARROW || cCombKey == COMBKEY_DOWNARROW)
+            {
+                for(i = 0;i<ucInputIndex;i++)
+                {
+                    vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
+                }
+                
+                if(cCombKey == COMBKEY_UPARROW && ucHisCnt < cmdMAX_HISTORY)
+                    ucHisCnt++;
+                else if(cCombKey == COMBKEY_DOWNARROW && ucHisCnt > 1)
+                    ucHisCnt--;
+                else;
+                    
+                if(ucHisIndex > ucHisCnt)
+                    ucHisPos = ucHisIndex - ucHisCnt;
+                else
+                    ucHisPos = cmdMAX_HISTORY + ucHisIndex - ucHisCnt;
+                
+				memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
+
+                strcpy( cInputString, cLastInputString[ucHisPos] );
+                ucInputIndex = strlen( cInputString );
+                vSerialPutString(( signed char * ) cInputString,ucInputIndex);
+                
+                cCombKey = INVILID_COMBKEY;
+
+            }
+			else if( cRxedChar == '\n' || cRxedChar == '\r' )
+			{
+				/* Just to space the output from the input. */
+				vSerialPutString(( signed char * ) pcNewLine, ( unsigned short ) strlen( pcNewLine ) );
+
+				/* Pass the received command to the command interpreter.  The
+				command interpreter is called repeatedly until it returns
+				pdFALSE	(indicating there is no more output) as it might
+				generate more than one string. */
+				do
+				{
+					/* Get the next output string from the command interpreter. */
+					xReturned = FreeRTOS_CLIProcessCommand( cInputString, pcOutputString, configCOMMAND_INT_MAX_OUTPUT_SIZE );
+
+					/* Write the generated string to the UART. */
+					vSerialPutString( ( signed char * ) pcOutputString, ( unsigned short ) strlen( pcOutputString ) );
+
+				} while( xReturned != pdFALSE );
+
+				/* All the strings generated by the input command have been
+				sent.  Clear the input string ready to receive the next command.
+				Remember the command that was just processed first in case it is
+				to be processed again. */
+				//strcpy( cLastInputString[ucHisIndex], cInputString );
+				strcpy( cLastInputString[ucHisIndex],cInputString);
+				ucHisIndex = (ucHisIndex+1)%cmdMAX_HISTORY;
+                ucHisCnt = 0;
+
+				ucInputIndex = 0;
+				memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
+                vSerialPutString(( signed char * ) pcEndOfOutputMessage, ( unsigned short ) strlen( pcEndOfOutputMessage ) );
+			}
+			else
+			{
+				if( ( cRxedChar == '\b' ) || ( cRxedChar == cmdASCII_DEL ) )
+				{
+					/* Backspace was pressed.  Erase the last character in the
+					string - if any. */
+					if( ucInputIndex > 0 )
+					{
+						ucInputIndex--;
+						cInputString[ ucInputIndex ] = '\0';
+					}
+				}
+				else
+				{
+					/* A character was entered.  Add it to the string entered so
+					far.  When a \n is entered the complete	string will be
+					passed to the command interpreter. */
+					if( ( cRxedChar >= ' ' ) && ( cRxedChar <= '~' ) )
+					{
+						if( ucInputIndex < cmdMAX_INPUT_SIZE )
+						{
+							cInputString[ ucInputIndex ] = cRxedChar;
+							ucInputIndex++;
+						}
+					}
+				}
+			}
+
+			/* Must ensure to give the mutex back. */
+			Semaphore_post( xTxMutex );
+		}
+	}
+}
+/*-----------------------------------------------------------*/
+
+void vOutputString( const char * const pcMessage )
+{
+	if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
+	{
+		vSerialPutString( ( signed char * ) pcMessage, ( unsigned short ) strlen( pcMessage ) );
+		Semaphore_post( xTxMutex );
+	}
+}
+/*-----------------------------------------------------------*/
+
