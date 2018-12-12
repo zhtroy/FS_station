@@ -16,9 +16,25 @@
 #define cmdMAX_HISTORY 16
 /* DEL acts as a backspace. */
 #define cmdASCII_DEL		( 0x7F )
-#define INVILID_COMBKEY (0)
+#define INVALID_COMBKEY (0)
 #define COMBKEY_UPARROW (1)
 #define COMBKEY_DOWNARROW (2)
+#define COMBKEY_LEFTARROW (3)
+#define COMBKEY_RIGHTARROW (4)
+
+//typedef struct {
+//    int8_t charArray[3];
+//    uint8_t keyIndex;
+//} combKey_t;
+//
+//static combKey_t combKeyTable[] = {
+//    {{27,'[','A'},COMBKEY_UPARROW},
+//    {{27,'[','B'},COMBKEY_DOWNARROW},
+//    {{27,'[','C'},COMBKEY_LEFTARROW},
+//    {{27,'[','D'},COMBKEY_RIGHTARROW}
+//};
+
+
 
 /*-----------------------------------------------------------*/
 
@@ -77,7 +93,7 @@ uint8_t ucHisPos = 0;
 uint8_t i = 0;
 uint8_t cCombKeyFlag = 0;
 uint8_t cCombKeyIndex = 0;
-uint8_t cCombKey = INVILID_COMBKEY;
+uint8_t cCombKey = INVALID_COMBKEY;
 unsigned char cCombKeyArray[2];
 
 char *pcOutputString; 
@@ -105,76 +121,68 @@ BaseType_t xReturned;
 		//while( xSerialGetChar( xPort, &cRxedChar, portMAX_DELAY ) != pdPASS );
 		cRxedChar = xSerialGetChar();
 
+        /* Echo the character back. */
+        if( cRxedChar == 27 )
+        {
+            cCombKeyFlag = 1;
+            cCombKeyIndex = 0;
+            continue;
+        }
+        else if (cCombKeyFlag == 1)
+        {
+            if(cCombKeyIndex == 0)
+            {
+                cCombKeyArray[cCombKeyIndex] = cRxedChar;
+                cCombKeyIndex = 1;
+                continue;
+            }
+            else
+            {
+                cCombKeyArray[cCombKeyIndex] = cRxedChar;
+                cCombKeyIndex = 0;
+                cCombKeyFlag = 0;
+                if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'A')
+                    cCombKey = COMBKEY_UPARROW;
+                else if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'B')
+                    cCombKey = COMBKEY_DOWNARROW;
+                else 
+                {
+                    cCombKey = INVALID_COMBKEY;
+                    continue;
+                }
+            } 
+        }
+        else
+            cCombKey = INVALID_COMBKEY;
 		/* Ensure exclusive access to the UART Tx. */
         
 		if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
 		{
-			/* Echo the character back. */
-            if( cRxedChar == 27 )
+            if(cCombKey == COMBKEY_UPARROW || cCombKey == COMBKEY_DOWNARROW)
             {
-                cCombKeyFlag = 1;
-                cCombKeyIndex = 0;
-            }
-            else if (cCombKeyFlag == 1)
-            {
-                cCombKeyArray[cCombKeyIndex] = cRxedChar;
-                cCombKeyIndex++;
-                if(cCombKeyIndex >= 2)
-                {
-                    cCombKeyFlag = 0;
-                    if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'A')
-                        cCombKey = COMBKEY_UPARROW;
-                    else if(cCombKeyArray[0] == '[' && cCombKeyArray[1] == 'B')
-                        cCombKey = COMBKEY_DOWNARROW;
-                    else
-                        cCombKey = INVILID_COMBKEY;
-                }
-                    
-            }
-			else if( ( cRxedChar == '\b' ) || ( cRxedChar == cmdASCII_DEL ) )
-            {
-                if(ucInputIndex > 0)
-                {
-                    vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
-                }
-            }
-            else
-            {
-                xSerialPutChar( cRxedChar);
-            }
-			
-
-			/* Was it the end of the line? */
-            if( cRxedChar == 27 || cCombKeyFlag == 1)
-            {
-                /* do Nothing */
-            }
-            else if(cCombKey == COMBKEY_UPARROW || cCombKey == COMBKEY_DOWNARROW)
-            {
-                for(i = 0;i<ucInputIndex;i++)
-                {
-                    vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
-                }
                 
                 if(cCombKey == COMBKEY_UPARROW && ucHisCnt < cmdMAX_HISTORY)
                     ucHisCnt++;
                 else if(cCombKey == COMBKEY_DOWNARROW && ucHisCnt > 1)
                     ucHisCnt--;
                 else;
-                    
-                if(ucHisIndex > ucHisCnt)
+                        
+                if(ucHisIndex >= ucHisCnt)
                     ucHisPos = ucHisIndex - ucHisCnt;
                 else
                     ucHisPos = cmdMAX_HISTORY + ucHisIndex - ucHisCnt;
+
+                for(i = 0;i<ucInputIndex;i++)
+                {
+                    vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
+                }
                 
 				memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
 
                 strcpy( cInputString, cLastInputString[ucHisPos] );
                 ucInputIndex = strlen( cInputString );
                 vSerialPutString(( signed char * ) cInputString,ucInputIndex);
-                
-                cCombKey = INVILID_COMBKEY;
-
+               
             }
 			else if( cRxedChar == '\n' || cRxedChar == '\r' )
 			{
@@ -185,27 +193,28 @@ BaseType_t xReturned;
 				command interpreter is called repeatedly until it returns
 				pdFALSE	(indicating there is no more output) as it might
 				generate more than one string. */
-				do
+				if(ucInputIndex != 0)
 				{
-					/* Get the next output string from the command interpreter. */
-					xReturned = FreeRTOS_CLIProcessCommand( cInputString, pcOutputString, configCOMMAND_INT_MAX_OUTPUT_SIZE );
+					do
+					{
+						/* Get the next output string from the command interpreter. */
+						xReturned = FreeRTOS_CLIProcessCommand( cInputString, pcOutputString, configCOMMAND_INT_MAX_OUTPUT_SIZE );
 
-					/* Write the generated string to the UART. */
-					vSerialPutString( ( signed char * ) pcOutputString, ( unsigned short ) strlen( pcOutputString ) );
+						/* Write the generated string to the UART. */
+						vSerialPutString( ( signed char * ) pcOutputString, ( unsigned short ) strlen( pcOutputString ) );
 
-				} while( xReturned != pdFALSE );
+					} while( xReturned != pdFALSE );
 
-				/* All the strings generated by the input command have been
-				sent.  Clear the input string ready to receive the next command.
-				Remember the command that was just processed first in case it is
-				to be processed again. */
-				//strcpy( cLastInputString[ucHisIndex], cInputString );
-				strcpy( cLastInputString[ucHisIndex],cInputString);
-				ucHisIndex = (ucHisIndex+1)%cmdMAX_HISTORY;
-                ucHisCnt = 0;
+					strcpy( cLastInputString[ucHisIndex],cInputString);
+					ucHisIndex = (ucHisIndex+1)%cmdMAX_HISTORY;
+					ucHisCnt = 0;
 
-				ucInputIndex = 0;
-				memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
+					ucInputIndex = 0;
+					memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
+					memset( pcOutputString, 0x00, configCOMMAND_INT_MAX_OUTPUT_SIZE );
+				}
+				else;
+
                 vSerialPutString(( signed char * ) pcEndOfOutputMessage, ( unsigned short ) strlen( pcEndOfOutputMessage ) );
 			}
 			else
@@ -216,6 +225,7 @@ BaseType_t xReturned;
 					string - if any. */
 					if( ucInputIndex > 0 )
 					{
+                        vSerialPutString(( signed char * ) pcDelchar, ( unsigned short ) strlen( pcDelchar ) );
 						ucInputIndex--;
 						cInputString[ ucInputIndex ] = '\0';
 					}
@@ -227,6 +237,8 @@ BaseType_t xReturned;
 					passed to the command interpreter. */
 					if( ( cRxedChar >= ' ' ) && ( cRxedChar <= '~' ) )
 					{
+                        xSerialPutChar( cRxedChar);
+                        
 						if( ucInputIndex < cmdMAX_INPUT_SIZE )
 						{
 							cInputString[ ucInputIndex ] = cRxedChar;
