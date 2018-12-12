@@ -18,6 +18,9 @@ void testYAKINDU_SM_init();
 void testSonicRadar_init();
 void testUARTCommandLineInit();
 void TaskNDKInit();
+void testCellCom_init();
+
+
 
 
 

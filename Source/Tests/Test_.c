@@ -30,11 +30,18 @@ void TestEntry()
     testSonicRadar_init();
 #endif
 
+
 #ifdef TEST_UART_COMMAND_LINE
     testUARTCommandLineInit();
 #endif 
 
+
 #ifdef TEST_NDK
     TaskNDKInit();
 #endif
+
+#ifdef TEST_CELL_COM
+    testCellCom_init();
+#endif
+
 }

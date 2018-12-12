@@ -20,6 +20,7 @@
 #include "Test_.h"
 #include "canModule.h"
 
+#include "DSP_Uart/dsp_uart2.h"
 
 void PeriphInit()
 {
@@ -30,6 +31,7 @@ void PeriphInit()
 
 	//DSP UART----------------------
 	UARTStdioInit();  //DSP调试串口1初始化
+	dsp_uart2_init(); //DSP串口2设置，连接4G
 
 	//EMIFA--------------------------
 	EMIFA_init();     //初始化EMIFA
