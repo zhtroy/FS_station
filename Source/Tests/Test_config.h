@@ -16,6 +16,7 @@
 //#define TEST_CAN_TASK
 //#define TEST_YAKINDU_SM
 //#define TEST_SONIC_RADAR
-#define TEST_UART_COMMAND_LINE
+//#define TEST_UART_COMMAND_LINE
+#define TEST_NDK
 
 #endif /* TEST_CONFIG_H_ */
