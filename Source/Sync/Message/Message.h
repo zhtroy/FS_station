@@ -19,6 +19,7 @@ typedef enum{
 	uart,
 	timer,
 	sonicradar,
+	cell,               //4G数据
 	Empty               //缺省类型
 }msg_type_t;
 

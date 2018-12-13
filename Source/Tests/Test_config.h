@@ -16,6 +16,14 @@
 //#define TEST_CAN_TASK
 //#define TEST_YAKINDU_SM
 //#define TEST_SONIC_RADAR
+<<<<<<< HEAD
 #define TEST_UART_COMMAND_LINE
 #define TEST_WATCHDOG
+=======
+//#define TEST_UART_COMMAND_LINE
+//#define TEST_NDK
+#define TEST_CELL_COM
+
+
+>>>>>>> 172c9dbf366c9a8201552c34ce2665e95b3996e2
 #endif /* TEST_CONFIG_H_ */

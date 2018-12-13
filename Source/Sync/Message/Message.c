@@ -27,6 +27,7 @@ static char * typeToName[]= {
 		"uart",
 		"timer",
 		"sonicradar",
+		"cell",
 		"Empty"
 };
 

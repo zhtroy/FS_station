@@ -117,7 +117,8 @@ static void GPIOBankPinMuxSet(void)
     GPIOBank6Pin14PinMuxSetup(); //test int
     GPIOBank0Pin0PinMuxSetup();  //uart int
     GPIOBank0Pin1PinMuxSetup();  //can int
-    GPIOBank2Pin5PinMuxSetup();  //LTE Reset
+    //4G 模块复位 调试时为了restart后不用等4G上电，先屏蔽，等后面再加入
+//    GPIOBank2Pin5PinMuxSetup();  //LTE Reset
 }
 
 static void GPIOBankPinInit(void)
@@ -127,10 +128,14 @@ static void GPIOBankPinInit(void)
     GPIODirModeSet(SOC_GPIO_0_REGS, 111, GPIO_DIR_INPUT);  // GPIO6[14]
     GPIODirModeSet(SOC_GPIO_0_REGS, 1, GPIO_DIR_INPUT);    // GPIO0[0]
     GPIODirModeSet(SOC_GPIO_0_REGS, 2, GPIO_DIR_INPUT);    // GPIO0[1]
+
+    //4G 模块复位 调试时为了restart后不用等4G上电，先屏蔽，等后面再加入
+    /*
     GPIODirModeSet(SOC_GPIO_0_REGS, 48, GPIO_DIR_OUTPUT);  // GPIO2[15]
     GPIOPinWrite(SOC_GPIO_0_REGS, 48, GPIO_PIN_LOW);
-    rst_delay(1000);
+    rst_delay(10000);
     GPIOPinWrite(SOC_GPIO_0_REGS, 48, GPIO_PIN_HIGH);
+    */
 }
 
 static void GPIOBank6Pin0PinMuxSetup(void)  
