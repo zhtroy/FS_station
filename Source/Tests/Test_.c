@@ -33,4 +33,8 @@ void TestEntry()
 #ifdef TEST_UART_COMMAND_LINE
     testUARTCommandLineInit();
 #endif 
+
+#ifdef TEST_WATCHDOG
+    testWatchDogTaskInit();
+#endif
 }

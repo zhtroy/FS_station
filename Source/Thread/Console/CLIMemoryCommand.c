@@ -21,11 +21,11 @@ BaseType_t prvMemroyRead( char *pcWriteBuffer, size_t xWriteBufferLen, const cha
 const CLI_Command_Definition_t xMemeoryWrite =
 {
 	"mwr",
-	"\r\mwr <type> <addr> <value>:\r\n \
-	------Memory Write--------------\r\n \
-	type:-l(long),-s(short),-c(char)\r\n \
-	addr: Address\r\n \
-	value: Value\r\n",
+	"\r\nmwr <type> <addr> <value>:\r\n \
+------Memory Write--------------\r\n \
+type:-l(long),-s(short),-c(char)\r\n \
+addr: Address\r\n \
+value: Value\r\n",
 	prvMemroyWrite, /* The function to run. */
 	3 /* Three parameters are expected, which can take any value. */
 };
@@ -33,11 +33,11 @@ const CLI_Command_Definition_t xMemeoryWrite =
 const CLI_Command_Definition_t xMemeoryRead =
 {
 	"mrd",
-	"\r\mrd <type> <addr> <len>:\r\n \
-	------Memory Write--------------\r\n \
-	type:-l(long),-s(short),-c(char)\r\n \
-	addr: Address\r\n \
-	len : Length\r\n",
+	"\r\nmrd <type> <addr> <len>:\r\n \
+------Memory Read--------------\r\n \
+type:-l(long),-s(short),-c(char)\r\n \
+addr: Address\r\n \
+len : Length\r\n",
 	prvMemroyRead, /* The function to run. */
 	3 /* Three parameters are expected, which can take any value. */
 };

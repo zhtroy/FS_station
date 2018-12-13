@@ -17,7 +17,7 @@ extern BaseType_t prvMemroyRead( char *pcWriteBuffer, size_t xWriteBufferLen, co
 
 extern const CLI_Command_Definition_t xMemeoryWrite;
 extern const CLI_Command_Definition_t xMemeoryRead;
-
+extern const CLI_Command_Definition_t xResetCPU;
 /*-----------------------------------------------------------*/
 
 void vRegisterSampleCLICommands( void )
@@ -25,6 +25,7 @@ void vRegisterSampleCLICommands( void )
 	/* Register all the command line commands defined immediately above. */
     FreeRTOS_CLIRegisterCommand( &xMemeoryWrite );
     FreeRTOS_CLIRegisterCommand( &xMemeoryRead );
+    FreeRTOS_CLIRegisterCommand( &xResetCPU );
 }
 /*-----------------------------------------------------------*/
 

@@ -16,6 +16,7 @@
 #define cmdMAX_HISTORY 16
 /* DEL acts as a backspace. */
 #define cmdASCII_DEL		( 0x7F )
+#define cmdASCII_CTRL_C     (0x03)
 #define INVALID_COMBKEY (0)
 #define COMBKEY_UPARROW (1)
 #define COMBKEY_DOWNARROW (2)
@@ -47,7 +48,20 @@ extern void vRegisterSampleCLICommands( void );
 /*-----------------------------------------------------------*/
 
 /* Const messages output by the command console. */
-static const char * const pcWelcomeMessage = "SysBIOS command server.\r\nType Help to view a list of registered commands.\r\n\r\n>";
+static const char * const pcWelcomeMessage = \
+"\r\n             飞梭智行设备有限公司                    \
+ \r\n            FeiSuoZhiXing Equipment Co., Ltd         \
+ \r\n-----------------------------------------------------\
+ \r\n--- OS: SYS/BIOS         \
+ \r\n--- System Clock: 456MHz \
+ \r\n--- Memory: DDR2-156MHz  \
+ \r\n--- Boot: NandFlash    \
+ \r\n--- Software: v1.0   \
+ \r\n--- HardWare: v.10   \
+ \r\n--- FPGA: v.10   \
+ \r\n--- Date: 2018-12-13   \
+ \r\n\r\n>";
+
 static const char * const pcNewLine = "\r\n";
 static const char * const pcEndOfOutputMessage = "\r\n>";
 static const char * const pcDelchar = "\b \b";
@@ -85,20 +99,20 @@ void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority )
 
 static void prvUARTCommandConsoleTask( void *pvParameters )
 {
-unsigned char cRxedChar;
-uint8_t ucInputIndex = 0;
-uint8_t ucHisIndex = 0;
-uint8_t ucHisCnt = 0;
-uint8_t ucHisPos = 0;
-uint8_t i = 0;
-uint8_t cCombKeyFlag = 0;
-uint8_t cCombKeyIndex = 0;
-uint8_t cCombKey = INVALID_COMBKEY;
-unsigned char cCombKeyArray[2];
+	unsigned char cRxedChar;
+	uint8_t ucInputIndex = 0;
+	uint8_t ucHisIndex = 0;
+	uint8_t ucHisCnt = 0;
+	uint8_t ucHisPos = 0;
+	uint8_t i = 0;
+	uint8_t cCombKeyFlag = 0;
+	uint8_t cCombKeyIndex = 0;
+	uint8_t cCombKey = INVALID_COMBKEY;
+	unsigned char cCombKeyArray[2];
 
-char *pcOutputString; 
-static char cInputString[ cmdMAX_INPUT_SIZE ], cLastInputString[cmdMAX_HISTORY][ cmdMAX_INPUT_SIZE ];
-BaseType_t xReturned;
+	char *pcOutputString; 
+	static char cInputString[ cmdMAX_INPUT_SIZE ], cLastInputString[cmdMAX_HISTORY][ cmdMAX_INPUT_SIZE ];
+	BaseType_t xReturned;
 
 	( void ) pvParameters;
 
@@ -158,6 +172,15 @@ BaseType_t xReturned;
         
 		if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
 		{
+            if(cRxedChar == cmdASCII_CTRL_C)    /*CTRL-C:rst command*/
+            {   
+                memset( cInputString, 0x00, cmdMAX_INPUT_SIZE );
+                ucInputIndex = 3;    
+                strncpy(cInputString,"rst",3);
+                cRxedChar = '\r';
+            }
+            else;
+            
             if(cCombKey == COMBKEY_UPARROW || cCombKey == COMBKEY_DOWNARROW)
             {
                 
