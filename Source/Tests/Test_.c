@@ -35,11 +35,11 @@ void TestEntry()
     testUARTCommandLineInit();
 #endif 
 
-<<<<<<< HEAD
+
 #ifdef TEST_WATCHDOG
     testWatchDogTaskInit();
 #endif
-=======
+
 
 #ifdef TEST_NDK
     TaskNDKInit();
@@ -49,5 +49,5 @@ void TestEntry()
     testCellCom_init();
 #endif
 
->>>>>>> 172c9dbf366c9a8201552c34ce2665e95b3996e2
+
 }

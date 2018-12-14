@@ -108,11 +108,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-<<<<<<< HEAD
 						<entry excluding="out|out/c6748AISgen_456M_config.cfg|srcinst|Source/Thread/Decision/Decision.c|Source/Periph/DSP_Uart/uartStdio.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-=======
-						<entry excluding="Source/Thread/Decision/Decision.c|Source/Periph/DSP_Uart/uartStdio.c|srcinst" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
->>>>>>> 172c9dbf366c9a8201552c34ce2665e95b3996e2
 					</sourceEntries>
 				</configuration>
 			</storageModule>

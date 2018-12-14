@@ -17,14 +17,11 @@ void testCantaskInit();
 void testYAKINDU_SM_init();
 void testSonicRadar_init();
 void testUARTCommandLineInit();
-<<<<<<< HEAD
 void testWatchDogTaskInit();
-=======
 void TaskNDKInit();
 void testCellCom_init();
 
 
->>>>>>> 172c9dbf366c9a8201552c34ce2665e95b3996e2
 
 
 
