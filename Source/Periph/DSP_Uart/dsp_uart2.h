@@ -10,5 +10,6 @@
 
 extern void dsp_uart2_init();
 extern unsigned int UART2Puts(char *pTxBuffer, int numBytesToWrite);
+unsigned char UART2Getc(void);
 
 #endif /* DSP_UART2_H_ */

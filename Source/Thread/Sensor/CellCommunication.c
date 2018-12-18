@@ -23,11 +23,15 @@
 
 
 #define CELL_BUFF_SIZE (128)
+#define LTE_WORK_MODE (1)
+#define LTE_TEST_MODE (0)
 
 static Semaphore_Handle sem_cell_data_received;
 static int8_t cell_data_buffer[CELL_BUFF_SIZE];
 static uint16_t buff_head = 0;
 static uint16_t buff_tail = 0;
+extern int8_t lteMode;
+
 
 typedef enum{
 	cell_wait,
@@ -36,6 +40,8 @@ typedef enum{
 
 #define CELL_HEAD ('$')
 #define CELL_END  ('^')
+
+extern void vOutputString( const char * const pcMessage,int numBytesToWrite);
 
 /****************************************************************************/
 /*                                                                          */
@@ -51,6 +57,7 @@ void DSPUART2Isr(void)
 
     // 确定中断源
     int_id = UARTIntStatus(SOC_UART_2_REGS);
+    IntEventClear(SYS_INT_UART2_INT);
 
     // 接收中断
     if(UART_INTID_RX_DATA == int_id)
@@ -94,8 +101,6 @@ Void taskCellCommunication(UArg a0, UArg a1)
 	uint8_t txbuff[] = {"hello 4G, this is a test"};
 	uint8_t rxbuff[100];
 
-
-
 	int8_t c;
 	int8_t command[100] = {0};
 	int commandLen = 0;
@@ -110,50 +115,54 @@ Void taskCellCommunication(UArg a0, UArg a1)
 	while(1)
 	{
 		Semaphore_pend(sem_cell_data_received, BIOS_WAIT_FOREVER);
+        c = cell_data_buffer[buff_head];
+        if(lteMode == LTE_WORK_MODE)
+        {
+        //		System_printf("%c\n", cell_data_buffer[buff_head]);
 
-//		System_printf("%c\n", cell_data_buffer[buff_head]);
+        	//解析4G数据
+        	/*
+        	 * 简单的包头包尾
+        	 * 命令格式为 $command^
+        	 */
+        	switch(state)
+        	{
+        	case cell_wait:
+        		if (c == CELL_HEAD)
+        		{
+        			state = cell_recv;
+        			commandLen = 0;
+        		}
+        		break;
 
-		c = cell_data_buffer[buff_head];
+        	case cell_recv:
+        		if(c == CELL_END)
+        		{
+        			state = cell_wait;
+        			//发送命令给主任务
+        			pmsg = Message_getEmpty();
+        			pmsg->type = cell;
 
-		//解析4G数据
-		/*
-		 * 简单的包头包尾
-		 * 命令格式为 $command^
-		 */
-		switch(state)
-		{
-		case cell_wait:
-			if (c == CELL_HEAD)
-			{
-				state = cell_recv;
-				commandLen = 0;
-			}
-			break;
+        			memset(pmsg->data,0,MSGSIZE);  //清零data
+        			memcpy(pmsg->data, command, commandLen);
 
-		case cell_recv:
-			if(c == CELL_END)
-			{
-				state = cell_wait;
-				//发送命令给主任务
-				pmsg = Message_getEmpty();
-				pmsg->type = cell;
+        			pmsg->dataLen = commandLen;
 
-				memset(pmsg->data,0,MSGSIZE);  //清零data
-				memcpy(pmsg->data, command, commandLen);
+        			Message_post(pmsg);
+        		}
+        		else      //接收命令字符
+        		{
+        			command[commandLen++] = c;
+        		}
+        		break;
+        	}
 
-				pmsg->dataLen = commandLen;
-
-				Message_post(pmsg);
-			}
-			else      //接收命令字符
-			{
-				command[commandLen++] = c;
-			}
-			break;
-		}
-
-
-		buff_head = (buff_head+1) % CELL_BUFF_SIZE;
+        }
+        else    /*lteMode.workMode = LTE_TEST_MODE*/
+        {
+            vOutputString(&c,1);
+        }
+        buff_head = (buff_head+1) % CELL_BUFF_SIZE;
 
 	}
 }

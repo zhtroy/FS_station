@@ -29,13 +29,15 @@ static void timerWatchDogInit(void)
 {
     // 配置 定时器 / 计数器 1 为 看门狗模式
 	TimerConfigure(SOC_TMR_1_REGS, TMR_CFG_64BIT_WATCHDOG);
-
+	
     // 设置周期 64位
     TimerPeriodSet(SOC_TMR_1_REGS, TMR_TIMER12, TMR_PERIOD_LSB32);
     TimerPeriodSet(SOC_TMR_1_REGS, TMR_TIMER34, TMR_PERIOD_MSB32);
 
     // 使能看门狗定时器
     TimerWatchdogActivate(SOC_TMR_1_REGS);
+    
+
 }
 
 
@@ -45,10 +47,13 @@ static void timerWatchdogTask(void)
     while(1)
     {
         // 复位看门狗定时器 “喂狗”
-        if(enableWatchDog == 1)
-		    TimerWatchdogReactivate(SOC_TMR_1_REGS);
-        else;
+
+		if(enableWatchDog == 1)
+			TimerWatchdogReactivate(SOC_TMR_1_REGS);
+		else;
+
         Task_sleep(4000);
+
     }
 }
 

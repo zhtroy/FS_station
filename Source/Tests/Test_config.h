@@ -17,10 +17,10 @@
 //#define TEST_YAKINDU_SM
 //#define TEST_SONIC_RADAR
 //#define TEST_UART_COMMAND_LINE
-#define TEST_WATCHDOG
-//#define TEST_UART_COMMAND_LINE
+//#define TEST_WATCHDOG
+#define TEST_UART_COMMAND_LINE
 //#define TEST_NDK
-//#define TEST_CELL_COM
+#define TEST_CELL_COM
 
 
 #endif /* TEST_CONFIG_H_ */
