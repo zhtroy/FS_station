@@ -21,11 +21,12 @@ BaseType_t prvMemroyRead( char *pcWriteBuffer, size_t xWriteBufferLen, const cha
 const CLI_Command_Definition_t xMemeoryWrite =
 {
 	"mwr",
-	"\r\nmwr <type> <addr> <value>:\r\n \
-------Memory Write--------------\r\n \
-type:-l(long),-s(short),-c(char)\r\n \
-addr: Address\r\n \
-value: Value\r\n",
+	"\r\n\r\n=========Memory Command========\r\n \
+mwr <type> <addr> <value>:Memory Write\r\n \
+<type>:-l(long),-s(short),-c(char)\r\n \
+<addr>: Address\r\n \
+<value>: Value\r\n \
+ie,mwr -s 0x60000000 0x01\r\n",
 	prvMemroyWrite, /* The function to run. */
 	3 /* Three parameters are expected, which can take any value. */
 };
@@ -33,11 +34,12 @@ value: Value\r\n",
 const CLI_Command_Definition_t xMemeoryRead =
 {
 	"mrd",
-	"\r\nmrd <type> <addr> <len>:\r\n \
-------Memory Read--------------\r\n \
-type:-l(long),-s(short),-c(char)\r\n \
-addr: Address\r\n \
-len : Length\r\n",
+	"\r\n \
+mrd <type> <addr> <len>:Memory Read\r\n \
+<type>:-l(long),-s(short),-c(char)\r\n \
+<addr>: Address\r\n \
+<len> : Length\r\n \
+ie,mrd -s 0x60000000 100\r\n",
 	prvMemroyRead, /* The function to run. */
 	3 /* Three parameters are expected, which can take any value. */
 };
@@ -215,8 +217,11 @@ BaseType_t prvMemroyRead( char *pcWriteBuffer, size_t xWriteBufferLen, const cha
                 else if(ucType == DWORD_TYPE)
                     sprintf(pcStr,"0x%08x ",ulValue);
                 else;
-                
-                strncat(pcWriteBuffer,pcStr,strlen(pcStr));
+
+                if(strlen(pcStr) + strlen(pcWriteBuffer) < configCOMMAND_INT_MAX_OUTPUT_SIZE)
+                    strncat(pcWriteBuffer,pcStr,strlen(pcStr));
+                else
+                    break;
             }            
             
             uxParameterNumber = 0;

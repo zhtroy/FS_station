@@ -13,8 +13,7 @@ BaseType_t prvResetCPU( char *pcWriteBuffer, size_t xWriteBufferLen, const char 
 const CLI_Command_Definition_t xResetCPU =
 {
 	"rst",
-	"\r\nrst/<ctrl-c>\r\n \
-----Reset CPU by Watchdog Timer-----\r\n \
+	"\r\nrst/<ctrl-c>:Reset CPU by Watchdog Timer\r\n \
 Notes:Wait most 5s.\r\n",
 	prvResetCPU, /* The function to run. */
 	0 /* Three parameters are expected, which can take any value. */

@@ -49,6 +49,9 @@ static void UARTInit(void)
 	// 波特率 115200 数据位 8 停止位 1 无校验位
     UARTConfigSetExpClk(SOC_UART_2_REGS, UART_2_FREQ, BAUD_115200,
     		              UART_WORDL_8BITS, UART_OVER_SAMP_RATE_16);
+    
+    UARTDisable(SOC_UART_2_REGS);
+    
 	// 使能 UART2
 	UARTEnable(SOC_UART_2_REGS);
 
@@ -68,8 +71,11 @@ static void UARTInterruptInit(void)
 {
 	// 使能中断
 	unsigned int intFlags = 0;
+    int delayCnt = 1000;
     intFlags |= (UART_INT_LINE_STAT  |  \
                  UART_INT_RXDATA_CTI);
+    UARTIntDisable(SOC_UART_2_REGS, intFlags);
+    while(delayCnt--);
     UARTIntEnable(SOC_UART_2_REGS, intFlags);
 }
 
@@ -121,3 +127,9 @@ unsigned int UART2Puts(char *pTxBuffer, int numBytesToWrite)
 
    return count;
 }
+
+unsigned char UART2Getc(void)
+{
+    return ((unsigned char)UARTCharGet(SOC_UART_2_REGS));
+}
+

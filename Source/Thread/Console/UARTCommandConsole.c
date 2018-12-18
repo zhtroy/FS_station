@@ -278,11 +278,11 @@ static void prvUARTCommandConsoleTask( void *pvParameters )
 }
 /*-----------------------------------------------------------*/
 
-void vOutputString( const char * const pcMessage )
+void vOutputString( const char * const pcMessage ,int numBytesToWrite)
 {
 	if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
 	{
-		vSerialPutString( ( signed char * ) pcMessage, ( unsigned short ) strlen( pcMessage ) );
+		vSerialPutString( ( signed char * ) pcMessage, numBytesToWrite);
 		Semaphore_post( xTxMutex );
 	}
 }

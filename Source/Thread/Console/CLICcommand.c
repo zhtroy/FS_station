@@ -9,23 +9,27 @@
 #include "FreeRTOS_CLI.h"
 
 
-
-void vRegisterSampleCLICommands( void );
-
-extern BaseType_t prvMemroyWrite( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-extern BaseType_t prvMemroyRead( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-
 extern const CLI_Command_Definition_t xMemeoryWrite;
 extern const CLI_Command_Definition_t xMemeoryRead;
 extern const CLI_Command_Definition_t xResetCPU;
+extern const CLI_Command_Definition_t xLTESend;
+extern const CLI_Command_Definition_t xLTESenda;
+extern const CLI_Command_Definition_t xLTESetMode;
+extern const CLI_Command_Definition_t xLTEGetMode;
+
+
 /*-----------------------------------------------------------*/
 
 void vRegisterSampleCLICommands( void )
 {
 	/* Register all the command line commands defined immediately above. */
+    FreeRTOS_CLIRegisterCommand( &xResetCPU );
     FreeRTOS_CLIRegisterCommand( &xMemeoryWrite );
     FreeRTOS_CLIRegisterCommand( &xMemeoryRead );
-    FreeRTOS_CLIRegisterCommand( &xResetCPU );
+    FreeRTOS_CLIRegisterCommand( &xLTESend );
+    FreeRTOS_CLIRegisterCommand( &xLTESenda );
+    FreeRTOS_CLIRegisterCommand( &xLTESetMode );
+    FreeRTOS_CLIRegisterCommand( &xLTEGetMode );
 }
 /*-----------------------------------------------------------*/
 
