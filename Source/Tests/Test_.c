@@ -49,5 +49,11 @@ void TestEntry()
     testCellCom_init();
 #endif
 
+#ifdef TEST_SIMPLE_RUN
+    testSimpleRun_init();
+#endif
 
+#ifdef TEST_PHOTOELEC
+    testPhotoElectric_init();
+#endif
 }
