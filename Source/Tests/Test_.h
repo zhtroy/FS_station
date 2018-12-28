@@ -20,6 +20,9 @@ void testUARTCommandLineInit();
 void testWatchDogTaskInit();
 void TaskNDKInit();
 void testCellCom_init();
+void testSimpleRun_init();
+void testPhotoElectric_init();
+
 
 void testBrakeServoInit();
 void testMototaskInit();
