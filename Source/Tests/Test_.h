@@ -21,7 +21,8 @@ void testWatchDogTaskInit();
 void TaskNDKInit();
 void testCellCom_init();
 
-
+void testBrakeServoInit();
+void testMototaskInit();
 
 
 

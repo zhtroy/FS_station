@@ -244,3 +244,38 @@ u8 UartNs550GetLastErrors(u16 DeviceNum)
     
     return XUartNs550_GetLastErrors(InstancePtr);
 }
+
+void UartNs550SetMode(u16 DeviceNum,u8 mode)
+{
+    u8 Reg;
+    Reg = *(volatile u16 *) (UART_RS485_ADDR);
+    if(UART_RS485_MODE == mode)
+        *(volatile u16 *) (UART_RS485_ADDR) =  Reg | (1 << DeviceNum);
+    else
+        *(volatile u16 *) (UART_RS485_ADDR) =  Reg & (~(1 << DeviceNum));
+}   
+    
+void UartNs550RS485TxDisable(u16 DeviceNum)
+{
+    u8 mcrRegister;
+    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+
+    mcrRegister = XUartNs550_ReadReg(InstancePtr->BaseAddress,
+						XUN_MCR_OFFSET);
+    
+    XUartNs550_WriteReg(InstancePtr->BaseAddress, XUN_MCR_OFFSET,
+			 	mcrRegister | XUN_MCR_RTS);
+}
+
+void UartNs550RS485TxEnable(u16 DeviceNum)
+{
+    u8 mcrRegister;
+    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+
+    mcrRegister = XUartNs550_ReadReg(InstancePtr->BaseAddress,
+						XUN_MCR_OFFSET);
+    
+    XUartNs550_WriteReg(InstancePtr->BaseAddress, XUN_MCR_OFFSET,
+			 	mcrRegister &(~XUN_MCR_RTS) );
+}
+

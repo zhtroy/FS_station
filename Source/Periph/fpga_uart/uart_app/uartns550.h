@@ -16,6 +16,10 @@
 #define UART_RESET_ADDR (SOC_EMIFA_CS2_ADDR + (0x22<<1))
 #define UART_INT_ENABLE_ADDR (SOC_EMIFA_CS2_ADDR + (0x24<<1))
 #define UART_INT_MASK_ADDR (SOC_EMIFA_CS2_ADDR + (0x25<<1))
+#define UART_RS485_ADDR (SOC_EMIFA_CS2_ADDR + (0x08<<1))
+
+#define UART_RS485_MODE (1)
+#define UART_RS232_MODE (0)
 
 
 #define UartNs550HardReset(DeviceNum) do {\
@@ -80,6 +84,10 @@ u8 * UartNs550PushBuffer(u16 DeviceNum,u8 Length);
 UART550_BUFFER* UartNs550PopBuffer(u16 DeviceNum);
 u8 UartNs550GetLastErrors(u16 DeviceNum);
 u8 UartNs550BufferIsEmpty(u16 DeviceNum);
+void UartNs550SetMode(u16 DeviceNum,u8 mode);
+void UartNs550RS485TxEnable(u16 DeviceNum);
+void UartNs550RS485TxDisable(u16 DeviceNum);
+
 #endif
 
 

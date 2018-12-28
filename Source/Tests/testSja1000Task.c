@@ -60,7 +60,7 @@ static void testSja1000Task()
     /*初始化信用量*/
     InitSem();
     /*初始化CAN设备表*/
-    canTableInit();
+    //canTableInit();
     /*初始化CAN设备*/
     canOpen(CAN_DEV_0, CAN0IntrHandler, CAN_DEV_0);
 

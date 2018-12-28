@@ -617,6 +617,7 @@ void TaskNDKInit()
 
 	Task_Params_init(&TaskParams);
 	TaskParams.stackSize = 512 * 1024;
+	TaskParams.priority = 5;
 
 	NDKTaskHandle = Task_create(NDKTask, &TaskParams, NULL);
 	if(NDKTaskHandle == NULL)

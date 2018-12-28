@@ -49,5 +49,12 @@ void TestEntry()
     testCellCom_init();
 #endif
 
+#ifdef TEST_MOTO_TASK
+testMototaskInit();
+#endif 
+
+#ifdef TEST_BREAK_TASK
+testBrakeServoInit();
+#endif
 
 }

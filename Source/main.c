@@ -52,7 +52,8 @@ void PeriphInit()
 
     // 使能串口硬件中断
     canHardIntEnable ();
-
+    
+    canTableInit();
 
 }
 
