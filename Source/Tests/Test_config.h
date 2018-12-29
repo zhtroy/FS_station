@@ -22,11 +22,14 @@
 //#define TEST_NDK
 //#define TEST_CELL_COM
 
-#define TEST_MOTO_TASK
-#define TEST_BREAK_TASK
+//#define TEST_MOTO_TASK
+//#define TEST_BREAK_TASK
 
 //#define TEST_SIMPLE_RUN
 //#define TEST_PHOTOELEC
+
+
+#define TEST_4G_CONTROL
 
 
 #endif /* TEST_CONFIG_H_ */

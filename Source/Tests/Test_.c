@@ -64,4 +64,8 @@ testBrakeServoInit();
 #ifdef TEST_PHOTOELEC
     testPhotoElectric_init();
 #endif
+
+#ifdef TEST_4G_CONTROL
+    test4GControl_init();
+#endif
 }

@@ -16,8 +16,8 @@
 /********************************************************************************/
 
 extern ctrlData carCtrlData;
-#if 0
-extern fdbkData carFdbkDataF, carFdbkDataR;
+#if 1
+fdbkData carFdbkDataF, carFdbkDataR;
 extern uint8_t connectStatus;
 #else 
 fdbkData carFdbkDataF, carFdbkDataR;

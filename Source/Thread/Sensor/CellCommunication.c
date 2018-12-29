@@ -54,10 +54,17 @@ void DSPUART2Isr(void)
 {
     unsigned char rxData = 0;
     unsigned int int_id = 0;
+	// 使能中断
+	unsigned int intFlags = 0;
+    intFlags |= (UART_INT_LINE_STAT  |  \
+                 UART_INT_RXDATA_CTI);
 
     // 确定中断源
     int_id = UARTIntStatus(SOC_UART_2_REGS);
+    UARTIntDisable(SOC_UART_2_REGS, intFlags);
     IntEventClear(SYS_INT_UART2_INT);
+
+
 
     // 接收中断
     if(UART_INTID_RX_DATA == int_id)
@@ -78,6 +85,8 @@ void DSPUART2Isr(void)
             UARTCharGetNonBlocking(SOC_UART_2_REGS);
         }
     }
+
+    UARTIntEnable(SOC_UART_2_REGS, intFlags);
 }
 
 

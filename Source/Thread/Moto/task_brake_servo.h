@@ -9,6 +9,8 @@
 #define MODBUS_ACK_NOTOK        (1)
 #define MODBUS_ACK_CRC_ERR      (2)
 #define MODBUS_ACK_FRAME_ERR    (3)
+#define MODBUS_ACK_TIMEOUT		(4)
+
 
 #define PI 3.141592654											//定义常量PI
 #define DM 0.375												//轮子直径

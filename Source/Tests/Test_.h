@@ -22,6 +22,7 @@ void TaskNDKInit();
 void testCellCom_init();
 void testSimpleRun_init();
 void testPhotoElectric_init();
+void test4GControl_init();
 
 
 void testBrakeServoInit();

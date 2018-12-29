@@ -107,8 +107,11 @@ static uint16_t crc_chk(uint8_t *data, uint8_t length)
 
 static uint8_t modbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
 {
+	uint16_t udelay;
     modbusCmd_t sendData;
     
+    for(udelay = 3000;udelay>0;udelay--);
+
     sendData.id = id;
     sendData.cmd = 0x06;
     sendData.addrH = addr >> 8;
@@ -133,12 +136,19 @@ static uint8_t modbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
     Semaphore_pend(sem_txData,BIOS_WAIT_FOREVER);
 
     /*关闭RS485发送*/
-    Task_sleep(1);
+    //Task_sleep(1);
+    for(udelay = 3000;udelay>0;udelay--);
     UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
 
     /*等待电机响应*/
     Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);
-    Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);
+    if(FALSE  == Semaphore_pend(sem_rxData,100))   //100ms
+    {
+    	ackStatus = MODBUS_ACK_TIMEOUT;
+    }
+
+
+
     return ackStatus;
 }
 

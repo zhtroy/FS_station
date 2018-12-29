@@ -79,7 +79,7 @@ Void taskSimpleRun(UArg a0, UArg a1)
 }
 
 
-void taskMotor(UArg a0, UArg a1)
+void taskTheMotor(UArg a0, UArg a1)
 {
 	uint8_t c;
 	p_msg_t msg;
@@ -145,7 +145,7 @@ void testSimpleRun_init()
 	taskParams.priority = 3;
 	taskParams.stackSize = 2048;
 	taskParams.arg0 = 0;
-	task = Task_create(taskMotor, &taskParams, &eb);
+	task = Task_create(taskTheMotor, &taskParams, &eb);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
