@@ -22,9 +22,12 @@
 
 #include "DSP_Uart/dsp_uart2.h"
 
+#define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
+
 void PeriphInit()
 {
 
+    uint16_t udelay;
 	//GPIO---------------------
 	gpio_init();       //初始化GPIO
 	gpio_fpga_rst();  //复位FPGA
@@ -36,6 +39,22 @@ void PeriphInit()
 	//EMIFA--------------------------
 	EMIFA_init();     //初始化EMIFA
 
+    while(1)
+    {
+        *(volatile uint16_t *)FPGA_TEST_REG = 0xaa;
+        if(0xaa == *(volatile uint16_t *)FPGA_TEST_REG)
+            break;
+        for(udelay = 10000;udelay > 0;udelay --);
+    }
+
+    while(1)
+    {
+        *(volatile uint16_t *)FPGA_TEST_REG = 0x55;
+        if(0x55 == *(volatile uint16_t *)FPGA_TEST_REG)
+            break;
+        for(udelay = 10000;udelay > 0;udelay --);
+    }
+    
 	//FPGA UART--------------------------
 
     // 串口0硬件中断MASK
@@ -73,6 +92,7 @@ void SyncInit()
  */
 Int main()
 {
+    
 	PeriphInit();
 
 	SyncInit();
