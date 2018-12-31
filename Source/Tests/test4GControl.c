@@ -89,8 +89,8 @@ static Void task4GControlMain(UArg a0, UArg a1)
 			//清零clock
 			Clock_start(heartClock);
 
-			System_printf("recv 4G command %s \n", msg->data  );
-			UARTprintf("recv 4G command %s \n", msg->data);
+//			System_printf("recv 4G command %s \n", msg->data  );
+//			UARTprintf("recv 4G command %s \n", msg->data);
 			/*
 			 *  TODO：简单的命令格式，后续需要改为和RFID协议类似的
 			 *   第一位字符表示命令类型，后面的字符串转成uint8_t作为数据
