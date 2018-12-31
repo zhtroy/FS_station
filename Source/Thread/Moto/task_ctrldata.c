@@ -22,3 +22,11 @@ uint8_t getRail(void)
 {
 	return carCtrlData.Rail;
 }
+
+uint8_t getRailState(void)
+{
+	return carCtrlData.RailState;
+}
+
+
+
