@@ -19,12 +19,11 @@
 #include "interrupt.h"
 #include <xdc/runtime/System.h>
 #include "Message/Message.h"
+#include "Sensor/CellCommunication/CellCommunication.h"
 
 
 
-#define CELL_BUFF_SIZE (128)
-#define LTE_WORK_MODE (1)
-#define LTE_TEST_MODE (0)
+
 
 static Semaphore_Handle sem_cell_data_received;
 static int8_t cell_data_buffer[CELL_BUFF_SIZE];
@@ -33,13 +32,7 @@ static uint16_t buff_tail = 0;
 extern int8_t lteMode;
 
 
-typedef enum{
-	cell_wait,
-	cell_recv
-}cell_state_t;
 
-#define CELL_HEAD ('$')
-#define CELL_END  ('^')
 
 extern void vOutputString( const char * const pcMessage,int numBytesToWrite);
 
@@ -105,6 +98,16 @@ static void SemInit()
 /*              函数定义                                                        */
 /*                                                                          */
 /****************************************************************************/
+
+void CellSendData(char * pbuff, uint32_t size)
+{
+	//使用阻塞发送
+	UART2Send(pbuff, size);
+
+}
+/*
+ * 接收4G数据， 将数据按 $command^分包后放入消息队列
+ */
 Void taskCellCommunication(UArg a0, UArg a1)
 {
 	uint8_t txbuff[] = {"hello 4G, this is a test"};

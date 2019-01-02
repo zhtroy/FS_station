@@ -128,6 +128,21 @@ unsigned int UART2Puts(char *pTxBuffer, int numBytesToWrite)
    return count;
 }
 
+unsigned int UART2Send(const char *pcBuf, unsigned int len)
+{
+    unsigned int uIdx;
+
+    /* Send the characters */
+    for(uIdx = 0; uIdx < len; uIdx++)
+    {
+        /* Send the character to the UART output. */
+       UARTCharPut(SOC_UART_2_REGS,pcBuf[uIdx]);
+    }
+
+    /* Return the number of characters written. */
+    return(uIdx);
+}
+
 unsigned char UART2Getc(void)
 {
     return ((unsigned char)UARTCharGet(SOC_UART_2_REGS));

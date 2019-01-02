@@ -29,7 +29,6 @@
  */
 extern ctrlData carCtrlData;
 uint8_t connectStatus;
-extern fdbkData carFdbkDataF, carFdbkDataR;
 
 
 

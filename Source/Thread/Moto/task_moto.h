@@ -94,8 +94,12 @@ typedef struct
 	uint8_t TorqueH;
 	uint8_t CanReserved1;
 	uint8_t CanReserved2;
-}fdbkData;
+}motor_data_t;
 
+typedef struct{
+	motor_data_t motorDataF;
+	motor_data_t motorDataR;
+}fbdata_t;
 
 uint16_t getRPM(void);
 
