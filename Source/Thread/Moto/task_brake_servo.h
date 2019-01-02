@@ -11,6 +11,9 @@
 #define MODBUS_ACK_FRAME_ERR    (3)
 #define MODBUS_ACK_TIMEOUT		(4)
 
+#define LEFTRAIL    (1)
+#define RIGHTRAIL   (2)
+
 
 #define PI 3.141592654											//定义常量PI
 #define DM 0.375												//轮子直径

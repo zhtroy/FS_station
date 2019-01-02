@@ -12,9 +12,12 @@ typedef struct
 	uint8_t Throttle;
 	uint8_t Rail;
 	uint8_t Brake;
+    uint8_t RailState;
 }ctrlData;
 
 //void vCtrldataTask(void *param);
 uint8_t getBrake(void);
 uint8_t getRail(void);
+uint8_t getRailState(void);
+
 #endif
