@@ -92,7 +92,12 @@ void SyncInit()
  */
 Int main()
 {
-    
+	//7s
+	uint32_t delay = 0xFFFFFFF;
+	while(delay>0){
+		delay--;
+	}
+
 	PeriphInit();
 
 	SyncInit();

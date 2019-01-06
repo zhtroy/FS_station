@@ -213,10 +213,12 @@ void taskMotoSendFdbkToCell()
 {
 
 	while(1){
+		/*
 		fbData.motorDataR.ThrottleL++;
 		fbData.motorDataR.RPMH++;
 		fbData.motorDataF.ThrottleH++;
 		fbData.motorDataF.RPML++;
+		*/
 
 		CellSendData((char*) &fbData, sizeof(fbData));
 

@@ -77,6 +77,12 @@ p_msg_t Message_getEmpty()
 	return msg;
 }
 
+void Message_recycle(p_msg_t msg)
+{
+	/* put message */
+	Queue_put(freeQueue, (Queue_Elem *) msg);
+}
+
 //等待一条消息
 p_msg_t Message_pend()
 {

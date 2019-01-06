@@ -144,6 +144,8 @@ Void taskCellCommunication(UArg a0, UArg a1)
         		{
         			state = cell_recv;
         			commandLen = 0;
+        			pmsg = Message_getEmpty();
+        			memset(pmsg->data,0,MSGSIZE);  //清零data
         		}
         		break;
 
@@ -152,11 +154,8 @@ Void taskCellCommunication(UArg a0, UArg a1)
         		{
         			state = cell_wait;
         			//发送命令给主任务
-        			pmsg = Message_getEmpty();
-        			pmsg->type = cell;
 
-        			memset(pmsg->data,0,MSGSIZE);  //清零data
-        			memcpy(pmsg->data, command, commandLen);
+        			pmsg->type = cell;
 
         			pmsg->dataLen = commandLen;
 
@@ -164,7 +163,7 @@ Void taskCellCommunication(UArg a0, UArg a1)
         		}
         		else      //接收命令字符
         		{
-        			command[commandLen++] = c;
+        			pmsg->data[commandLen++] = c;
         		}
         		break;
         	}

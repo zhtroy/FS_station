@@ -99,6 +99,10 @@ typedef struct
 typedef struct{
 	motor_data_t motorDataF;
 	motor_data_t motorDataR;
+	uint8_t rfid;
+	uint8_t mode;
+	uint32_t rfidReadTime;
+
 }fbdata_t;
 
 uint16_t getRPM(void);

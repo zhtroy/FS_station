@@ -29,16 +29,32 @@
  */
 extern ctrlData carCtrlData;
 uint8_t connectStatus;
+extern fbdata_t fbData;
 
 
+/*
+ * 状态机
+ */
+typedef enum{
+	stationary,
+	straight,
+	turning,
+	uphill,
+	downhill
+}car_state_t;
 
+typedef struct{
+	uint8_t throttle;
+	uint8_t brake;
+}auto_param_t;
 
 extern Void taskCellCommunication(UArg a0, UArg a1);
 extern void testBrakeServoInit();
 extern void testMototaskInit();
+extern Void taskRFID(UArg a0, UArg a1);
 
 
-static void connectionClosed()
+static xdc_Void connectionClosed(xdc_UArg arg)
 {
 	connectStatus = 0;
 }
@@ -47,18 +63,39 @@ static void connectionOn()
 {
 	connectStatus = 1;
 }
+
+static void resetCarCtrlData()
+{
+	//初始化motor数据
+		carCtrlData.MotoSel =2;  //两个电机都用
+		carCtrlData.ControlMode = 0;  //Throttle模式
+		carCtrlData.Gear = 0;    //空挡
+		carCtrlData.Throttle = 0;
+		carCtrlData.Rail = 0;
+		carCtrlData.Brake = 0;
+
+		UARTprintf("reset motor\n");
+}
+
+static void setCarBrake(uint8_t value)
+{
+	carCtrlData.Brake = value;
+	UARTprintf("set brake %d\n", value);
+}
+static void setCarThrottle(uint8_t value)
+{
+	carCtrlData.Throttle = value;
+	UARTprintf("set throttle %d\n", value);
+}
 static Void task4GControlMain(UArg a0, UArg a1)
 {
 	p_msg_t msg;
-	int value;
+	int value, paramNum;
+	int autoMode = 0; //手动0 设置参数1 自动2
+//	car_state_t carState = stationary;
 
-	//初始化motor数据
-	carCtrlData.MotoSel =2;  //两个电机都用
-	carCtrlData.ControlMode = 0;  //Throttle模式
-	carCtrlData.Gear = 0;    //空挡
-	carCtrlData.Throttle = 0;
-	carCtrlData.Rail = 0;
-	carCtrlData.Brake = 0;
+    auto_param_t params[7];
+    memset(params,0,sizeof(params));
 
 	 // 使用一个Timer来检测4G通信心跳包
 	Clock_Params clockParams;
@@ -81,59 +118,181 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 	while(1){
 		msg= Message_pend();
-		if(msg->type==cell){
+		UARTprintf("mode: %d\n",autoMode);
+		fbData.mode = autoMode;
+		if(autoMode == 0){ //手动模式
+			switch(msg->type){
+				case cell:
+				{
+					//连接状态 on
+					connectionOn();
+					//清零clock
+					Clock_start(heartClock);
 
-			//连接状态 on
-			connectionOn();
-			//清零clock
-			Clock_start(heartClock);
+					/*
+					 *  TODO：简单的命令格式，后续需要改为和RFID协议类似的
+					 *   第一位字符表示命令类型，后面的字符串转成uint8_t作为数据
+					 *
+					 */
+					value = atoi(&(msg->data[1]));   //转换字符串为int
 
-//			System_printf("recv 4G command %s \n", msg->data  );
-//			UARTprintf("recv 4G command %s \n", msg->data);
-			/*
-			 *  TODO：简单的命令格式，后续需要改为和RFID协议类似的
-			 *   第一位字符表示命令类型，后面的字符串转成uint8_t作为数据
-			 *
-			 */
-			value = atoi(&(msg->data[1]));   //转换字符串为int
+					switch(msg->data[0])
+					{
+						case 'm':    //motosel
+							carCtrlData.MotoSel = (uint8_t) value;
+							break;
+						case 'c':    //controlmode
+							carCtrlData.ControlMode = (uint8_t) value;
+							break;
+						case 'g':    //gear
+							carCtrlData.Gear = (uint8_t) value;
+							break;
+						case 't':    //throttle
+							carCtrlData.Throttle = (uint8_t) value;
+							break;
+						case 'r':    //rail
+							carCtrlData.Rail = (uint8_t) value;
+							break;
+						case 'b':    //brake
+							carCtrlData.Brake = (uint8_t) value;
+							break;
+						case 'h' :   //心跳包
+							break;
+						case 'z':    //切换到设置模式
+							autoMode = value; //状态跳转
+							resetCarCtrlData();  //清零电机控制
 
-			switch(msg->data[0])
-			{
-			case 'm':    //motosel
-				carCtrlData.MotoSel = (uint8_t) value;
-				break;
-			case 'c':    //controlmode
-				carCtrlData.ControlMode = (uint8_t) value;
-				break;
-			case 'g':    //gear
-				carCtrlData.Gear = (uint8_t) value;
-				break;
-			case 't':    //throttle
-				carCtrlData.Throttle = (uint8_t) value;
-				break;
-			case 'r':    //rail
-				carCtrlData.Rail = (uint8_t) value;
-				break;
-			case 'b':    //brake
-				carCtrlData.Brake = (uint8_t) value;
-				break;
-			case 'h' :   //心跳包
-				break;
+							break;
+
+					}
+
+					break;
+				}   //case cell
+
 			}
+		}////手动模式
+		else if(autoMode == 1)  //设置模式
+		{
+			switch(msg->type){
+				case cell:
+				{
 
+
+					value = atoi(&(msg->data[1]));   //转换字符串为int
+					switch(msg->data[0])
+					{
+						case 'z':    //切换模式
+
+							autoMode = value; //状态跳转
+							resetCarCtrlData();  //清零电机控制
+							if(value == 2){
+								carCtrlData.Gear = 1;
+							}
+
+							break;
+						case 's':    //设置油门，刹车参数
+							paramNum = (msg->data[1]-'0')*10 + (msg->data[2]-'0');
+							params[paramNum].throttle = (msg->data[3]-'0')*100 + (msg->data[4]-'0')*10 + (msg->data[5]-'0');
+							params[paramNum].brake = (msg->data[6]-'0')*100 + (msg->data[7]-'0')*10 + (msg->data[8]-'0');
+							break;
+
+					}
+					break;
+				}
+
+			}
 		}
+		else if (autoMode == 2) //进入自动模式
+		{
+			switch(msg->type){
+				case cell:
+				{
+					//连接状态 on
+					connectionOn();
+					//清零clock
+					Clock_start(heartClock);
 
+					value = atoi(&(msg->data[1]));   //转换字符串为int
+					switch(msg->data[0])
+					{
+						case 'z':    //切换模式
+							autoMode = value; //状态跳转
+							resetCarCtrlData();  //清零电机控制
+							break;
+					}
+					break;
+				}
+
+				case rfid:
+				{
+					/*
+					epc = getEPC(msg->data);
+					switch(carState){
+						case stationary:
+						{
+							switch(epc.epcType)
+							{
+								case
+							}
+						}
+					}
+					*/
+					value = msg->data[0];
+					if(value<=7 && value>=1){
+						setCarBrake(params[value-1].brake);
+						setCarThrottle(params[value-1].throttle);
+					}
+					else
+					{
+						setCarBrake(0);
+						setCarThrottle(0);
+					}
+					/*
+					switch(value){  //无状态
+						case 1:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 2:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 3:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 4:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 5:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 6:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						case 7:
+							setCarBrake(0);
+							setCarThrottle(20);
+							break;
+						default:
+							setCarBrake(0);
+							setCarThrottle(0);
+					}
+					*/
+
+					break;
+				}
+			}
+		}  //else if(autoMode == 2)  //设置自动
+
+		Message_recycle(msg);
 	}
 }
 
- Void taskMotor(UArg a0, UArg a1)
- {
-	 //占位
- }
- Void taskBrake(UArg a0, UArg a1)
- {
-	 //占位
- }
+
 
 void test4GControl_init()
 {
@@ -170,4 +329,16 @@ void test4GControl_init()
 	testBrakeServoInit();
 
 	//变轨电机
+
+	//RFID
+
+	Task_Params_init(&taskParams);
+	taskParams.priority = 3;
+	taskParams.stackSize = 2048;
+	taskParams.arg0 = 0;
+	task = Task_create(taskRFID, &taskParams, &eb);
+	if (task == NULL) {
+		System_printf("Task_create() failed!\n");
+		BIOS_exit(0);
+	}
 }

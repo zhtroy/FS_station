@@ -6,9 +6,9 @@ ctrlData carCtrlData =
     FRONT_REAR,
     THROTTLE,
     DRIVE,
-    100,
     0,
-    100
+    0,
+    0
 };
 /*发送控制命令任务*/
 

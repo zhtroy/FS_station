@@ -122,7 +122,7 @@ static uint8_t modbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
 
     Semaphore_pend(sem_modbus,BIOS_WAIT_FOREVER);   
     
-    for(udelay = 3000;udelay>0;udelay--);           //增加发送间隔，保证控制器能识别
+    //for(udelay = 3000;udelay>0;udelay--);           //增加发送间隔，保证控制器能识别
 
     sendData.id = id;
     sendData.cmd = 0x06;
@@ -155,7 +155,7 @@ static uint8_t modbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
     Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);   //丢弃MAX3160发送时，回传的数据
 
     
-    if(FALSE  == Semaphore_pend(sem_rxData,100))    //电机ACK超时时间：100ms
+    if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：100ms
     {
     	ackStatus = MODBUS_ACK_TIMEOUT;
     }
@@ -207,7 +207,7 @@ static uint8_t modbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
     Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);   //丢弃MAX3160发送时，回传的数据
 
     
-    if(FALSE  == Semaphore_pend(sem_rxData,100))    //电机ACK超时时间：100ms
+    if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：100ms
     	ackStatus = MODBUS_ACK_TIMEOUT;
     else
         *data = (uint16_t)recvBuff->Buffer[4] << 8 + recvBuff->Buffer[5];
@@ -284,7 +284,7 @@ void vBrakeServoTask(void *param)
 		if(servo_step!=uBrake)
 		{
 			pulseCount=uBrake-servo_step;
-			pulseCount=430*(uBrake-servo_step);		//原来450
+			pulseCount=400*(uBrake-servo_step);		//原来450
 			pulseE4=pulseCount/10000;				//万位
 			pulseE0=pulseCount-10000*pulseE4;		//个位
 			while(1)
@@ -292,30 +292,42 @@ void vBrakeServoTask(void *param)
                 state = modbusWriteReg(0x01,0x0046,0x7FFE);
 				
 				if(state != MODBUS_ACK_OK)
+				{
                     break;
+				}
                 else;
 
+				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0047,0x7FFF);
 				
 				if(state != MODBUS_ACK_OK)
-                    break;
+				{
+				    break;
+				}
                 else;
 
+				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0078,pulseE4);
 				
 				if(state != MODBUS_ACK_OK)
-                    break;
+				{
+				    break;
+				}
                 else;
 
+				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0079,pulseE0);
 				
 				if(state != MODBUS_ACK_OK)
-                    break;
+				{
+				    break;
+				}
                 else;
 			
+				Task_sleep(SLEEPTIME);
 				state = modbusWriteReg(0x01,0x0047,0x7BFF);
                 
-                if(state == MODBUS_ACK_OK)
+                if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
                 {
 				    servo_step=uBrake;		//标记伺服位置
 				    break;
@@ -583,7 +595,7 @@ void testBrakeServoInit()
 	//初始化串口
 	UartNs550SetMode(SERVOR_MOTOR_UART, UART_RS485_MODE);
 	UartNs550Init(SERVOR_MOTOR_UART,UartServorIntrHandler);
-    
+	UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
 	//初始化信号量
 	initSem();
 
