@@ -1,0 +1,34 @@
+tl_dsp_evm6748.zip: Platform.xdc
+Platform.xdc:
+tl_dsp_evm6748.zip: Platform.xs
+Platform.xs:
+tl_dsp_evm6748.zip: config.bld
+config.bld:
+tl_dsp_evm6748.zip: package/.vers_b160
+package/.vers_b160:
+tl_dsp_evm6748.zip: package/.vers_g180
+package/.vers_g180:
+tl_dsp_evm6748.zip: package/.vers_r170
+package/.vers_r170:
+tl_dsp_evm6748.zip: package/.xdc-A44
+package/.xdc-A44:
+tl_dsp_evm6748.zip: package/build.cfg
+package/build.cfg:
+tl_dsp_evm6748.zip: package/package.bld.xml
+package/package.bld.xml:
+tl_dsp_evm6748.zip: package/package.defs.h
+package/package.defs.h:
+tl_dsp_evm6748.zip: package/package_tl.dsp.evm6748.c
+package/package_tl.dsp.evm6748.c:
+tl_dsp_evm6748.zip: package/tl.dsp.evm6748.ccs
+package/tl.dsp.evm6748.ccs:
+tl_dsp_evm6748.zip: package/tl.dsp.evm6748.sch
+package/tl.dsp.evm6748.sch:
+tl_dsp_evm6748.zip: package/tl_dsp_evm6748.class
+package/tl_dsp_evm6748.class:
+tl_dsp_evm6748.zip: package/tl_dsp_evm6748.java
+package/tl_dsp_evm6748.java:
+tl_dsp_evm6748.zip: package.bld
+package.bld:
+tl_dsp_evm6748.zip: package.xdc
+package.xdc:

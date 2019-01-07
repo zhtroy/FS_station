@@ -10,6 +10,7 @@
 #include <ti/sysbios/BIOS.h>
 
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/hal/Cache.h>
 
 #include "gpio_app.h"
 #include "uartStdio.h"

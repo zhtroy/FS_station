@@ -73,10 +73,16 @@ static void resetCarCtrlData()
 		carCtrlData.Throttle = 0;
 		carCtrlData.Rail = 0;
 		carCtrlData.Brake = 0;
+		carCtrlData.RPM = 0;
 
 		UARTprintf("reset motor\n");
 }
 
+static void setCarRPM(uint16_t value)
+{
+	carCtrlData.RPM = value;
+	UARTprintf("set RPM %d\n", value);
+}
 static void setCarBrake(uint8_t value)
 {
 	carCtrlData.Brake = value;
@@ -96,6 +102,9 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
     auto_param_t params[7];
     memset(params,0,sizeof(params));
+
+    uint16_t RPMparam[7] = {0};
+
 
 	 // 使用一个Timer来检测4G通信心跳包
 	Clock_Params clockParams;
@@ -161,6 +170,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						case 'z':    //切换到设置模式
 							autoMode = value; //状态跳转
 							resetCarCtrlData();  //清零电机控制
+							carCtrlData.AutoMode = autoMode;
 
 							break;
 
@@ -185,16 +195,39 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 							autoMode = value; //状态跳转
 							resetCarCtrlData();  //清零电机控制
+							carCtrlData.AutoMode = autoMode;
 							if(value == 2){
 								carCtrlData.Gear = 1;
 							}
 
 							break;
-						case 's':    //设置油门，刹车参数
+						case 's':
+							//设置油门，刹车参数
+//							paramNum = (msg->data[1]-'0')*10 + (msg->data[2]-'0');
+//							params[paramNum].throttle = (msg->data[3]-'0')*100 + (msg->data[4]-'0')*10 + (msg->data[5]-'0');
+//							params[paramNum].brake = (msg->data[6]-'0')*100 + (msg->data[7]-'0')*10 + (msg->data[8]-'0');
+
+							//设置RPM参数  4位
 							paramNum = (msg->data[1]-'0')*10 + (msg->data[2]-'0');
-							params[paramNum].throttle = (msg->data[3]-'0')*100 + (msg->data[4]-'0')*10 + (msg->data[5]-'0');
-							params[paramNum].brake = (msg->data[6]-'0')*100 + (msg->data[7]-'0')*10 + (msg->data[8]-'0');
+
+							RPMparam[paramNum] = (msg->data[3]-'0')*1000 + (msg->data[4]-'0')*100 +(msg->data[5]-'0')*10 + (msg->data[6]-'0');
 							break;
+
+						case 'k': //设置PID参数  1000000倍
+							switch(msg->data[1]){
+							case 'i':
+								carCtrlData.KI = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
+												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
+								break;
+							case 'p':
+								carCtrlData.KP = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
+												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
+								break;
+							}
+							break;
+
 
 					}
 					break;
@@ -218,6 +251,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						case 'z':    //切换模式
 							autoMode = value; //状态跳转
 							resetCarCtrlData();  //清零电机控制
+							carCtrlData.AutoMode = autoMode;
 							break;
 					}
 					break;
@@ -225,63 +259,19 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 				case rfid:
 				{
-					/*
-					epc = getEPC(msg->data);
-					switch(carState){
-						case stationary:
-						{
-							switch(epc.epcType)
-							{
-								case
-							}
-						}
-					}
-					*/
+
 					value = msg->data[0];
 					if(value<=7 && value>=1){
-						setCarBrake(params[value-1].brake);
-						setCarThrottle(params[value-1].throttle);
+						setCarRPM(RPMparam[value-1]);
+//						setCarBrake(params[value-1].brake);
+//						setCarThrottle(params[value-1].throttle);
 					}
 					else
 					{
-						setCarBrake(0);
-						setCarThrottle(0);
+						setCarRPM(0);
+//						setCarBrake(0);
+//						setCarThrottle(0);
 					}
-					/*
-					switch(value){  //无状态
-						case 1:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 2:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 3:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 4:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 5:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 6:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						case 7:
-							setCarBrake(0);
-							setCarThrottle(20);
-							break;
-						default:
-							setCarBrake(0);
-							setCarThrottle(0);
-					}
-					*/
 
 					break;
 				}

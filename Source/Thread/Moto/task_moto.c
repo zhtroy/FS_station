@@ -10,6 +10,8 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
+#include "stdio.h"
+#include <math.h>
 
 
 /********************************************************************************/
@@ -26,11 +28,14 @@ static uint8_t connectStatus = 1;
 #endif
 
 
+float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear);
+
 /********************************************************************************/
 /*          静态全局变量                                                              */
 /********************************************************************************/
 static Semaphore_Handle sem_dataReady;
 static Semaphore_Handle sem_txReady;
+static Semaphore_Handle sem_pid;
 
 static CAN_DATA_OBJ canSendData;
     
@@ -67,6 +72,8 @@ static void InitSem()
 	sem_dataReady = Semaphore_create(0, &semParams, NULL);
 
     sem_txReady = Semaphore_create(1, &semParams, NULL);
+
+    sem_pid = Semaphore_create(1, &semParams, NULL);
 }
 
 static void motoSendTask(void)
@@ -92,6 +99,8 @@ static void motoSendTask(void)
     
 	while (1)
 	{
+        Semaphore_pend(sem_pid, 100);        //100ms超时发送油门
+
 		canTx->Gear = carCtrlData.Gear;
         
 		if (connectStatus)
@@ -130,6 +139,14 @@ static void motoSendTask(void)
 
 static void motoRecvTask(void)
 {
+	//pid
+    uint16_t recvRpm;
+    uint16_t recvThrottle;
+    float adjThrottle;
+    float adjbrake;
+    //uint8_t mode;
+    static float hisThrottle = 0;
+
     CAN_DATA_OBJ *canRecvData;
 	fbData.motorDataF.MotoId = MOTO_FRONT;
 	fbData.motorDataR.MotoId = MOTO_REAR;
@@ -151,6 +168,53 @@ static void motoRecvTask(void)
     			fbData.motorDataF.RPMH       = (uint8_t)canRecvData->Data[5];
     			fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData->Data[6] - 40;
     			fbData.motorDataF.DriverTemp = (uint8_t)canRecvData->Data[7] - 40;
+
+
+    			//printf("m %d\n", carCtrlData.AutoMode);
+    			//mode = carCtrlData.AutoMode;
+    			if(2 == carCtrlData.AutoMode)
+    			{
+					recvRpm = (fbData.motorDataF.RPMH << 8) + fbData.motorDataF.RPML;
+					recvThrottle = (fbData.motorDataF.ThrottleH << 8) + fbData.motorDataF.ThrottleL;
+					adjThrottle = pidCalc(carCtrlData.RPM,recvRpm,(float)(carCtrlData.KP/1000000.0),(float)(carCtrlData.KI/1000000.0), 0);
+
+					hisThrottle = adjThrottle;
+
+					if(hisThrottle > MAX_THROTTLE_SIZE)
+						hisThrottle = MAX_THROTTLE_SIZE;
+					else if(hisThrottle < MIN_THROTTLE_SIZE)
+						hisThrottle = MIN_THROTTLE_SIZE;
+					else;
+
+					if(hisThrottle < 0)
+					{
+						carCtrlData.Throttle = 0;
+
+						if(hisThrottle < BREAK_THRESHOLD)
+							adjbrake = - BRAKE_THRO_RATIO* (hisThrottle - BREAK_THRESHOLD);
+						else
+							adjbrake = 0;
+
+						if(adjbrake > MAX_BRAKE_SIZE)
+							carCtrlData.Brake = MAX_BRAKE_SIZE;
+						else
+							carCtrlData.Brake = round(adjbrake);
+					}
+					else
+					{
+						carCtrlData.Throttle = round(hisThrottle);
+						carCtrlData.Brake = 0;
+					}
+    			}
+    			else
+    			{
+    				hisThrottle = 0;
+    				pidCalc(0,0,0,0,1);
+    			}
+
+    			Semaphore_post(sem_pid);
+
+
     			break;
     		case MOTO_F_CANID3:
     			fbData.motorDataF.VoltL      = (uint8_t)canRecvData->Data[0];
@@ -219,10 +283,10 @@ void taskMotoSendFdbkToCell()
 		fbData.motorDataF.ThrottleH++;
 		fbData.motorDataF.RPML++;
 		*/
-
+		fbData.brake = carCtrlData.Brake;
 		CellSendData((char*) &fbData, sizeof(fbData));
 
-		Task_sleep(200);
+		Task_sleep(100);
 	}
 }
 void testMototaskInit()
@@ -278,3 +342,75 @@ uint16_t getRPM(void)
 
 	return uCarRPM;
 }
+
+float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
+{
+    int32_t diffRpm;
+    float adjThrottle;
+    static float lastThrottle = 0;
+
+    if(clear==1)
+    {
+    	lastThrottle =0;
+    	return 0;
+    }
+
+    diffRpm = expRpm - realRpm;
+
+    /*限定差值最大范围*/
+    if(diffRpm > DIFF_RPM_UPSCALE)
+        diffRpm = DIFF_RPM_UPSCALE;
+    else if(diffRpm < DIFF_RPM_DWSCALE)
+        diffRpm = DIFF_RPM_DWSCALE;
+    else;
+
+
+    adjThrottle = kp*diffRpm + ki*lastThrottle;
+
+
+    if(adjThrottle > MAX_THROTTLE_SIZE)
+        adjThrottle = MAX_THROTTLE_SIZE;
+    else if(adjThrottle < MIN_THROTTLE_SIZE)
+        adjThrottle = MIN_THROTTLE_SIZE;
+    else;
+
+    lastThrottle = adjThrottle;
+
+    return adjThrottle;
+}
+/*
+float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
+{
+    int32_t diffRpm;
+    float adjThrottle;
+    static float sigmaDiff = 0;
+
+    if(clear==1)
+    {
+    	sigmaDiff =0;
+    	return 0;
+    }
+
+    diffRpm = expRpm - realRpm;
+
+    //限定差值最大范围
+    if(diffRpm > DIFF_RPM_UPSCALE)
+        diffRpm = DIFF_RPM_UPSCALE;
+    else if(diffRpm < DIFF_RPM_DWSCALE)
+        diffRpm = DIFF_RPM_DWSCALE;
+    else;
+
+    sigmaDiff = sigmaDiff + diffRpm;
+
+    adjThrottle = kp*diffRpm + ki*sigmaDiff;
+
+    if(adjThrottle > ADJ_THROTTLE_UPSCALE)
+        adjThrottle = ADJ_THROTTLE_UPSCALE;
+    else if(adjThrottle < ADJ_THROTTLE_DWSCALE)
+        adjThrottle = ADJ_THROTTLE_DWSCALE;
+    else;
+
+    return adjThrottle;
+}
+
+*/

@@ -96,14 +96,31 @@ typedef struct
 	uint8_t CanReserved2;
 }motor_data_t;
 
+#pragma pack(1)
 typedef struct{
 	motor_data_t motorDataF;
 	motor_data_t motorDataR;
 	uint8_t rfid;
 	uint8_t mode;
+	uint8_t brake;
 	uint32_t rfidReadTime;
 
 }fbdata_t;
+
+#define DIFF_RPM_UPSCALE (4000)
+#define DIFF_RPM_DWSCALE (-4000)
+
+#define ADJ_THROTTLE_UPSCALE (10)
+#define ADJ_THROTTLE_DWSCALE (-10)
+
+#define MAX_THROTTLE_SIZE (50)
+#define MIN_THROTTLE_SIZE (-250)
+
+#define BREAK_THRESHOLD (-40)
+
+#define MAX_BRAKE_SIZE (60)
+
+#define BRAKE_THRO_RATIO (0.5)
 
 uint16_t getRPM(void);
 

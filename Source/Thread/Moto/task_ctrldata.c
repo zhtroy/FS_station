@@ -8,6 +8,10 @@ ctrlData carCtrlData =
     DRIVE,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
     0
 };
 /*发送控制命令任务*/
