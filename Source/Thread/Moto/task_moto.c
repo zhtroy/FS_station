@@ -179,7 +179,7 @@ static void motoRecvTask(void)
 
 					if(hisThrottle < 0 && adjThrottle >0)
 					{
-						hisThrottle += 4.0*adjThrottle;
+						hisThrottle += 5.0*adjThrottle;
 					}
 					else
 					{

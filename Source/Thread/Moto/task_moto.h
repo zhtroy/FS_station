@@ -113,7 +113,7 @@ typedef struct{
 #define ADJ_THROTTLE_UPSCALE (10)
 #define ADJ_THROTTLE_DWSCALE (-10)
 
-#define MAX_THROTTLE_SIZE (50)
+#define MAX_THROTTLE_SIZE (55)
 #define MIN_THROTTLE_SIZE (-500)
 
 #define BREAK_THRESHOLD (-200)
