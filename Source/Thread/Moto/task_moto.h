@@ -114,13 +114,13 @@ typedef struct{
 #define ADJ_THROTTLE_DWSCALE (-10)
 
 #define MAX_THROTTLE_SIZE (50)
-#define MIN_THROTTLE_SIZE (-250)
+#define MIN_THROTTLE_SIZE (-500)
 
-#define BREAK_THRESHOLD (-40)
+#define BREAK_THRESHOLD (-200)
 
 #define MAX_BRAKE_SIZE (60)
 
-#define BRAKE_THRO_RATIO (0.5)
+#define BRAKE_THRO_RATIO (0.2)
 
 uint16_t getRPM(void);
 

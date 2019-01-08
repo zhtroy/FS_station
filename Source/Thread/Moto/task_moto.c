@@ -169,7 +169,6 @@ static void motoRecvTask(void)
     			fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData->Data[6] - 40;
     			fbData.motorDataF.DriverTemp = (uint8_t)canRecvData->Data[7] - 40;
 
-
     			//printf("m %d\n", carCtrlData.AutoMode);
     			//mode = carCtrlData.AutoMode;
     			if(2 == carCtrlData.AutoMode)
@@ -178,7 +177,14 @@ static void motoRecvTask(void)
 					recvThrottle = (fbData.motorDataF.ThrottleH << 8) + fbData.motorDataF.ThrottleL;
 					adjThrottle = pidCalc(carCtrlData.RPM,recvRpm,(float)(carCtrlData.KP/1000000.0),(float)(carCtrlData.KI/1000000.0), 0);
 
-					hisThrottle = adjThrottle;
+					if(hisThrottle < 0 && adjThrottle >0)
+					{
+						hisThrottle += 4.0*adjThrottle;
+					}
+					else
+					{
+						hisThrottle += adjThrottle;
+					}
 
 					if(hisThrottle > MAX_THROTTLE_SIZE)
 						hisThrottle = MAX_THROTTLE_SIZE;
@@ -186,8 +192,9 @@ static void motoRecvTask(void)
 						hisThrottle = MIN_THROTTLE_SIZE;
 					else;
 
-					if(hisThrottle < 0)
+					if(hisThrottle < 0)   //刹车状态
 					{
+
 						carCtrlData.Throttle = 0;
 
 						if(hisThrottle < BREAK_THRESHOLD)
@@ -199,8 +206,9 @@ static void motoRecvTask(void)
 							carCtrlData.Brake = MAX_BRAKE_SIZE;
 						else
 							carCtrlData.Brake = round(adjbrake);
+
 					}
-					else
+					else  //油门
 					{
 						carCtrlData.Throttle = round(hisThrottle);
 						carCtrlData.Brake = 0;
@@ -342,7 +350,7 @@ uint16_t getRPM(void)
 
 	return uCarRPM;
 }
-
+#if 0
 float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 {
     int32_t diffRpm;
@@ -378,16 +386,17 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 
     return adjThrottle;
 }
-/*
+#endif
+
 float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 {
     int32_t diffRpm;
     float adjThrottle;
-    static float sigmaDiff = 0;
+    static float lastDiff = 0;
 
     if(clear==1)
     {
-    	sigmaDiff =0;
+    	lastDiff =0;
     	return 0;
     }
 
@@ -400,9 +409,9 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
         diffRpm = DIFF_RPM_DWSCALE;
     else;
 
-    sigmaDiff = sigmaDiff + diffRpm;
+    adjThrottle = kp*(diffRpm - lastDiff) + ki*diffRpm;
 
-    adjThrottle = kp*diffRpm + ki*sigmaDiff;
+    lastDiff = diffRpm;
 
     if(adjThrottle > ADJ_THROTTLE_UPSCALE)
         adjThrottle = ADJ_THROTTLE_UPSCALE;
@@ -413,4 +422,4 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
     return adjThrottle;
 }
 
-*/
+
