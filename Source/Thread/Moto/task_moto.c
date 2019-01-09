@@ -28,7 +28,7 @@ static uint8_t connectStatus = 1;
 #endif
 
 
-float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear);
+float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear);
 
 /********************************************************************************/
 /*          静态全局变量                                                              */
@@ -175,7 +175,8 @@ static void motoRecvTask(void)
     			{
 					recvRpm = (fbData.motorDataF.RPMH << 8) + fbData.motorDataF.RPML;
 					recvThrottle = (fbData.motorDataF.ThrottleH << 8) + fbData.motorDataF.ThrottleL;
-					adjThrottle = pidCalc(carCtrlData.RPM,recvRpm,(float)(carCtrlData.KP/1000000.0),(float)(carCtrlData.KI/1000000.0), 0);
+					adjThrottle = pidCalc(carCtrlData.RPM,recvRpm,(float)(carCtrlData.KP/1000000.0),
+											(float)(carCtrlData.KI/1000000.0),(float)(carCtrlData.KU/1000000.0), 0);
 
 					if(hisThrottle < 0 && adjThrottle >0)
 					{
@@ -217,7 +218,7 @@ static void motoRecvTask(void)
     			else
     			{
     				hisThrottle = 0;
-    				pidCalc(0,0,0,0,1);
+    				pidCalc(0,0,0,0,0,1);
     			}
 
     			Semaphore_post(sem_pid);
@@ -292,6 +293,7 @@ void taskMotoSendFdbkToCell()
 		fbData.motorDataF.RPML++;
 		*/
 		fbData.brake = carCtrlData.Brake;
+		fbData.railstate = getRailState();
 		CellSendData((char*) &fbData, sizeof(fbData));
 
 		Task_sleep(100);
@@ -388,15 +390,17 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 }
 #endif
 
-float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
+float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear)
 {
     int32_t diffRpm;
     float adjThrottle;
-    static float lastDiff = 0;
+    static int32_t lastDiff = 0;
+    static int32_t elastDiff = 0;
 
     if(clear==1)
     {
     	lastDiff =0;
+    	elastDiff = 0;
     	return 0;
     }
 
@@ -409,8 +413,9 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
         diffRpm = DIFF_RPM_DWSCALE;
     else;
 
-    adjThrottle = kp*(diffRpm - lastDiff) + ki*diffRpm;
+    adjThrottle = kp*(diffRpm - lastDiff) + ki*diffRpm + ku*(diffRpm - 2*lastDiff + elastDiff);
 
+    elastDiff = lastDiff;
     lastDiff = diffRpm;
 
     if(adjThrottle > ADJ_THROTTLE_UPSCALE)

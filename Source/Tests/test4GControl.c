@@ -162,6 +162,9 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						case 'r':    //rail
 							carCtrlData.Rail = (uint8_t) value;
 							break;
+						case 'R': //railstate
+							setRailState((uint8_t) value);
+							break;
 						case 'b':    //brake
 							carCtrlData.Brake = (uint8_t) value;
 							break;
@@ -225,6 +228,12 @@ static Void task4GControlMain(UArg a0, UArg a1)
 												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
 												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
 								break;
+							case 'u':
+								carCtrlData.KU = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
+												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
+								break;
+
 							}
 							break;
 

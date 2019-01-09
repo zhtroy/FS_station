@@ -7,10 +7,10 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
+#include "Moto/task_ctrldata.h"
 
 extern uint16_t getRPM(void);
-extern uint8_t getBrake(void);
-extern uint8_t getRailState(void);
+
 
 /********************************************************************************/
 /*          静态全局变量                                                              */
@@ -25,7 +25,7 @@ static int32_t pulseCount;			//刹车位置与伺服当前位置差
 static int16_t pulseE4;
 static int16_t pulseE0;
 
-static uint8_t uRail;
+
 static uint8_t railState;
 static uint8_t keyState;
 
@@ -174,7 +174,7 @@ static uint8_t modbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
 
     Semaphore_pend(sem_modbus,BIOS_WAIT_FOREVER);   
     
-    for(udelay = 3000;udelay>0;udelay--);           //增加发送间隔，保证控制器能识别
+    //for(udelay = 3000;udelay>0;udelay--);           //增加发送间隔，保证控制器能识别
 
     sendData.id = id;
     sendData.cmd = 0x03;
@@ -210,7 +210,7 @@ static uint8_t modbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
     if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：100ms
     	ackStatus = MODBUS_ACK_TIMEOUT;
     else
-        *data = (uint16_t)recvBuff->Buffer[4] << 8 + recvBuff->Buffer[5];
+        *data = (uint16_t)(recvBuff->Buffer[3] << 8) + recvBuff->Buffer[4];
 
     Semaphore_post(sem_modbus);
     
@@ -228,14 +228,14 @@ static void recvDataTask(void)
         Semaphore_pend(sem_dataReady, BIOS_WAIT_FOREVER);
         recvBuff = UartNs550PopBuffer(SERVOR_MOTOR_UART);
         
-        if(recvBuff->Length == 8 || recvBuff->Length == 6)
+        if(recvBuff->Length == 8 || recvBuff->Length == 6 || recvBuff->Length == 5 || recvBuff->Length == 7)
         {
             calcCrc = crc_chk((uint8_t *)recvBuff->Buffer,recvBuff->Length - 2);
             //recvCrc = (uint16_t *)&(recvBuff->Buffer[recvBuff->Length-2]);
             recvCrc = ((uint16_t)recvBuff->Buffer[recvBuff->Length-2]) + (((uint16_t)recvBuff->Buffer[recvBuff->Length-1])<<8);
             if(recvCrc == calcCrc)
             {
-                if(recvBuff->Length == 8)
+                if(recvBuff->Length == 8 || recvBuff->Length == 7)
                     ackStatus = MODBUS_ACK_OK;
                 else
                     ackStatus = MODBUS_ACK_NOTOK;
@@ -353,236 +353,143 @@ static void vChangeRailTask(void)
 	static uint8_t change_en=1;
 	static uint8_t SCount=0;
 	static uint8_t modbusCount=0;
+	uint8_t uRail = 0;
+	uint8_t lastuRail = 0;
 	
 	while(1)
 	{
 		Task_sleep(50);
-		
-		railState = getRailState();
 
-        #if 0
-		if(keyState == LEFTRAIL)	
-            railState = LEFTRAIL;         //置轮子处于轨道状态
-		else if(keyState == RIGHTRAIL)	
-            railState=RIGHTRAIL;
-        else;
-        #endif
-		
-		uRail=getRail();
-        
-		preach=0;
-		SCount=0;
-		while((uRail == 1) && (railState == RIGHTRAIL) && change_en == 1)//正转270度
+		lastuRail = uRail;
+		preach = 0;
+		SCount = 0;
+		step = 0;
+		uRail = getRail();
+
+		if(lastuRail == 0 && uRail ==1)
 		{
-			switch(step)
+			while(step != STEP_EXIT && change_en == 1)//正转270度
 			{
-				case 0:
-                    //选择内部位置：Pn071
-                    state = modbusWriteReg(0x02,0x0047,0x7FFF);
+				switch(step)
+				{
+					case 0:
+						//选择内部位置：Pn071
+						Task_sleep(SLEEPTIME);
+						state = modbusWriteReg(0x02,0x0047,0x7FFF);
 
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-					}
-                    else;
-                    
-					break;
-				case 1:
-                    //使能伺服电机：Pn070
-                    state = modbusWriteReg(0x02,0x0046,0x7FFE);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-					}
-                    else;
-					
-					break;
-				case 2:
-				    //触发内部位置，电机转动：Pn071
-                    state = modbusWriteReg(0x02,0x0047,0x7BFF);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-                        Task_sleep(500);
-					}
-                    else;
-					
-					break;
-				case 3:
-                    //读取Dn018，判断bit3-Preach
-                    state = modbusReadReg(0x02,0x0182,&recvReg);
+						if(state == MODBUS_ACK_TIMEOUT)
+							modbusCount++;
+						else if(state == MODBUS_ACK_OK)
+						{
+							//写成功，进行下一步
+							step++;
+							modbusCount=0;
+						}
+						else;
 
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-                    else
-                    {
-                        SCount++;
-                        if(state == MODBUS_ACK_OK)
-                        {
-                            if(recvReg & 0x0800)//取Bit3 Preach,Bit 位为 0，表示功能为 ON 状态，为 1 则是 OFF 状态
+						break;
+					case 1:
+						//使能伺服电机：Pn070
+						Task_sleep(SLEEPTIME);
+						state = modbusWriteReg(0x02,0x0046,0x7FFE);
+
+						if(state == MODBUS_ACK_TIMEOUT)
+							modbusCount++;
+						else if(state == MODBUS_ACK_OK)
+						{
+							//写成功，进行下一步
+							step++;
+							modbusCount=0;
+						}
+						else;
+
+						break;
+					case 2:
+						//触发内部位置，电机转动：Pn071
+						Task_sleep(SLEEPTIME);
+
+						if(getRailState() == RIGHTRAIL)
+							state = modbusWriteReg(0x02,0x0047,0x7BFF);
+						else
+							state = modbusWriteReg(0x02,0x0047,0x7AFF);
+
+						if(state == MODBUS_ACK_TIMEOUT)
+							modbusCount++;
+						else if(state == MODBUS_ACK_OK)
+						{
+							//写成功，进行下一步
+							step++;
+							modbusCount=0;
+							Task_sleep(500);
+						}
+						else;
+
+						break;
+					case 3:
+						//读取Dn018，判断bit3-Preach
+						Task_sleep(SLEEPTIME);
+						state = modbusReadReg(0x02,0x0182,&recvReg);
+
+						if(state == MODBUS_ACK_TIMEOUT)
+							modbusCount++;
+						else
+						{
+							SCount++;
+							if(state == MODBUS_ACK_OK)
 							{
-								//位置偏差，发出偏差报警
-								preach=0;
+								if(recvReg & 0x0008)//取Bit3 Preach,Bit 位为 0，表示功能为 ON 状态，为 1 则是 OFF 状态
+								{
+									//位置偏差，发出偏差报警
+									preach=0;
+								}
+								else
+								{
+									//到达指定位置，进行下一步
+									preach=1;
+									step++;
+									modbusCount=0;
+								}
+							}
+							else;
+
+						}
+
+						break;
+					case 4:
+						//关闭伺服电机：Pn070
+						Task_sleep(SLEEPTIME);
+						state = modbusWriteReg(0x02,0x0046,0x7FFF);
+
+						if(state == MODBUS_ACK_TIMEOUT)
+							modbusCount++;
+						else if(state == MODBUS_ACK_OK)
+						{
+							if(preach)
+							{
+								if(getRailState() == RIGHTRAIL)
+									setRailState(LEFTRAIL);
+								else
+									setRailState(RIGHTRAIL);
+
+								preach=0;//清除状态
 							}
 							else
 							{
-								//到达指定位置，进行下一步
-								preach=1;
-								step++;
-								modbusCount=0;
+								change_en=0;//指令完成但位置偏差时，禁止变轨
 							}
-                        }
-                        else;
-                            
-                    }
-                
-					break;
-				case 4:
-				    //关闭伺服电机：Pn070
-                    state = modbusWriteReg(0x02,0x0046,0x7FFF);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-                        if(preach)
-						{
-							railState=LEFTRAIL;
-							preach=0;//清除状态
-						}
-						else
-						{
-							change_en=0;//指令完成但位置偏差时，禁止变轨
-						}
-						step=0;//复位步骤
-						modbusCount=0;
-						
-					}
-                    else;
-					
-					break;
-			}		
-		}
-		while((uRail == 2 )&&(railState == LEFTRAIL) && change_en == 1)//反转270度
-		{
-			switch(step)
-			{
-				case 0:
-                    //选择内部位置：Pn071
-                    state = modbusWriteReg(0x02,0x0047,0x7FFF);
+							step = STEP_EXIT;
+							modbusCount=0;
 
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-					}
-                    else;
-                    
-					break;
-				case 1:
-                    //使能伺服电机：Pn070
-                    state = modbusWriteReg(0x02,0x0046,0x7FFE);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-					}
-                    else;
-                    
-					break;
-				case 2:
-                    //触发内部位置，电机转动：Pn071
-                    state = modbusWriteReg(0x02,0x0047,0x7AFF);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-						//写成功，进行下一步
-						step++;
-						modbusCount=0;
-                        Task_sleep(500);
-					}
-                    else;
-                    
-					break;
-				case 3:
-                    //读取Dn018，判断bit3-Preach
-                    state = modbusReadReg(0x02,0x0182,&recvReg);
+						}
+						else;
 
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-                    else
-                    {
-                        SCount++;
-                        if(state == MODBUS_ACK_OK)
-                        {
-                            if(recvReg & 0x0800)//取Bit3 Preach,Bit 位为 0，表示功能为 ON 状态，为 1 则是 OFF 状态
-							{
-								//位置偏差，发出偏差报警
-								preach=0;
-							}
-							else
-							{
-								//到达指定位置，进行下一步
-								preach=1;
-								step++;
-								modbusCount=0;
-							}
-                        }
-                        else;
-                            
-                    }
-                    
-					break;
-				case 4://失能伺服电机
-				    //关闭伺服电机：Pn070
-                    state = modbusWriteReg(0x02,0x0046,0x7FFF);
-                    
-                    if(state == MODBUS_ACK_TIMEOUT)
-                        modbusCount++;
-					else if(state == MODBUS_ACK_OK)
-					{
-                        if(preach)
-						{
-							railState=RIGHTRAIL;
-							preach=0;//清除状态
-						}
-						else
-						{
-							change_en=0;//指令完成但位置偏差时，禁止变轨
-						}
-						step=0;//复位步骤
-						modbusCount=0;
-						
-					}
-                    else;
-					break;
-			}		
+						break;
+				}
+			}
 		}
-		
-		
+
+
+
 	}
 }
 

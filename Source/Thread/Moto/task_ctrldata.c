@@ -9,6 +9,7 @@ ctrlData carCtrlData =
     0,
     0,
     0,
+    0,     //railstate
     0,
     0,
     0,
@@ -32,5 +33,10 @@ uint8_t getRailState(void)
 	return carCtrlData.RailState;
 }
 
+uint8_t setRailState(uint8_t sts)
+{
+	carCtrlData.RailState = sts;
+	return sts;
+}
 
 

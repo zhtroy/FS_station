@@ -17,6 +17,7 @@ typedef struct
     uint16_t RPM;
     uint32_t KI;
     uint32_t KP;
+    uint32_t KU;
     uint8_t AutoMode;    //0 手动 2自动
 }ctrlData;
 
@@ -24,5 +25,5 @@ typedef struct
 uint8_t getBrake(void);
 uint8_t getRail(void);
 uint8_t getRailState(void);
-
+uint8_t setRailState(uint8_t sts);
 #endif

@@ -24,6 +24,7 @@
 #define BRAKETIME 10											//刹车计算时间
 #define MAXSTEP 100												//刹车行程总步数
 
+#define STEP_EXIT (5)
 
 typedef struct{
     uint8_t     id;
