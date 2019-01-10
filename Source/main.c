@@ -10,6 +10,7 @@
 #include <ti/sysbios/BIOS.h>
 
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/hal/Cache.h>
 
 #include "gpio_app.h"
 #include "uartStdio.h"
@@ -92,7 +93,12 @@ void SyncInit()
  */
 Int main()
 {
-    
+	//7s
+	uint32_t delay = 0xFFFFFFF;
+	while(delay>0){
+		delay--;
+	}
+
 	PeriphInit();
 
 	SyncInit();

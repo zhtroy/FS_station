@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-/*Í¨Ñ¶¿ØÖÆÐÅºÅÊý¾Ý½á¹¹*/
+/*Í¨Ñ¶ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½Ý½á¹¹*/
+#pragma pack(1)
 typedef struct
 {
 	uint8_t MotoSel;
@@ -13,11 +14,16 @@ typedef struct
 	uint8_t Rail;
 	uint8_t Brake;
     uint8_t RailState;
+    uint16_t RPM;
+    uint32_t KI;
+    uint32_t KP;
+    uint32_t KU;
+    uint8_t AutoMode;    //0 æ‰‹åŠ¨ 2è‡ªåŠ¨
 }ctrlData;
 
 //void vCtrldataTask(void *param);
 uint8_t getBrake(void);
 uint8_t getRail(void);
 uint8_t getRailState(void);
-
+uint8_t setRailState(uint8_t sts);
 #endif
