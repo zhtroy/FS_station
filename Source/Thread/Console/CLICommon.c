@@ -37,3 +37,16 @@ int32_t autoStrtol(const char *str)
     else
         return strtol(str, NULL, 10);
 }
+
+uint8_t strSplitToData(char *pcParameter, uint8_t *data)
+{
+    uint8_t len = 0;
+    char *p = strtok(pcParameter,",");
+    while(p != NULL)
+    {
+        *(data+len) = autoStrtol(p);
+        len++;
+        p = strtok(NULL,",");
+    }
+    return len;
+}

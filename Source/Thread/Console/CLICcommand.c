@@ -16,6 +16,7 @@ extern const CLI_Command_Definition_t xLTESend;
 extern const CLI_Command_Definition_t xLTESenda;
 extern const CLI_Command_Definition_t xLTESetMode;
 extern const CLI_Command_Definition_t xLTEGetMode;
+extern const CLI_Command_Definition_t xMessageSend;
 
 
 /*-----------------------------------------------------------*/
@@ -30,6 +31,7 @@ void vRegisterSampleCLICommands( void )
     FreeRTOS_CLIRegisterCommand( &xLTESenda );
     FreeRTOS_CLIRegisterCommand( &xLTESetMode );
     FreeRTOS_CLIRegisterCommand( &xLTEGetMode );
+    FreeRTOS_CLIRegisterCommand( &xMessageSend );
 }
 /*-----------------------------------------------------------*/
 
