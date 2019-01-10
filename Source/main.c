@@ -33,6 +33,7 @@ void PeriphInit()
 	gpio_init();       //初始化GPIO
 	gpio_fpga_rst();  //复位FPGA
 
+	I2CPinMuxSetup(0);	//I2C0初始化
 	//DSP UART----------------------
 	UARTStdioInit();  //DSP调试串口1初始化
 	dsp_uart2_init(); //DSP串口2设置，连接4G
