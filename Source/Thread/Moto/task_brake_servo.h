@@ -26,6 +26,8 @@
 
 #define STEP_EXIT (5)
 
+#define BRAKE_STEP_PULSE (150)
+
 typedef struct{
     uint8_t     id;
     uint8_t     cmd;

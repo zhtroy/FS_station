@@ -24,7 +24,7 @@
 #define EPC_PRE_MERGE 			(0x0C)
 #define EPC_MERGE  				(0x0D)
 
-#define FORCE_BRAKE				(65)
+#define FORCE_BRAKE				(150)
 
 /*
  * 状态机

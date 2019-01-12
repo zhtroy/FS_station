@@ -16,11 +16,9 @@ extern uint16_t getRPM(void);
 /*          静态全局变量                                                              */
 /********************************************************************************/
 static uint8_t uBrake,uLastBrake;	//刹车信号
-static int8_t deltaBrake;
-static uint16_t uRPM,uLastRPM;		//定义转速
+static int8_t  deltaBrake;
 static int16_t sDeltaRPM,sBrake;
-static float fDecTarget,fDecNow;
-static int8_t servo_step=0;			//标记伺服位置
+static uint8_t servo_step=0;			//标记伺服位置
 static int32_t pulseCount;			//刹车位置与伺服当前位置差
 static int16_t pulseE4;
 static int16_t pulseE0;
@@ -277,17 +275,12 @@ void vBrakeServoTask(void *param)
 	{	
 		Task_sleep(BRAKETIME);
 		uBrake = getBrake();
-		fDecTarget = uBrake*AMAX/100;				//计算目标减速度
-		uRPM = getRPM();							//转速
-		fDecNow=PI*DM*(uRPM-uLastRPM)/(60*KM*BRAKETIME/1000);//
-		uLastRPM=uRPM;
 		/*	总行程45000个脉冲
 			每步450脉冲
 		*/
 		if(servo_step!=uBrake)
 		{
-			pulseCount=uBrake-servo_step;
-			pulseCount=400*(uBrake-servo_step);		//原来450
+			pulseCount=BRAKE_STEP_PULSE*(uBrake-servo_step);
 			pulseE4=pulseCount/10000;				//万位
 			pulseE0=pulseCount-10000*pulseE4;		//个位
 			while(1)
