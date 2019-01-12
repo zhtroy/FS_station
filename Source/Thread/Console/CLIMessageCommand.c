@@ -19,7 +19,7 @@ msgSend <type> <data>:Send Message. \r\n \
 <data>: Message Data Array\r\n \
 ie, msgSend 1 1,2,3,4\r\n",
 	prvMessageSend, /* The function to run. */
-	1 /* Three parameters are expected, which can take any value. */
+	2 /* Three parameters are expected, which can take any value. */
 };
 
 

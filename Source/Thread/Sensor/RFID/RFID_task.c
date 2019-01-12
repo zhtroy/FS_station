@@ -23,7 +23,7 @@
 
 #define RFID_DEVICENUM  0  //TODO: 放入一个配置表中
 
-extern fbdata_t fbData;
+extern fbdata_t g_fbData;
 
 void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
 {
@@ -37,8 +37,8 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 			//填充回传数据
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
-			fbData.rfid = data[2];
-			fbData.rfidReadTime = Timestamp_get32();
+			g_fbData.rfid = data[2];
+			g_fbData.rfidReadTime = Timestamp_get32();
 
 			msg = Message_getEmpty();
 			msg->type = rfid;

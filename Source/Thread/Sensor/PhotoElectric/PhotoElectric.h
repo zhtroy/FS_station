@@ -8,7 +8,7 @@
 #ifndef PHOTOELECTRIC_H_
 #define PHOTOELECTRIC_H_
 
-#define PHOTO_CAN_DEV 0          //暂时使用CAN 0
+#define PHOTO_CAN_DEV 2          //暂时使用CAN 0
 
 
 #define PHOTO_LIGHT_0_ON  (1)
@@ -59,5 +59,7 @@ extern void PhotoEle_changeID(uint32_t oldID, uint32_t newID);
  * 设置对管发射端通断
  */
 extern void PhotoEle_setLight(uint32_t id, uint8_t mask);
+
+extern void taskPhotoElectric();
 
 #endif /* PHOTOELECTRIC_H_ */

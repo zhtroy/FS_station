@@ -36,6 +36,8 @@ typedef struct{
     uint16_t    crc;
 } modbusCmd_t;
 
+void ChangeRailStart();
+uint8_t ChangeRailIsComplete(); //1 表示成功， 0表示失败
 
 
 #endif

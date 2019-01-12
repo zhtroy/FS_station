@@ -37,6 +37,9 @@ static Semaphore_Handle sem_dataReady;
 UART550_BUFFER * recvBuff = NULL;
 static uint8_t ackStatus = MODBUS_ACK_OK;
 
+static uint8_t changeRail = 0;
+static uint8_t complete = 0;
+
 
 static void UartServorIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
 {
@@ -342,8 +345,15 @@ void vBrakeServoTask(void *param)
 
 	}
 }
+void ChangeRailStart()
+{
+	changeRail = 1;
+}
 
-
+uint8_t ChangeRailIsComplete()
+{
+	return complete;
+}
 static void vChangeRailTask(void)
 {
 	uint8_t state;
@@ -360,14 +370,15 @@ static void vChangeRailTask(void)
 	{
 		Task_sleep(50);
 
-		lastuRail = uRail;
 		preach = 0;
 		SCount = 0;
 		step = 0;
-		uRail = getRail();
 
-		if(lastuRail == 0 && uRail ==1)
+
+		if(1 == changeRail)
 		{
+			changeRail = 0;
+			complete= 0;
 			while(step != STEP_EXIT && change_en == 1)//正转270度
 			{
 				switch(step)
@@ -486,6 +497,8 @@ static void vChangeRailTask(void)
 						break;
 				}
 			}
+
+			complete= 1;
 		}
 
 

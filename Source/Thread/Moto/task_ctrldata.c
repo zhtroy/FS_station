@@ -1,7 +1,7 @@
 #include "task_ctrldata.h"
 #include "task_moto.h"
 
-ctrlData carCtrlData =
+ctrlData g_carCtrlData =
 {
     FRONT_REAR,
     THROTTLE,
@@ -20,22 +20,22 @@ ctrlData carCtrlData =
 
 uint8_t getBrake(void)
 {
-	return carCtrlData.Brake;
+	return g_carCtrlData.Brake;
 }
 
 uint8_t getRail(void)
 {
-	return carCtrlData.Rail;
+	return g_carCtrlData.Rail;
 }
 
 uint8_t getRailState(void)
 {
-	return carCtrlData.RailState;
+	return g_carCtrlData.RailState;
 }
 
 uint8_t setRailState(uint8_t sts)
 {
-	carCtrlData.RailState = sts;
+	g_carCtrlData.RailState = sts;
 	return sts;
 }
 

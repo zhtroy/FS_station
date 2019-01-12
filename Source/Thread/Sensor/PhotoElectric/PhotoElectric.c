@@ -15,10 +15,10 @@
 #include <stdio.h>
 #include "uartStdio.h"
 #include "Sensor/PhotoElectric/PhotoElectric.h"
+#include "Message/Message.h"
 
 
 static Semaphore_Handle sem_photoelectric_dataReady;
-
 
 
 /********************************************************************************/
@@ -66,15 +66,15 @@ static photo_t PhotoEle_resolveCANdata(CAN_DATA_OBJ * pdata)
 	return p;
 }
 
-static void taskPhotoElectric()
+void taskPhotoElectric()
 {
     CAN_DATA_OBJ *canRecvData;
     photo_t photo;
+    p_msg_t msg;
+    uint8_t state = 0;
 
     /*初始化信用量*/
     InitSem();
-    /*初始化CAN设备表*/
-    canTableInit();
     /*初始化CAN设备*/
     canOpen(PHOTO_CAN_DEV, CAN0IntrHandler, PHOTO_CAN_DEV);
 
@@ -88,7 +88,23 @@ static void taskPhotoElectric()
         /*
          * 串口输出，调试用
          */
-
+        switch(state){
+        case 0:
+        	if(photo.content.cmd == CAN_CMD_RISE)
+        	{
+        		state = 1;
+        	}
+        	break;
+        case 1:
+        	if(photo.content.cmd == CAN_CMD_FALL )
+        	{
+        		msg = Message_getEmpty();
+        		msg->type = photon;
+        		Message_post(msg);
+        		state = 0;
+        	}
+        	break;
+        }
         UARTprintf("photo deviceNum = %d\t",photo.deviceNum);
         if(photo.content.cmd ==CAN_CMD_RISE ){
 			UARTPuts("rise: ",-1);

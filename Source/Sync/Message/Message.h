@@ -20,6 +20,10 @@ typedef enum{
 	timer,
 	sonicradar,
 	cell,               //4G数据
+	photon,				//对管
+	changerail, 		//变轨
+	motor,				//动力电机
+	brake,    			//刹车
 	Empty               //缺省类型
 }msg_type_t;
 

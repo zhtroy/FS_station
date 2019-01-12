@@ -104,6 +104,7 @@ typedef struct{
 	uint8_t mode;
 	uint8_t brake;
 	uint8_t railstate;
+	uint8_t FSMstate;
 	uint32_t rfidReadTime;
 
 }fbdata_t;
