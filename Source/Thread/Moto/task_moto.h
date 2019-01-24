@@ -2,6 +2,7 @@
 #define __TASK_CAN_H
 
 #include <stdint.h>
+#include "Test_config.h"
 
 //MOTO F CAN ID
 #define MOTO_F_CANID1	0x10F8E3F3
@@ -112,15 +113,29 @@ typedef struct{
 #define DIFF_RPM_UPSCALE (4000)
 #define DIFF_RPM_DWSCALE (-4000)
 
-#define ADJ_THROTTLE_UPSCALE (10)
-#define ADJ_THROTTLE_DWSCALE (-10)
+#define ADJ_THROTTLE_UPSCALE (20)
+#define ADJ_THROTTLE_DWSCALE (-20)
 
+#if CAR_VERSION == 20
 #define MAX_THROTTLE_SIZE (55)
+#elif CAR_VERSION == 21
+#define MAX_THROTTLE_SIZE (100)
+#endif
+
 #define MIN_THROTTLE_SIZE (-355)
 
 #define BREAK_THRESHOLD (-100)
 
+#if CAR_VERSION == 20
 #define MAX_BRAKE_SIZE (200)
+#elif CAR_VERSION == 21
+#define MAX_BRAKE_SIZE (250)
+#endif
+
+
+#define FILTER_RPM (200)
+#define DELTA_RPM (6)
+#define RPM_LIMIT (1200)
 
 #define BRAKE_THRO_RATIO (1)
 

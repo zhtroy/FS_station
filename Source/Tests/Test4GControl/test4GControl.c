@@ -283,6 +283,9 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							}
 							break;
 
+						case 'c': // 是否允许变轨
+							g_carCtrlData.EnableChangeRail = msg->data[1]-'0';
+							break;
 
 					}
 					break;
@@ -345,7 +348,9 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 									break;
 								case EPC_PRE_SEPERATE:
-									carState = pre_seperate;
+									if(g_carCtrlData.EnableChangeRail == 1){  //在上位机设置了变轨才进入变轨流程
+										carState = pre_seperate;
+									}
 
 									break;
 
@@ -546,7 +551,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		if(carMode == ForceBrake)
 		{
 			g_carCtrlData.AutoMode = carMode;
-			setCarBrake(FORCE_BRAKE);
+			setCarBrake(MAX_BRAKE_SIZE);
 			setCarThrottle(0);
 		}
 

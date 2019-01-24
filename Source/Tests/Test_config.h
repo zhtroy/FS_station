@@ -10,6 +10,8 @@
 #ifndef TEST_CONFIG_H_
 #define TEST_CONFIG_H_
 
+#define CAR_VERSION 20
+
 //#define TEST_STATE_MACHINE
 //#define TEST_RFID_TASK
 

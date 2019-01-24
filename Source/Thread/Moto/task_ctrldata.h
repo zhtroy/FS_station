@@ -19,6 +19,7 @@ typedef struct
     uint32_t KP;
     uint32_t KU;
     uint8_t AutoMode;    //0 手动 2自动
+    uint8_t EnableChangeRail;
 }ctrlData;
 
 //void vCtrldataTask(void *param);

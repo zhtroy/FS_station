@@ -1,6 +1,7 @@
 #ifndef __TASK_BRAKE_SERVO_H
 #define __TASK_BRAKE_SERVO_H
 #include <stdint.h>
+#include "Test_config.h"
 
 #define UART_DEV_2 (2)
 #define SERVOR_MOTOR_UART UART_DEV_2
@@ -26,7 +27,15 @@
 
 #define STEP_EXIT (5)
 
+
+#if CAR_VERSION == 21
+/*机车2.1*/
+#define BRAKE_STEP_PULSE (-116)
+
+#elif CAR_VERSION == 20
+/*机车2.0*/
 #define BRAKE_STEP_PULSE (150)
+#endif
 
 typedef struct{
     uint8_t     id;

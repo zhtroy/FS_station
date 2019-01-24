@@ -14,6 +14,7 @@
 #include <math.h>
 
 
+
 /********************************************************************************/
 /*          外部全局变量                                                              */
 /********************************************************************************/
@@ -146,6 +147,11 @@ static void motoRecvTask(void)
     float adjbrake;
     //uint8_t mode;
     static float hisThrottle = 0;
+    uint16_t lastRpm;
+    uint8_t lastH;
+    uint8_t lastL;
+    uint8_t data_error = 0;
+    uint16_t calcRpm = 0;
 
     CAN_DATA_OBJ *canRecvData;
 	g_fbData.motorDataF.MotoId = MOTO_FRONT;
@@ -171,11 +177,41 @@ static void motoRecvTask(void)
 
     			//printf("m %d\n", carCtrlData.AutoMode);
     			//mode = carCtrlData.AutoMode;
-    			if(2 == g_carCtrlData.AutoMode)
+
+    			recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
+    			if(abs(lastRpm-recvRpm) >= FILTER_RPM)
+    			{
+    				data_error = 1;
+    			}
+    			else{
+    				data_error  = 0;
+    			}
+    			lastRpm = recvRpm;
+
+
+
+    			if(g_fbData.motorDataF.RPML != 0 || g_fbData.motorDataF.RPMH != 0)
+    			{
+    				*(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x5A;
+    				*(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x00;
+    			}
+
+    			if(2 == g_carCtrlData.AutoMode && data_error == 0 )
     			{
 					recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
 					recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
-					adjThrottle = pidCalc(g_carCtrlData.RPM,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
+
+					if(calcRpm<g_carCtrlData.RPM && abs((int)calcRpm - (int)(g_carCtrlData.RPM)) > DELTA_RPM)
+					{
+						calcRpm+=DELTA_RPM;
+					}
+					else if(calcRpm>g_carCtrlData.RPM && abs((int)calcRpm - (int)(g_carCtrlData.RPM)) > DELTA_RPM)
+					{
+						calcRpm-=DELTA_RPM;
+					}
+					calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
+
+					adjThrottle = pidCalc(calcRpm,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
 											(float)(g_carCtrlData.KI/1000000.0),(float)(g_carCtrlData.KU/1000000.0), 0);
 
 					if(hisThrottle < 0 && adjThrottle >0)
@@ -217,6 +253,7 @@ static void motoRecvTask(void)
     			}
     			else
     			{
+    				calcRpm=0;
     				hisThrottle = 0;
     				pidCalc(0,0,0,0,0,1);
     			}
