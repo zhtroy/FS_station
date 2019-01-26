@@ -201,14 +201,21 @@ static void motoRecvTask(void)
 					recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
 					recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
 
-					if(calcRpm<g_carCtrlData.RPM && abs((int)calcRpm - (int)(g_carCtrlData.RPM)) > DELTA_RPM)
-					{
-						calcRpm+=DELTA_RPM;
+					if ( abs((int)calcRpm - (int)(g_carCtrlData.RPM)) < DELTA_RPM ){
+						calcRpm = g_carCtrlData.RPM;
 					}
-					else if(calcRpm>g_carCtrlData.RPM && abs((int)calcRpm - (int)(g_carCtrlData.RPM)) > DELTA_RPM)
-					{
-						calcRpm-=DELTA_RPM;
+					else{
+						if(calcRpm<g_carCtrlData.RPM )
+						{
+							calcRpm+=DELTA_RPM;
+						}
+
+						else if(calcRpm>g_carCtrlData.RPM )
+						{
+							calcRpm-=DELTA_RPM;
+						}
 					}
+
 					calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
 
 					adjThrottle = pidCalc(calcRpm,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
