@@ -22,7 +22,7 @@
 #include "task_moto.h"
 #include "Test4GControl/test4GControl.h"
 #include "Sensor/PhotoElectric/PhotoElectric.h"
-
+#include "task_brake_servo.h"
 
 
 
@@ -55,7 +55,19 @@ static void FSprintf(const char *fmt, ...)
 
 static xdc_Void connectionClosed(xdc_UArg arg)
 {
-	g_connectStatus = 0;
+    p_msg_t sendmsg;
+    g_connectStatus = 0;
+    
+    /*
+    *TODO:添加断连处理，发送急停消息，进入急停模式，并设置ErrorCode
+    */
+    sendmsg = Message_getEmpty();
+    sendmsg->data[0] = 'z';
+    sendmsg->data[1] = '3';
+    sendmsg->data[2] = '0';     //ErrorCode
+    sendmsg->data[3] = '2';     //ErrorCode
+    Message_post(sendmsg);
+    //setErrorCode(ERROR_CONNECT_TIMEOUT);
 }
 
 static void connectionOn()
@@ -133,6 +145,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 {
 	p_msg_t msg;
 	int tempint, paramNum;
+    int errorCode;
 	car_mode_t carMode = Manual; //手动0 设置参数1 自动2
 	car_state_t carState = idle;
 	car_seperate_state_t seperateState;
@@ -184,18 +197,36 @@ static Void task4GControlMain(UArg a0, UArg a1)
 			 * 3 紧急制动模式
 			 */
 			if(msg->data[0] == 'z'){
-				tempint = atoi(&(msg->data[1]));   //转换字符串为int
+				tempint = msg->data[1]-'0';   //转换字符串为int
 				carMode =(car_mode_t) tempint; //模式跳转
 				resetCarCtrlData();  //清零电机控制
 				g_carCtrlData.AutoMode = carMode;
 
 				switch(carMode)   ///模式跳转动作
 				{
+                    case Manual:
+                        setErrorCode(ERROR_NONE);
+                        g_carCtrlData.BrakeReady = 1;
+                        g_carCtrlData.ChangeRailReady = 1;
+                        
+                        break;
 					case Auto:
 						g_carCtrlData.Gear = 1;   //进入自动模式后，默认挂前进档
 						carState = idle;
+                    
+                        setErrorCode(ERROR_NONE);
+                        g_carCtrlData.BrakeReady = 1;
+                        g_carCtrlData.ChangeRailReady = 1;
 						break;
-
+                    case Setting:
+                        setErrorCode(ERROR_NONE);
+                        g_carCtrlData.BrakeReady = 1;
+                        g_carCtrlData.ChangeRailReady = 1;
+						break;
+                    case ForceBrake:
+                        errorCode = (msg->data[2]-'0')*10 + (msg->data[3]-'0');
+                        setErrorCode(errorCode);
+                        break;
 				}
 			}
 		}
@@ -203,7 +234,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		g_fbData.mode = (uint8_t) carMode;
 		g_fbData.FSMstate = carState;
 
-		if(carMode == Manual){ //手动模式
+		if(carMode == Manual){ //手动模式	
 			switch(msg->type){
 				case cell:
 				{
@@ -243,6 +274,40 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 					break;
 				}   //case cell
+				case rfid:
+				{
+                    switch(msg->data[0])
+                    {
+                        /*
+                        *TODO:手动状态下防止辅轨出轨操作
+                        *1）在辅轨上，处于倒挡，且检测到辅轨起始RFID，进入急停模式，并设置ErrorCode
+                        *2）在辅轨上，处于前进挡或低速挡，且检测到辅轨结束RFID，进入急停模式，并设置ErrorCode
+                        */
+                        case EPC_AUXILIARY_TRACK_START:
+                        {
+                            if(RIGHTRAIL == getRailState() && REVERSE == g_carCtrlData.Gear)
+                            {
+                                carMode = ForceBrake;
+                                setErrorCode(ERROR_OUT_SAFE_TRACK);
+                            }
+                            break;
+                        }
+                        case EPC_AUXILIARY_TRACK_END:
+                        {
+                            if(RIGHTRAIL == getRailState() && (DRIVE == g_carCtrlData.Gear || LOW == g_carCtrlData.Gear))
+                            {
+                                carMode = ForceBrake;
+                                setErrorCode(ERROR_OUT_SAFE_TRACK);
+                            }
+                            break;
+                        }
+                        default:
+                            break;
+                        
+                    }   // switch msg->data[0]
+                    break;
+				}   //case rfid
+               
 
 			}
 		}////手动模式
@@ -316,6 +381,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 				case uphill:
 				case pre_downhill:
 				case downhill:
+                case pre_seperate:
 				{
 					switch(msg->type)
 					{
@@ -351,7 +417,17 @@ static Void task4GControlMain(UArg a0, UArg a1)
 									if(g_carCtrlData.EnableChangeRail == 1){  //在上位机设置了变轨才进入变轨流程
 										carState = pre_seperate;
 									}
-
+                                    break;
+                                case EPC_SEPERATE:
+                                    /*
+                                    *TODO:特殊处理，解决预分轨状态无法跳出的问题
+                                    */
+                                    if(carState == pre_seperate)
+                                    {
+                                        carState = seperate;
+						                setTimeout(g_timeout[seperate_wait_photon],seperate_wait_photon);
+						                seperateState = s_wait_photon;
+                                    }
 									break;
 
 							}
@@ -360,19 +436,6 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						}
 					}
 
-					break;
-				} //case downhill
-
-				case pre_seperate:
-				{
-					if(msg->type == rfid && msg->data[0] == EPC_SEPERATE)
-					{
-						carState = seperate;
-						//action
-						setCarRPM(RPMparam[carState]);
-						setTimeout(g_timeout[seperate_wait_photon],seperate_wait_photon);
-						seperateState = s_wait_photon;
-					}
 					break;
 				} //case pre_seperate
 
@@ -409,10 +472,15 @@ static Void task4GControlMain(UArg a0, UArg a1)
 								{
 									seperateState = seperate_ok;
 									FSprintf("seperate OK\n");
+                                    /*
+                                    *TODO:设置进站ID检测超时
+                                    */
+                                    setTimeout(g_timeout[seperate_wait_enter_station], seperate_wait_enter_station);
 								}
 								else{
-									//TODO: 紧急制动
+									//TODO: 紧急制动，并发送ErroCode
 									carMode = ForceBrake;
+                                    setErrorCode(ERROR_SEPERATE_FAILED);
 									FSprintf("seperate failed\n");
 								}
 							}
@@ -421,24 +489,33 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 						case seperate_ok:
 						{
+                            /*
+						    *TODO:超时未检测到进站ID，进入急停模式，并设置ErrorCode
+							*/
+                            if(msg->type == timer && msg->data[0] == seperate_wait_enter_station)
+							{
+								carMode = ForceBrake;
+                                setErrorCode(ERROR_WAIT_ENTER_STATION);
+							}
+                            
 							//FIXME: 特殊处理
 							if(msg->type == rfid && msg->data[0] ==EPC_ENTER_STATION)
 							{
 								carState = enter_station;
 								setCarRPM(RPMparam[carState]);
-
+                                /*
+                                *TODO:设置停站ID检测超时
+                                */
+                                setTimeout(g_timeout[seperate_wait_stop_station], seperate_wait_stop_station);
 							}
 							break;
 						}
 
 						case seperate_cancel:
 						{
-							//FIXME: 特殊处理
-							if(msg->type == rfid && msg->data[0] ==EPC_STRAIGHT)
-							{
-								carState = straight;
-								setCarRPM(RPMparam[carState]);
-							}
+                            /*分轨失败进入巡航*/
+                            carState = cruising;
+                            setCarRPM(RPMparam[carState]);
 							break;
 						}
 					}
@@ -448,6 +525,15 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 				case enter_station:
 				{
+                    /*
+				    *TODO:超时未检测到停站ID，进入急停模式，并设置ErrorCode
+					*/
+                    if(msg->type == timer && msg->data[0] == seperate_wait_stop_station)
+					{
+						carMode = ForceBrake;
+                        setErrorCode(ERROR_WAIT_STOP_STATION);
+					}
+                    
 					if(msg->type == rfid && msg->data[0] == EPC_STOP_STATION){
 						carState = stop_station;
 						setCarRPM(0);
@@ -461,27 +547,68 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					if(msg->type==timer && msg->data[0] == station_stop){
 						setCarRPM(RPMparam[carState]);
 						FSprintf("station_stop timeout\n");
+                    
+                        /*
+                        *TODO:停站启动后，设置离站ID检测超时
+                        */
+                        setTimeout(g_timeout[seperate_wait_leave_station], seperate_wait_leave_station);
 					}
+
+                    /*
+				    *TODO:超时未检测到离站ID，进入急停模式，并设置ErrorCode
+					*/
+                    if(msg->type == timer && msg->data[0] == seperate_wait_leave_station)
+					{
+						carMode = ForceBrake;
+                        setErrorCode(ERROR_WAIT_LEAVE_STATION);
+					}
+                    
 					if(msg->type == rfid && msg->data[0] == EPC_LEAVE_STATION)
 					{
 						carState = leave_station;
 						setCarRPM(RPMparam[carState]);
+                        /*
+                        *TODO:设置预并轨ID检测超时
+                        */
+                        setTimeout(g_timeout[seperate_wait_pre_merge], seperate_wait_pre_merge);
 					}
 					break;
 				}
 
 				case leave_station:
 				{
+                    /*
+				    *TODO:超时未检测到预并轨ID，进入急停模式，并设置ErrorCode
+					*/
+                    if(msg->type == timer && msg->data[0] == seperate_wait_pre_merge)
+					{
+						carMode = ForceBrake;
+                        setErrorCode(ERROR_WAIT_PRE_MERGE);
+					}
+                    
 					if(msg->type == rfid && msg->data[0] == EPC_PRE_MERGE)
 					{
 						carState = pre_merge;
 						setCarRPM(RPMparam[carState]);
+                        /*
+                        *TODO:设置并轨ID检测超时
+                        */
+                        setTimeout(g_timeout[seperate_wait_merge], seperate_wait_merge);
 					}
 					break;
 				}
 
 				case  pre_merge:
 				{
+                    /*
+				    *TODO:超时未检测到并轨ID，进入急停模式，并设置ErrorCode
+					*/
+                    if(msg->type == timer && msg->data[0] == seperate_wait_merge)
+					{
+						carMode = ForceBrake;
+                        setErrorCode(ERROR_WAIT_MERGE);
+					}
+                    
 					if(msg->type == rfid && msg->data[0] == EPC_MERGE)
 					{
 						carState = merge;
@@ -502,6 +629,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 								//TODO: 制动
 								carMode = ForceBrake;
 								FSprintf("merge_wait_photon timeout\n");
+                                setErrorCode(ERROR_WAIT_MERGE_PHOTON);
 							}
 							if(msg->type == photon)
 							{
@@ -525,6 +653,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 								else{
 									//紧急刹车
 									carMode = ForceBrake;
+                                    setErrorCode(ERROR_MERGE_FAILED);
 									FSprintf("merge failed\n");
 								}
 							}
@@ -533,11 +662,14 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 						case merge_ok:
 						{
-							//FIXME: 特殊处理
-							if(msg->type == rfid && msg->data[0] == EPC_PRE_CURVE){
-								carState = pre_curve;
-								setCarRPM(RPMparam[carState]);
-							}
+                            /*并轨成功进入巡航*/
+                            carState = cruising;
+                            setCarRPM(RPMparam[carState]);
+//							//FIXME: 特殊处理
+//							if(msg->type == rfid && msg->data[0] == EPC_PRE_CURVE){
+//								carState = pre_curve;
+//								setCarRPM(RPMparam[carState]);
+//							}
 							break;
 						}
 					}
@@ -551,6 +683,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		if(carMode == ForceBrake)
 		{
 			g_carCtrlData.AutoMode = carMode;
+			g_fbData.mode = (uint8_t) carMode;
 			setCarBrake(MAX_BRAKE_SIZE);
 			setCarThrottle(0);
 		}

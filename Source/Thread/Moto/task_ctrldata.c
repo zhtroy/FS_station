@@ -1,19 +1,23 @@
 #include "task_ctrldata.h"
-#include "task_moto.h"
+
 
 ctrlData g_carCtrlData =
 {
-    FRONT_REAR,
-    THROTTLE,
-    DRIVE,
-    0,
-    0,
-    0,
-    0,     //railstate
-    0,
-    0,
-    0,
-    0
+    FRONT_REAR,	//MotoSel
+    THROTTLE,	//ControlMode
+    DRIVE,		//Gear
+    0,			//Throttle
+    0,			//Rail
+    0,			//Brake
+    0,     		//RailState
+    0,			//RPM
+    0,			//KI
+    0,			//KP
+    0,			//KU
+    0,			//AutoMode
+    0,			//EnableChangeRail
+    1,			//BrakeReady
+    1			//ChangeRailReady
 };
 /*发送控制命令任务*/
 
@@ -38,5 +42,6 @@ uint8_t setRailState(uint8_t sts)
 	g_carCtrlData.RailState = sts;
 	return sts;
 }
+
 
 

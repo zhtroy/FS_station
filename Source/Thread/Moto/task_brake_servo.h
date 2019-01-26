@@ -27,6 +27,9 @@
 
 #define STEP_EXIT (5)
 
+#define BRAKE_TIMEOUT (100)
+
+#define CHANGERAIL_TIMEOUT (100)
 
 #if CAR_VERSION == 21
 /*机车2.1*/
@@ -48,6 +51,7 @@ typedef struct{
 } modbusCmd_t;
 
 void ChangeRailStart();
+void ChangeRailClear();
 uint8_t ChangeRailIsComplete(); //1 表示成功， 0表示失败
 
 

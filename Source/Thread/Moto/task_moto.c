@@ -471,4 +471,8 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t
     return adjThrottle;
 }
 
+uint8_t setErrorCode(uint8_t code)
+{
+    g_fbData.ErrorCode = code;
+}
 

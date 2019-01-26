@@ -106,9 +106,54 @@ typedef struct{
 	uint8_t brake;
 	uint8_t railstate;
 	uint8_t FSMstate;
+    uint8_t ErrorCode;  //急停态错误状态
 	uint32_t rfidReadTime;
 
 }fbdata_t;
+
+/*无错误*/
+#define ERROR_NONE                  (0) 
+
+/*超出安全轨道范围*/
+#define ERROR_OUT_SAFE_TRACK        (1) 
+
+/*网络连接超时，无心跳包*/
+#define ERROR_CONNECT_TIMEOUT       (2) 
+
+/*分轨失败*/
+#define ERROR_SEPERATE_FAILED       (3)
+
+/*主动急停*/
+#define ERROR_MANUAL_STOP           (4)
+
+/*超时未检测到进站ID*/
+#define ERROR_WAIT_ENTER_STATION    (5)
+
+/*超时未检测到停站ID*/
+#define ERROR_WAIT_STOP_STATION     (6)
+
+/*超时未检测到出站ID*/
+#define ERROR_WAIT_LEAVE_STATION    (7)
+
+/*超时未检测到预并轨ID*/
+#define ERROR_WAIT_PRE_MERGE        (8)
+
+/*超时未检测到并轨ID*/
+#define ERROR_WAIT_MERGE            (9)
+
+/*超时未检测到并轨光电对管*/
+#define ERROR_WAIT_MERGE_PHOTON     (10)
+
+/*并轨超时*/
+#define ERROR_MERGE_FAILED          (11)
+
+/*刹车通信异常*/
+#define ERROR_BRAKE_TIMEOUT         (12)
+
+/*变轨通信异常*/
+#define ERROR_CHANGERAIL_TIMEOUT    (13)
+
+
 
 #define DIFF_RPM_UPSCALE (4000)
 #define DIFF_RPM_DWSCALE (-4000)
@@ -140,6 +185,7 @@ typedef struct{
 #define BRAKE_THRO_RATIO (1)
 
 uint16_t getRPM(void);
+uint8_t setErrorCode(uint8_t code);
 
 
 #endif

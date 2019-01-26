@@ -24,6 +24,9 @@
 #define EPC_PRE_MERGE 			(0x0C)
 #define EPC_MERGE  				(0x0D)
 
+#define EPC_AUXILIARY_TRACK_START (0x55)
+#define EPC_AUXILIARY_TRACK_END   (0xAA)
+
 #define FORCE_BRAKE				(150)
 
 /*
@@ -79,7 +82,12 @@ typedef enum
 	seperate_wait_changerail,
 	station_stop,
 	merge_wait_photon,
-	merge_wait_changerail
+	merge_wait_changerail,
+	seperate_wait_enter_station,
+	seperate_wait_stop_station,
+	seperate_wait_leave_station,
+	seperate_wait_pre_merge,
+	seperate_wait_merge
 
 }timeout_type_t;
 
@@ -92,7 +100,13 @@ uint32_t g_timeout[]=
 		3000,
 		5000,
 		2000,
-		3000
+		3000,
+		5000,
+		5000,
+		5000,
+		5000,
+		5000
+		
 };
 //#define TIMEOUT_seperate_wait_photon (1000)
 //#define TIMEOUT_seperate_wait_changerail_complete (2000)

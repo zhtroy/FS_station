@@ -8,7 +8,7 @@
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
 #include "Moto/task_ctrldata.h"
-
+#include "Message/Message.h"
 extern uint16_t getRPM(void);
 
 
@@ -37,6 +37,7 @@ static uint8_t ackStatus = MODBUS_ACK_OK;
 
 static uint8_t changeRail = 0;
 static uint8_t complete = 0;
+
 
 
 static void UartServorIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
@@ -208,7 +209,7 @@ static uint8_t modbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
     Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);   //丢弃MAX3160发送时，回传的数据
 
     
-    if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：100ms
+    if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：10ms
     	ackStatus = MODBUS_ACK_TIMEOUT;
     else
         *data = (uint16_t)(recvBuff->Buffer[3] << 8) + recvBuff->Buffer[4];
@@ -258,6 +259,8 @@ static void recvDataTask(void)
 void vBrakeServoTask(void *param)
 {
 	uint8_t state;
+    p_msg_t sendmsg;
+    uint8_t brake_timeout_cnt = 0;
 
     /*Pn070 Son使能驱动器*/
     modbusWriteReg(0x01,0x0046,0x7FFE);
@@ -274,6 +277,28 @@ void vBrakeServoTask(void *param)
 	while (1)
 	{	
 		Task_sleep(BRAKETIME);
+        
+        
+        if(brake_timeout_cnt > BRAKE_TIMEOUT)
+        {
+            /*
+            *TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+            */
+            sendmsg = Message_getEmpty();
+            sendmsg->data[0] = 'z';
+            sendmsg->data[1] = '3';
+            sendmsg->data[2] = '1';     //ErrorCode
+            sendmsg->data[3] = '2';     //ErrorCode
+            Message_post(sendmsg);
+            brake_timeout_cnt = 0;
+            servo_step = 0;    
+            g_carCtrlData.BrakeReady = 0;
+            break;
+        }
+
+        if(g_carCtrlData.BrakeReady == 0)
+            break;
+        
 		uBrake = getBrake();
 		/*	总行程45000个脉冲
 			每步450脉冲
@@ -289,36 +314,44 @@ void vBrakeServoTask(void *param)
 				
 				if(state != MODBUS_ACK_OK)
 				{
+                    brake_timeout_cnt ++;
                     break;
 				}
-                else;
+                else
+                    brake_timeout_cnt = 0;
 
 				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0047,0x7FFF);
 				
 				if(state != MODBUS_ACK_OK)
 				{
-				    break;
+                    brake_timeout_cnt ++;
+                    break;
 				}
-                else;
+                else
+                    brake_timeout_cnt = 0;
 
 				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0078,pulseE4);
 				
 				if(state != MODBUS_ACK_OK)
 				{
-				    break;
+                    brake_timeout_cnt ++;
+                    break;
 				}
-                else;
+                else
+                    brake_timeout_cnt = 0;
 
 				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0079,pulseE0);
 				
 				if(state != MODBUS_ACK_OK)
 				{
-				    break;
+                    brake_timeout_cnt ++;
+                    break;
 				}
-                else;
+                else
+                    brake_timeout_cnt = 0;
 			
 				Task_sleep(SLEEPTIME);
 				state = modbusWriteReg(0x01,0x0047,0x7BFF);
@@ -326,10 +359,12 @@ void vBrakeServoTask(void *param)
                 if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
                 {
 				    servo_step=uBrake;		//标记伺服位置
+				    brake_timeout_cnt = 0;
 				    break;
                 }
 				else
 				{
+                    brake_timeout_cnt ++;
                     break;
 				}
 				
@@ -343,6 +378,7 @@ void ChangeRailStart()
 	changeRail = 1;
 }
 
+
 uint8_t ChangeRailIsComplete()
 {
 	return complete;
@@ -351,11 +387,12 @@ static void vChangeRailTask(void)
 {
 	uint8_t state;
     uint16_t recvReg;
+    p_msg_t sendmsg;
 	static uint8_t step=0;
 	static uint8_t preach=0;
 	static uint8_t change_en=1;
-	static uint8_t SCount=0;
-	static uint8_t modbusCount=0;
+	//static uint8_t SCount=0;
+	uint8_t changerail_timeout_cnt = 0;
 	uint8_t uRail = 0;
 	uint8_t lastuRail = 0;
 	
@@ -364,9 +401,13 @@ static void vChangeRailTask(void)
 		Task_sleep(50);
 
 		preach = 0;
-		SCount = 0;
 		step = 0;
 
+		if(g_carCtrlData.ChangeRailReady == 0)
+		{
+			changeRail = 0;
+			break;
+		}
 
 		if(1 == changeRail)
 		{
@@ -374,6 +415,23 @@ static void vChangeRailTask(void)
 			complete= 0;
 			while(step != STEP_EXIT && change_en == 1)//正转270度
 			{
+				if(changerail_timeout_cnt > CHANGERAIL_TIMEOUT)
+				{
+					/*
+					*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+					*/
+					sendmsg = Message_getEmpty();
+					sendmsg->data[0] = 'z';
+					sendmsg->data[1] = '3';
+					sendmsg->data[2] = '1';     //ErrorCode
+					sendmsg->data[3] = '3';     //ErrorCode
+					Message_post(sendmsg);
+					changerail_timeout_cnt = 0;
+					g_carCtrlData.ChangeRailReady = 0;
+					break;
+				}
+
+
 				switch(step)
 				{
 					case 0:
@@ -381,15 +439,15 @@ static void vChangeRailTask(void)
 						Task_sleep(SLEEPTIME);
 						state = modbusWriteReg(0x02,0x0047,0x7FFF);
 
-						if(state == MODBUS_ACK_TIMEOUT)
-							modbusCount++;
-						else if(state == MODBUS_ACK_OK)
+
+						if(state == MODBUS_ACK_OK)
 						{
 							//写成功，进行下一步
 							step++;
-							modbusCount=0;
+							changerail_timeout_cnt=0;
 						}
-						else;
+						else
+							changerail_timeout_cnt ++;
 
 						break;
 					case 1:
@@ -397,15 +455,14 @@ static void vChangeRailTask(void)
 						Task_sleep(SLEEPTIME);
 						state = modbusWriteReg(0x02,0x0046,0x7FFE);
 
-						if(state == MODBUS_ACK_TIMEOUT)
-							modbusCount++;
-						else if(state == MODBUS_ACK_OK)
+						if(state == MODBUS_ACK_OK)
 						{
 							//写成功，进行下一步
 							step++;
-							modbusCount=0;
+							changerail_timeout_cnt=0;
 						}
-						else;
+						else
+							changerail_timeout_cnt ++;
 
 						break;
 					case 2:
@@ -417,16 +474,15 @@ static void vChangeRailTask(void)
 						else
 							state = modbusWriteReg(0x02,0x0047,0x7AFF);
 
-						if(state == MODBUS_ACK_TIMEOUT)
-							modbusCount++;
-						else if(state == MODBUS_ACK_OK)
+						if(state == MODBUS_ACK_OK)
 						{
 							//写成功，进行下一步
 							step++;
-							modbusCount=0;
+							changerail_timeout_cnt=0;
 							Task_sleep(500);
 						}
-						else;
+						else
+							changerail_timeout_cnt ++;
 
 						break;
 					case 3:
@@ -434,29 +490,24 @@ static void vChangeRailTask(void)
 						Task_sleep(SLEEPTIME);
 						state = modbusReadReg(0x02,0x0182,&recvReg);
 
-						if(state == MODBUS_ACK_TIMEOUT)
-							modbusCount++;
-						else
-						{
-							SCount++;
-							if(state == MODBUS_ACK_OK)
-							{
-								if(recvReg & 0x0008)//取Bit3 Preach,Bit 位为 0，表示功能为 ON 状态，为 1 则是 OFF 状态
-								{
-									//位置偏差，发出偏差报警
-									preach=0;
-								}
-								else
-								{
-									//到达指定位置，进行下一步
-									preach=1;
-									step++;
-									modbusCount=0;
-								}
-							}
-							else;
 
+						if(state == MODBUS_ACK_OK)
+						{
+							if(recvReg & 0x0008)//取Bit3 Preach,Bit 位为 0，表示功能为 ON 状态，为 1 则是 OFF 状态
+							{
+								//位置偏差，发出偏差报警
+								preach=0;
+							}
+							else
+							{
+								//到达指定位置，进行下一步
+								preach=1;
+								step++;
+								changerail_timeout_cnt=0;
+							}
 						}
+						else
+							changerail_timeout_cnt ++;
 
 						break;
 					case 4:
@@ -464,9 +515,7 @@ static void vChangeRailTask(void)
 						Task_sleep(SLEEPTIME);
 						state = modbusWriteReg(0x02,0x0046,0x7FFF);
 
-						if(state == MODBUS_ACK_TIMEOUT)
-							modbusCount++;
-						else if(state == MODBUS_ACK_OK)
+						if(state == MODBUS_ACK_OK)
 						{
 							if(preach)
 							{
@@ -482,10 +531,11 @@ static void vChangeRailTask(void)
 								change_en=0;//指令完成但位置偏差时，禁止变轨
 							}
 							step = STEP_EXIT;
-							modbusCount=0;
+							changerail_timeout_cnt=0;
 
 						}
-						else;
+						else
+							changerail_timeout_cnt ++;
 
 						break;
 				}
