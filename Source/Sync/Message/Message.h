@@ -24,6 +24,7 @@ typedef enum{
 	changerail, 		//变轨
 	motor,				//动力电机
 	brake,    			//刹车
+	error,				//错误
 	Empty               //缺省类型
 }msg_type_t;
 

@@ -62,10 +62,8 @@ static xdc_Void connectionClosed(xdc_UArg arg)
     *TODO:添加断连处理，发送急停消息，进入急停模式，并设置ErrorCode
     */
     sendmsg = Message_getEmpty();
-    sendmsg->data[0] = 'z';
-    sendmsg->data[1] = '3';
-    sendmsg->data[2] = '0';     //ErrorCode
-    sendmsg->data[3] = '2';     //ErrorCode
+    sendmsg->type = error;
+    sendmsg->data[0] = ERROR_CONNECT_TIMEOUT;
     Message_post(sendmsg);
     //setErrorCode(ERROR_CONNECT_TIMEOUT);
 }
@@ -166,7 +164,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 	Clock_Params_init(&clockParams);
 	clockParams.period = 0;       // one shot
 	clockParams.startFlag = FALSE;
-	heartClock = Clock_create(connectionClosed, 500, &clockParams, &eb); //500ms 后没有收到包就停止
+	heartClock = Clock_create(connectionClosed, 1000, &clockParams, &eb); //1s 后没有收到包就停止
 	if ( heartClock == NULL )
 	{
 		System_abort("Clock create failed\n");
@@ -231,6 +229,12 @@ static Void task4GControlMain(UArg a0, UArg a1)
 			}
 		}
 
+		if(msg->type == error)
+		{
+			carMode = ForceBrake;
+			setErrorCode(msg->data[0]);
+		}
+
 		g_fbData.mode = (uint8_t) carMode;
 		g_fbData.FSMstate = carState;
 
@@ -285,7 +289,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
                         */
                         case EPC_AUXILIARY_TRACK_START:
                         {
-                            if(RIGHTRAIL == getRailState() && REVERSE == g_carCtrlData.Gear)
+                            if(RIGHTRAIL == getRailState() && (REVERSE == g_carCtrlData.Gear))
                             {
                                 carMode = ForceBrake;
                                 setErrorCode(ERROR_OUT_SAFE_TRACK);

@@ -5,7 +5,7 @@ ctrlData g_carCtrlData =
 {
     FRONT_REAR,	//MotoSel
     THROTTLE,	//ControlMode
-    DRIVE,		//Gear
+    NONE,		//Gear
     0,			//Throttle
     0,			//Rail
     0,			//Brake

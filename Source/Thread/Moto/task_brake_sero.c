@@ -285,19 +285,17 @@ void vBrakeServoTask(void *param)
             *TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
             */
             sendmsg = Message_getEmpty();
-            sendmsg->data[0] = 'z';
-            sendmsg->data[1] = '3';
-            sendmsg->data[2] = '1';     //ErrorCode
-            sendmsg->data[3] = '2';     //ErrorCode
+            sendmsg->type = error;
+            sendmsg->data[0] = ERROR_BRAKE_TIMEOUT;
             Message_post(sendmsg);
             brake_timeout_cnt = 0;
             servo_step = 0;    
             g_carCtrlData.BrakeReady = 0;
-            break;
+            continue;
         }
 
         if(g_carCtrlData.BrakeReady == 0)
-            break;
+        	continue;
         
 		uBrake = getBrake();
 		/*	总行程45000个脉冲
@@ -406,7 +404,7 @@ static void vChangeRailTask(void)
 		if(g_carCtrlData.ChangeRailReady == 0)
 		{
 			changeRail = 0;
-			break;
+			continue;
 		}
 
 		if(1 == changeRail)
@@ -421,10 +419,8 @@ static void vChangeRailTask(void)
 					*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
 					*/
 					sendmsg = Message_getEmpty();
-					sendmsg->data[0] = 'z';
-					sendmsg->data[1] = '3';
-					sendmsg->data[2] = '1';     //ErrorCode
-					sendmsg->data[3] = '3';     //ErrorCode
+					sendmsg->type = error;
+					sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
 					Message_post(sendmsg);
 					changerail_timeout_cnt = 0;
 					g_carCtrlData.ChangeRailReady = 0;
@@ -532,7 +528,7 @@ static void vChangeRailTask(void)
 							}
 							step = STEP_EXIT;
 							changerail_timeout_cnt=0;
-
+							complete= 1;
 						}
 						else
 							changerail_timeout_cnt ++;
@@ -541,7 +537,7 @@ static void vChangeRailTask(void)
 				}
 			}
 
-			complete= 1;
+
 		}
 
 
