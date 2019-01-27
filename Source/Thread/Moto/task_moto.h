@@ -153,6 +153,9 @@ typedef struct{
 /*变轨通信异常*/
 #define ERROR_CHANGERAIL_TIMEOUT    (13)
 
+/*RFID通信异常*/
+#define ERROR_RFID_TIMEOUT    (14)
+
 
 
 #define DIFF_RPM_UPSCALE (4000)

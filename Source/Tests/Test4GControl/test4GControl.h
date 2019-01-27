@@ -101,12 +101,11 @@ uint32_t g_timeout[]=
 		5000,
 		2000,
 		3000,
-		5000,
-		5000,
-		5000,
-		5000,
-		5000
-		
+		20000,
+		10000,
+		10000,
+		10000,
+		10000
 };
 //#define TIMEOUT_seperate_wait_photon (1000)
 //#define TIMEOUT_seperate_wait_changerail_complete (2000)

@@ -20,10 +20,43 @@
 #include "Message/Message.h"
 #include <xdc/runtime/Timestamp.h>
 #include "task_moto.h"
+#include <ti/sysbios/knl/Clock.h>
+
 
 #define RFID_DEVICENUM  0  //TODO: 放入一个配置表中
 
 extern fbdata_t g_fbData;
+static Clock_Handle clock_rfid_heart;
+static uint8_t timeout_flag = 0;
+
+static xdc_Void RFIDConnectionClosed(xdc_UArg arg)
+{
+    p_msg_t msg;  
+    /*
+    *TODO:添加断连处理，发送急停消息，进入急停模式，并设置ErrorCode
+    */
+    msg = Message_getEmpty();
+	msg->type = error;
+	msg->data[0] = ERROR_RFID_TIMEOUT;
+	msg->dataLen = 1;
+	Message_post(msg);
+	timeout_flag = 1;
+    
+    //setErrorCode(ERROR_CONNECT_TIMEOUT);
+}
+
+static void InitTimer()
+{
+	Clock_Params clockParams;
+
+
+	Clock_Params_init(&clockParams);
+	clockParams.period = 0;       // one shot
+	clockParams.startFlag = FALSE;
+
+	clock_rfid_heart = Clock_create(RFIDConnectionClosed, 10000, &clockParams, NULL);
+}
+
 
 void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
 {
@@ -45,7 +78,18 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 			msg->data[0] = data[2];
 			msg->dataLen = 1;
 			Message_post(msg);
+			Clock_setTimeout(clock_rfid_heart,3000);
+			Clock_start(clock_rfid_heart);
 			break;
+       case 0x40:
+            Clock_setTimeout(clock_rfid_heart,3000);
+            Clock_start(clock_rfid_heart);
+            if(timeout_flag == 1)
+            {
+            	timeout_flag = 0;
+            	RFIDStartLoopCheckEpc(RFID_DEVICENUM);
+            }
+            break;
 
 	}
 }
@@ -62,6 +106,8 @@ Void taskRFID(UArg a0, UArg a1)
 	RFIDRegisterReadCallBack(RFID_DEVICENUM, rfid_callBack);   //回调函数会在RFIDProcess里面调用
 
 	RFIDStartLoopCheckEpc(RFID_DEVICENUM);
+    InitTimer();
+    Clock_start(clock_rfid_heart);
 
 	while(1)
 	{

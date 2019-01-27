@@ -261,6 +261,8 @@ void vBrakeServoTask(void *param)
 	uint8_t state;
     p_msg_t sendmsg;
     uint8_t brake_timeout_cnt = 0;
+    uint16_t recvReg;
+    uint8_t motoEnableFlag = 0;
 
     /*Pn070 Son使能驱动器*/
     modbusWriteReg(0x01,0x0046,0x7FFE);
@@ -308,15 +310,37 @@ void vBrakeServoTask(void *param)
 			pulseE0=pulseCount-10000*pulseE4;		//个位
 			while(1)
 			{
-                state = modbusWriteReg(0x01,0x0046,0x7FFE);
-				
-				if(state != MODBUS_ACK_OK)
+
+				state = modbusReadReg(0x01,0x0046,&recvReg);
+				if(state == MODBUS_ACK_OK)
 				{
-                    brake_timeout_cnt ++;
-                    break;
+					if(recvReg == 0x7fff)		//未使能
+						motoEnableFlag = 1;
+					else
+						motoEnableFlag = 0;
+
+					brake_timeout_cnt = 0;
 				}
-                else
-                    brake_timeout_cnt = 0;
+				else
+				{
+					brake_timeout_cnt ++;
+					break;
+				}
+
+				if(motoEnableFlag == 1)
+				{
+					state = modbusWriteReg(0x01,0x0046,0x7FFE);	//使能
+
+					if(state != MODBUS_ACK_OK)
+					{
+						brake_timeout_cnt ++;
+						break;
+					}
+					else
+						brake_timeout_cnt = 0;
+
+					Task_sleep(100);
+				}
 
 				Task_sleep(SLEEPTIME);
                 state = modbusWriteReg(0x01,0x0047,0x7FFF);
