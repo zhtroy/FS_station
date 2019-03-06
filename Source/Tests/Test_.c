@@ -49,6 +49,11 @@ void TestEntry()
     testCellCom_init();
 #endif
 
+#ifdef TEST_SERVER_COM
+    testServerCom_init();
+#endif
+
+
 #ifdef TEST_MOTO_TASK
 testMototaskInit();
 #endif 

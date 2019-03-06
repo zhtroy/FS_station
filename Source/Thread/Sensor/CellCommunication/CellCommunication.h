@@ -24,6 +24,25 @@ typedef enum{
 #define CELL_HEAD ('$')
 #define CELL_END  ('^')
 
+/*
+ * TODO: 删除cell_state_t
+ * 协议解析状态机的各个状态
+ */
+typedef enum{
+	//等待分割字符串
+	CELL_WAIT,
+	//接收分割字符串
+	CELL_DIV,
+	//接收HEAD
+	CELL_RECV_HEAD,
+	//接收DATA
+	CELL_RECV_DATA
+}cell_state_new_t;
+/*
+ * 分割字符串
+ * 包与包之前用这个分开
+ */
+extern char cell_packet_divider[];
 
 void CellSendData(char * pbuff, uint32_t size);
 /*
