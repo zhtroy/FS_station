@@ -13,6 +13,11 @@
 #define NUMMSGS 64 /* number of messages */
 #define MSGSIZE (128)
 
+/*消息优先级宏定义*/
+#define MSG_PRI_LOW (0)
+#define MSG_PRI_MID (128)
+#define MSG_PRI_HIGH (256)
+
 typedef enum{
 	rfid,
 	mmradar,
@@ -30,6 +35,7 @@ typedef enum{
 
 typedef struct MsgObj {
 	Queue_Elem elem; /* first field for Queue */
+	uint8_t	   pri;  /* 消息优先级，共256级*/
 	msg_type_t type; /*msg type */
 	uint8_t data[MSGSIZE]; /* message value */
 	uint32_t dataLen;      //数据长度
@@ -38,10 +44,20 @@ typedef struct MsgObj {
 
 //API=========================
 void Message_init();
+/*
+ * 创建一个消息
+ */
+p_msg_t Message_new(uint8_t	   pri,  /* 消息优先级，共256级*/
+					msg_type_t type,  /*msg type */
+					uint8_t data[], /* message value */
+					uint32_t dataLen      //数据长度
+					);
+
 p_msg_t Message_getEmpty();
 void Message_recycle(p_msg_t msg);
 p_msg_t Message_pend();
-void Message_post(p_msg_t);
+void Message_post_pri(p_msg_t msg, uint8_t pri);
+void Message_post(p_msg_t msg);
 char* Message_getNameByType(msg_type_t t);
 
 
