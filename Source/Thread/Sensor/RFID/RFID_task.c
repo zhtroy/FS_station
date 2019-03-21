@@ -21,6 +21,7 @@
 #include <xdc/runtime/Timestamp.h>
 #include "task_moto.h"
 #include <ti/sysbios/knl/Clock.h>
+#include "common.h"
 
 
 #define RFID_DEVICENUM  0  //TODO: 放入一个配置表中
@@ -68,6 +69,7 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 		case 0x97:  //循环查询EPC的返回  回传EPC第一个byte
 			Log_info2("RFID[%d] EPC:\t%2X ", deviceNum,data[2]);
 			//填充回传数据
+			logMsg("RFID[%d] EPC:\t%2X\r\n", deviceNum,data[2],0,0,0,0);
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
 			g_fbData.rfid = data[2];
@@ -111,9 +113,6 @@ Void taskRFID(UArg a0, UArg a1)
 
 	while(1)
 	{
-
-		RFIDPendForData(RFID_DEVICENUM);
-
 		RFIDProcess(RFID_DEVICENUM);
 
 	}

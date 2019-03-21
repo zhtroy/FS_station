@@ -1,9 +1,9 @@
 /***************************** Include Files ********************************/
-#include "UartNs550.h"
+#include "uartns550.h"
 
 /************************** Constant Definitions ****************************/
 
-UART_CFG_TABLE uart_cfg_table[] = {
+uartCfgTable_t uartCfgTable[] = {
 
      /*设备0资源配置*/
     {
@@ -79,203 +79,220 @@ UART_CFG_TABLE uart_cfg_table[] = {
 };
 
 /*获取设备数量*/
-#define UART_CFG_NUM (NELEMENTS(uart_cfg_table)-1)
+#define UART_CFG_NUM (NELEMENTS(uartCfgTable)-1)
 
-s32 UartNs550Init(u16 DeviceNum,XUartNs550_Handler FuncPtr)
+/*****************************************************************************
+ * 函数名称: int32_t UartNs550Init(uint16_t deviceNum,XUartNs550_Handler funcPtr)
+ * 函数说明: 初始化UART设备维护表 该表由项目开发人员必须调用 否则资源不能清空
+ * 输入参数:
+ *        deviceNum：设备号
+ *        funcPtr：中断回调函数
+ * 输出参数: 无
+ * 返 回 值: 0(成功)/负数(失败)
+ * 备注:
+*****************************************************************************/
+int32_t UartNs550Init(uint16_t deviceNum,XUartNs550_Handler funcPtr)
 {
-    s32 Status;
-    XUartNs550 * InstancePtr;
+    int32_t status;
+    XUartNs550 * instancePtr;
     
-    if(DeviceNum > UART_CFG_NUM)
+    if(deviceNum > UART_CFG_NUM)
     {
         return XST_FAILURE;
     }
     
-    InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+    instancePtr = &(uartCfgTable[deviceNum].instance);
     
-    /*
-	 * Hardware Reset UART Controller.
-	 */
-
-    UartNs550HardReset(DeviceNum);
+    /* 设备硬件复位 */
+    UartNs550HardReset(deviceNum);
     
-    UartNs550InitBuffer(DeviceNum);
-    /*
-	 * Setup the data that is from the configuration information
-	 */
-	 
-	InstancePtr->BaseAddress = uart_cfg_table[DeviceNum].BaseAddress;
-	InstancePtr->InputClockHz = uart_cfg_table[DeviceNum].InputClockHz;
-    //InstancePtr->BaudRate = uart_cfg_table[DeviceNum].BaudRate;
+    /* 根据配置表初始化成员变量 */
+	instancePtr->BaseAddress = uartCfgTable[deviceNum].baseAddress;
+	instancePtr->InputClockHz = uartCfgTable[deviceNum].inputClockHz;
 
 	/*
 	 * Initialize the instance data to some default values and setup
 	 * a handler and CallBackRef.
  	 */
  	
-	InstancePtr->Handler = FuncPtr;
-    //InstancePtr->CallBackRef = InstancePtr;
-    InstancePtr->CallBackRef = &(uart_cfg_table[DeviceNum].DeviceNum);
+	instancePtr->Handler = funcPtr;
+    //instancePtr->CallBackRef = instancePtr;
+    instancePtr->CallBackRef = &(uartCfgTable[deviceNum].deviceNum);
     
-	InstancePtr->SendBuffer.NextBytePtr = NULL;
-	InstancePtr->SendBuffer.RemainingBytes = 0;
-	InstancePtr->SendBuffer.RequestedBytes = 0;
-	InstancePtr->ReceiveBuffer.NextBytePtr = NULL;
-	InstancePtr->ReceiveBuffer.RemainingBytes = 0;
-	InstancePtr->ReceiveBuffer.RequestedBytes = 0;
+	instancePtr->SendBuffer.NextBytePtr = NULL;
+	instancePtr->SendBuffer.RemainingBytes = 0;
+	instancePtr->SendBuffer.RequestedBytes = 0;
+	instancePtr->ReceiveBuffer.NextBytePtr = NULL;
+	instancePtr->ReceiveBuffer.RemainingBytes = 0;
+	instancePtr->ReceiveBuffer.RequestedBytes = 0;
 
     /*
 	 * Indicate the instance is now ready to use, initialized without error
 	 */
-	InstancePtr->IsReady = XIL_COMPONENT_IS_READY;
+	instancePtr->IsReady = XIL_COMPONENT_IS_READY;
 
-    Status = XUartNs550_SetDataFormat(InstancePtr, 
-        &(uart_cfg_table[DeviceNum].DataFormat));
+    status = XUartNs550_SetDataFormat(instancePtr, 
+        &(uartCfgTable[deviceNum].dataFormat));
     
-	if (Status != XST_SUCCESS) {
-		InstancePtr->IsReady = 0;
-		return Status;
+	if (status != XST_SUCCESS) {
+		instancePtr->IsReady = 0;
+		return status;
 	}
 
-    Status = XUartNs550_SetOptions(InstancePtr, 
-        uart_cfg_table[DeviceNum].Options);
+    status = XUartNs550_SetOptions(instancePtr, 
+        uartCfgTable[deviceNum].options);
     
-	if (Status != XST_SUCCESS) {
-		InstancePtr->IsReady = 0;
-		return Status;
+	if (status != XST_SUCCESS) {
+		instancePtr->IsReady = 0;
+		return status;
 	}
     
-    Status = XUartNs550_SetFifoThreshold(InstancePtr, 
-        uart_cfg_table[DeviceNum].TriggerLevel);
+    status = XUartNs550_SetFifoThreshold(instancePtr, 
+        uartCfgTable[deviceNum].triggerLevel);
     
-    if (Status != XST_SUCCESS) {
-		InstancePtr->IsReady = 0;
-		return Status;
+    if (status != XST_SUCCESS) {
+		instancePtr->IsReady = 0;
+		return status;
     }
     
-    XUartNs550_ClearStats(InstancePtr);
-    
-    UartNs550Recv(DeviceNum,uart_cfg_table[DeviceNum].Buffer.LoopBuffer[0].Buffer,BUFFER_MAX_SIZE);
+    /* 清除历史状态 */
+    XUartNs550_ClearStats(instancePtr);
     
     return XST_SUCCESS;
 }
 
-u32 UartNs550Send(u16 DeviceNum, u8 *BufferPtr,u32 NumBytes)
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550Send(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes)
+ * 函数说明: 串口发送
+ * 输入参数:
+ *        deviceNum：设备号
+ *        bufferPtr：发送缓冲指针
+ *        numBytes：发送数据长度，单位字节
+ * 输出参数: 无
+ * 返 回 值: 调用函数时发送的数据长度。
+ * 备注：中断模式，非阻塞式发送
+*****************************************************************************/
+uint32_t UartNs550Send(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes)
 {
     
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
     
-    return XUartNs550_Send(InstancePtr, BufferPtr, NumBytes);
+    return XUartNs550_Send(instancePtr, bufferPtr, numBytes);
 }
 
-u32 UartNs550Recv(u16 DeviceNum, u8 *BufferPtr,u32 NumBytes)
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550Recv(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes)
+ * 函数说明: 串口接收
+ * 输入参数:
+ *        deviceNum：设备号
+ *        bufferPtr：接收缓冲指针
+ *        numBytes：接收数据长度，单位字节
+ * 输出参数: 无
+ * 返 回 值: 调用函数时接收的数据长度
+ * 备注：中断模式，非阻塞式接收
+*****************************************************************************/
+uint32_t UartNs550Recv(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes)
 {
     
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
     
-    return XUartNs550_Recv(InstancePtr, BufferPtr, NumBytes);
+    return XUartNs550_Recv(instancePtr, bufferPtr, numBytes);
 }
 
-void UartNs550InitBuffer(u16 DeviceNum)
+/*****************************************************************************
+ * 函数名称: void UartNs550IntrHandler(uint16_t deviceNum)
+ * 函数说明: 串口中断处理函数
+ * 输入参数:
+ *        deviceNum：设备号
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注：
+*****************************************************************************/
+void UartNs550IntrHandler(uint16_t deviceNum)
 {
-    UART550_LOOP_BUFFER *LoopBuf = &(uart_cfg_table[DeviceNum].Buffer);
-    
-    LoopBuf->ReadPoint = 0;
-    
-    LoopBuf->WritePoint = 0;
-}
-u8 UartNs550BufferIsEmpty(u16 DeviceNum)
-{
-    UART550_LOOP_BUFFER *LoopBuf = &(uart_cfg_table[DeviceNum].Buffer);
-    
-    return (LoopBuf->ReadPoint == LoopBuf->WritePoint) ? 1 :0; 
-}
-
-UART550_BUFFER* UartNs550PopBuffer(u16 DeviceNum)
-{
-    UART550_LOOP_BUFFER *LoopBuf = &(uart_cfg_table[DeviceNum].Buffer);
-    
-    UART550_BUFFER * Buffer = &(LoopBuf->LoopBuffer[LoopBuf->ReadPoint]);
-    
-    LoopBuf->ReadPoint = (LoopBuf->ReadPoint+1)%BUFFER_MAX_DEPTH;
-    return Buffer;
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
+    XUartNs550_InterruptHandler(instancePtr);
 }
 
-u8 * UartNs550PushBuffer(u16 DeviceNum,u8 Length)
+/*****************************************************************************
+ * 函数名称: void UartNs550HardIntMask(uint16_t deviceNum)
+ * 函数说明: 串口硬件中断Mask
+ * 输入参数:
+ *        deviceNum：设备号
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注：被Mask的设备才能有效上报中断
+*****************************************************************************/
+void UartNs550HardIntMask(uint16_t deviceNum)
 {
-    UART550_LOOP_BUFFER *LoopBuf = &(uart_cfg_table[DeviceNum].Buffer);
+    uint8_t Reg;
+    Reg = *(volatile uint16_t *) (UART_INT_MASK_ADDR);
+    *(volatile uint16_t *) (UART_INT_MASK_ADDR) =  Reg | (1 << deviceNum);
+}
 
-    LoopBuf->LoopBuffer[LoopBuf->WritePoint].Length = Length;
+/*****************************************************************************
+ * 函数名称: void UartNs550HardIntUnmask(uint16_t deviceNum)
+ * 函数说明: 串口硬件中断Unmask
+ * 输入参数:
+ *        deviceNum：设备号
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注：取消Mask的设备无法有效上报中断
+*****************************************************************************/
+void UartNs550HardIntUnmask(uint16_t deviceNum)
+{
+    uint8_t Reg;
+    Reg = *(volatile uint16_t *) (UART_INT_MASK_ADDR);
+    *(volatile uint16_t *) (UART_INT_MASK_ADDR) =  Reg & (~(1 << deviceNum));
+}
+
+/*****************************************************************************
+ * 函数名称: UartNs550GetLastErrors(uint16_t deviceNum)
+ * 函数说明: 串口错误统计
+ * 输入参数:
+ *        deviceNum：设备号
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注：
+*****************************************************************************/
+uint8_t UartNs550GetLastErrors(uint16_t deviceNum)
+{
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
     
-    LoopBuf->WritePoint = (LoopBuf->WritePoint+1)%BUFFER_MAX_DEPTH;
-
-    /*初始化数据Buffer数据长度信息*/
-    LoopBuf->LoopBuffer[LoopBuf->WritePoint].Length = 0;
-    
-    /*返回数据Buffer指针*/
-    return LoopBuf->LoopBuffer[LoopBuf->WritePoint].Buffer;
+    return XUartNs550_GetLastErrors(instancePtr);
 }
 
-void UartNs550IntrHandler(u16 DeviceNum)
+void UartNs550SetMode(uint16_t deviceNum,uint8_t mode)
 {
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
-    XUartNs550_InterruptHandler(InstancePtr);
-}
-
-
-
-void UartNs550HardIntMask(u16 DeviceNum)
-{
-    u8 Reg;
-    Reg = *(volatile u16 *) (UART_INT_MASK_ADDR);
-    *(volatile u16 *) (UART_INT_MASK_ADDR) =  Reg | (1 << DeviceNum);
-}
-    
-void UartNs550HardIntUnmask(u16 DeviceNum)
-{
-    u8 Reg;
-    Reg = *(volatile u16 *) (UART_INT_MASK_ADDR);
-    *(volatile u16 *) (UART_INT_MASK_ADDR) =  Reg & (~(1 << DeviceNum));
-}
-
-u8 UartNs550GetLastErrors(u16 DeviceNum)
-{
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
-    
-    return XUartNs550_GetLastErrors(InstancePtr);
-}
-
-void UartNs550SetMode(u16 DeviceNum,u8 mode)
-{
-    u8 Reg;
-    Reg = *(volatile u16 *) (UART_RS485_ADDR);
+    uint8_t Reg;
+    Reg = *(volatile uint16_t *) (UART_RS485_ADDR);
     if(UART_RS485_MODE == mode)
-        *(volatile u16 *) (UART_RS485_ADDR) =  Reg | (1 << DeviceNum);
+        *(volatile uint16_t *) (UART_RS485_ADDR) =  Reg | (1 << deviceNum);
     else
-        *(volatile u16 *) (UART_RS485_ADDR) =  Reg & (~(1 << DeviceNum));
+        *(volatile uint16_t *) (UART_RS485_ADDR) =  Reg & (~(1 << deviceNum));
 }   
     
-void UartNs550RS485TxDisable(u16 DeviceNum)
+void UartNs550RS485TxDisable(uint16_t deviceNum)
 {
-    u8 mcrRegister;
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+    uint8_t mcrRegister;
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
 
-    mcrRegister = XUartNs550_ReadReg(InstancePtr->BaseAddress,
+    mcrRegister = XUartNs550_ReadReg(instancePtr->BaseAddress,
 						XUN_MCR_OFFSET);
     
-    XUartNs550_WriteReg(InstancePtr->BaseAddress, XUN_MCR_OFFSET,
+    XUartNs550_WriteReg(instancePtr->BaseAddress, XUN_MCR_OFFSET,
 			 	mcrRegister | XUN_MCR_RTS);
 }
 
-void UartNs550RS485TxEnable(u16 DeviceNum)
+void UartNs550RS485TxEnable(uint16_t deviceNum)
 {
-    u8 mcrRegister;
-    XUartNs550 * InstancePtr = &(uart_cfg_table[DeviceNum].Instance);
+    uint8_t mcrRegister;
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
 
-    mcrRegister = XUartNs550_ReadReg(InstancePtr->BaseAddress,
+    mcrRegister = XUartNs550_ReadReg(instancePtr->BaseAddress,
 						XUN_MCR_OFFSET);
     
-    XUartNs550_WriteReg(InstancePtr->BaseAddress, XUN_MCR_OFFSET,
+    XUartNs550_WriteReg(instancePtr->BaseAddress, XUN_MCR_OFFSET,
 			 	mcrRegister &(~XUN_MCR_RTS) );
 }
 

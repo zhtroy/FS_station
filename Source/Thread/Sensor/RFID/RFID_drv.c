@@ -15,8 +15,11 @@
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/BIOS.h>
 #include "assert.h"
+#include "common.h"
 
 
+
+#define RFID_MBOX_DEPTH (16)
 /****************************************************************************/
 /*                                                                          */
 /*              变量定义                                                        */
@@ -38,14 +41,14 @@ static RFID_instance_t rfid_cfg_table[]={
 
 };
 
-
+static uartDataObj_t rfidUartDataObj;
 
 /****************************************************************************/
 /*                                                                          */
 /*              函数声明                                                        */
 /*                                                                          */
 /****************************************************************************/
-static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData);
+static void uartRFIDIntrHandler(void *callBackRef, u32 event, unsigned int eventData);
 static RFID_instance_t * getInstanceByDeviceNum(uint16_t deviceNum);
 
 
@@ -150,19 +153,20 @@ static uint16_t getRFIDnumByUartNum(uint16_t uartNum)
 void RFIDDeviceOpen(uint16_t deviceNum)
 {
 	RFID_instance_t * pinst;
-	Semaphore_Params semParams;
+	//Semaphore_Params semParams;
+	Mailbox_Params mboxParams; 
 
 	pinst = getInstanceByDeviceNum(deviceNum);
 	//连接串口
-	UartNs550Init(pinst->uartDeviceNum,UartRFIDIntrHandler);
+	UartNs550Init(pinst->uartDeviceNum,uartRFIDIntrHandler);
 
-	//创建信号量
-	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_COUNTING;
-	pinst->sem_rfid_dataReady = Semaphore_create(0, &semParams, NULL);
-
+    /* 初始化接收邮箱 */
+    Mailbox_Params_init(&mboxParams);
+    pinst->recvMbox = Mailbox_create (sizeof (uartDataObj_t),RFID_MBOX_DEPTH, &mboxParams, NULL);
 
 	RFIDstateMachineReset(&(pinst->sminst));
+    
+    UartNs550Recv(deviceNum, &rfidUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 }
 
 
@@ -199,20 +203,6 @@ int RFIDStopLoopCheckEpc(uint16_t deviceNum)
 
 	return RFID_send_packet(deviceNum,data,2);
 
-}
-
-
-
-
-
-
-void RFIDPendForData(uint16_t deviceNum)
-{
-	RFID_instance_t * pinst;
-
-	pinst =getInstanceByDeviceNum(deviceNum);
-
-	Semaphore_pend(pinst->sem_rfid_dataReady, BIOS_WAIT_FOREVER);
 }
 
 
@@ -312,26 +302,26 @@ static RFID_state protocolStateMachine(uint8_t c,uint16_t deviceNum)
 
 void RFIDProcess(uint16_t deviceNum)
 {
-	UART550_BUFFER * Buff;
 	int i;
 	RFID_instance_t * pinst;
+    uartDataObj_t uartDataObj;
 
 	pinst =getInstanceByDeviceNum(deviceNum);
 
-	Buff = UartNs550PopBuffer(pinst->uartDeviceNum);
+    Mailbox_pend(pinst->recvMbox, (Ptr *)&uartDataObj, BIOS_WAIT_FOREVER);
 
-	for(i=0;i<Buff->Length;i++)
+	for(i=0;i<uartDataObj.length;i++)
 	{
-        protocolStateMachine(Buff->Buffer[i], deviceNum );
+        protocolStateMachine(uartDataObj.buffer[i], deviceNum );
     }
 
 
 }
 
-static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
+static void uartRFIDIntrHandler(void *callBackRef, u32 event, unsigned int eventData)
 {
 	u8 Errors;
-	u16 UartDeviceNum = *((u16 *)CallBackRef);
+	u16 UartDeviceNum = *((u16 *)callBackRef);
 	u16 RFIDDeviceNum;
     u8 *NextBuffer;
     RFID_instance_t * pinst;
@@ -340,42 +330,18 @@ static void UartRFIDIntrHandler(void *CallBackRef, u32 Event, unsigned int Event
     RFIDDeviceNum = getRFIDnumByUartNum(UartDeviceNum);
 
     pinst =getInstanceByDeviceNum(RFIDDeviceNum);
-	/*
-	 * All of the data has been sent.
-	 */
-	if (Event == XUN_EVENT_SENT_DATA) {
-//		TotalSentCount = EventData;
+
+	if (event == XUN_EVENT_SENT_DATA) {
 
 	}
 
-	/*
-	 * All of the data has been received.
-	 */
-	if (Event == XUN_EVENT_RECV_DATA) {
-//		TotalReceivedCount = EventData;
-        NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
-        UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-        Semaphore_post(pinst->sem_rfid_dataReady);
+	if (event == XUN_EVENT_RECV_DATA || event == XUN_EVENT_RECV_TIMEOUT) {
+        rfidUartDataObj.length = eventData;
+        Mailbox_post(pinst->recvMbox, (Ptr *)&rfidUartDataObj, BIOS_NO_WAIT);
+        UartNs550Recv(UartDeviceNum, &rfidUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 	}
 
-	/*
-	 * Data was received, but not the expected number of bytes, a
-	 * timeout just indicates the data stopped for 4 character times.
-	 */
-	if (Event == XUN_EVENT_RECV_TIMEOUT) {
-        NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
-        UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-//		TotalReceivedCount = EventData;
-		Semaphore_post(pinst->sem_rfid_dataReady);
-	}
-
-	/*
-	 * Data was received with an error, keep the data but determine
-	 * what kind of errors occurred.
-	 */
-	if (Event == XUN_EVENT_RECV_ERROR) {
-//		TotalReceivedCount = EventData;
-//		TotalErrorCount++;
+	if (event == XUN_EVENT_RECV_ERROR) {
 		Errors = UartNs550GetLastErrors(UartDeviceNum);
 	}
 }

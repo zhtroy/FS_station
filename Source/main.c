@@ -22,6 +22,7 @@
 #include "canModule.h"
 
 #include "DSP_Uart/dsp_uart2.h"
+#include "common.h"
 
 #define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
 
@@ -39,7 +40,7 @@ void PeriphInit()
 	dsp_uart2_init(); //DSP串口2设置，连接4G
 
 	//EMIFA--------------------------
-	EMIFA_init();     //初始化EMIFA
+	emifaInit();     //初始化EMIFA
 
     while(1)
     {
@@ -69,12 +70,12 @@ void PeriphInit()
     UartNs550HardIntEnable ();
 
     // MASK所有串口硬件中断；
-    canHardIntMaskAll();
+    CanHardIntMaskAll();
 
     // 使能串口硬件中断
-    canHardIntEnable ();
+    CanHardIntEnable ();
     
-    canTableInit();
+    CanTableInit();
 
 }
 
@@ -105,6 +106,8 @@ Int main()
 	SyncInit();
 
 	ThreadInit();
+
+	logInit();
 
 	TestEntry();
 

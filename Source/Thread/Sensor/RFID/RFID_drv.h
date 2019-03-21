@@ -11,7 +11,7 @@
 #define RFID_DRV_H_
 
 #include "stdint.h"
-#include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
 
 
 //macro=======================
@@ -60,7 +60,7 @@ typedef void (*RFIDcallback) (uint16_t deviceNum, uint8_t type, uint8_t data[], 
 typedef struct{
 	uint16_t uartDeviceNum ;
 	RFIDcallback callback ;
-	Semaphore_Handle sem_rfid_dataReady;
+	Mailbox_Handle recvMbox;
 	RFID_stateMachine_t sminst;
 }RFID_instance_t;
 
@@ -76,7 +76,6 @@ int RFIDStartLoopCheckEpc(uint16_t deviceNum);
 
 //处理串口输入字符
 void RFIDProcess(uint16_t deviceNum);
-void RFIDPendForData(uint16_t deviceNum);
 
 
 

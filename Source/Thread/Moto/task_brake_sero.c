@@ -4,11 +4,15 @@
 /*SYSBIOS includes*/
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
 #include "Moto/task_ctrldata.h"
 #include "Message/Message.h"
+
+#define BRAKE_MBOX_DEPTH (16)
+
 extern uint16_t getRPM(void);
 
 
@@ -31,8 +35,10 @@ static uint8_t keyState;
 static Semaphore_Handle sem_txData;
 static Semaphore_Handle sem_rxData;
 static Semaphore_Handle sem_modbus;
-static Semaphore_Handle sem_dataReady;
-UART550_BUFFER * recvBuff = NULL;
+static Mailbox_Handle recvMbox;
+static uartDataObj_t brakeUartDataObj;
+static uartDataObj_t recvUartDataObj;
+
 static uint8_t ackStatus = MODBUS_ACK_OK;
 
 static uint8_t changeRail = 0;
@@ -40,25 +46,26 @@ static uint8_t complete = 0;
 
 
 
-static void UartServorIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
+static void uartServorIntrHandler(void *callBackRef, u32 event, unsigned int eventData)
 {
 	uint8_t Errors;
-	uint16_t UartDeviceNum = *((u16 *)CallBackRef);
+	uint16_t UartDeviceNum = *((u16 *)callBackRef);
     uint8_t *NextBuffer;
     
 	/*
 	 * All of the data has been sent.
 	 */
-	if (Event == XUN_EVENT_SENT_DATA) {
+	if (event == XUN_EVENT_SENT_DATA) {
         Semaphore_post(sem_txData);
 	}
 
 
 
-	if (Event == XUN_EVENT_RECV_TIMEOUT || Event == XUN_EVENT_RECV_DATA) {
-        NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
-        UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-		Semaphore_post(sem_dataReady);
+	if (event == XUN_EVENT_RECV_TIMEOUT || event == XUN_EVENT_RECV_DATA) {
+
+        brakeUartDataObj.length = eventData;
+        Mailbox_post(recvMbox, (Ptr *)&brakeUartDataObj, BIOS_NO_WAIT);
+        UartNs550Recv(UartDeviceNum, &brakeUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 	}
 
 
@@ -66,7 +73,7 @@ static void UartServorIntrHandler(void *CallBackRef, u32 Event, unsigned int Eve
 	 * Data was received with an error, keep the data but determine
 	 * what kind of errors occurred.
 	 */
-	if (Event == XUN_EVENT_RECV_ERROR) {
+	if (event == XUN_EVENT_RECV_ERROR) {
 
 		Errors = UartNs550GetLastErrors(UartDeviceNum);
 	}
@@ -77,10 +84,12 @@ static void initSem(void)
 {
 
 	Semaphore_Params semParams;
+    Mailbox_Params mboxParams; 
+    /* 初始化接收邮箱 */
+    Mailbox_Params_init(&mboxParams);
+    recvMbox = Mailbox_create (sizeof (uartDataObj_t),BRAKE_MBOX_DEPTH, &mboxParams, NULL);
+    
 	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_COUNTING;
-	sem_dataReady = Semaphore_create(0, &semParams, NULL);
-
     semParams.mode = Semaphore_Mode_BINARY;
     sem_rxData = Semaphore_create(0, &semParams, NULL);
     sem_txData = Semaphore_create(0, &semParams, NULL);
@@ -212,7 +221,7 @@ static uint8_t modbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
     if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：10ms
     	ackStatus = MODBUS_ACK_TIMEOUT;
     else
-        *data = (uint16_t)(recvBuff->Buffer[3] << 8) + recvBuff->Buffer[4];
+        *data = (uint16_t)(recvUartDataObj.buffer[3] << 8) + recvUartDataObj.buffer[4];
 
     Semaphore_post(sem_modbus);
     
@@ -227,17 +236,15 @@ static void recvDataTask(void)
     uint16_t recvCrc;
     while(1)
     {
-        Semaphore_pend(sem_dataReady, BIOS_WAIT_FOREVER);
-        recvBuff = UartNs550PopBuffer(SERVOR_MOTOR_UART);
+        Mailbox_pend(recvMbox,(Ptr*) &recvUartDataObj, BIOS_WAIT_FOREVER);
         
-        if(recvBuff->Length == 8 || recvBuff->Length == 6 || recvBuff->Length == 5 || recvBuff->Length == 7)
+        if(recvUartDataObj.length == 8 || recvUartDataObj.length == 6 || recvUartDataObj.length == 5 || recvUartDataObj.length == 7)
         {
-            calcCrc = crc_chk((uint8_t *)recvBuff->Buffer,recvBuff->Length - 2);
-            //recvCrc = (uint16_t *)&(recvBuff->Buffer[recvBuff->Length-2]);
-            recvCrc = ((uint16_t)recvBuff->Buffer[recvBuff->Length-2]) + (((uint16_t)recvBuff->Buffer[recvBuff->Length-1])<<8);
+            calcCrc = crc_chk((uint8_t *)recvUartDataObj.buffer,recvUartDataObj.length - 2);
+            recvCrc = ((uint16_t)recvUartDataObj.buffer[recvUartDataObj.length-2]) + (((uint16_t)recvUartDataObj.buffer[recvUartDataObj.length-1])<<8);
             if(recvCrc == calcCrc)
             {
-                if(recvBuff->Length == 8 || recvBuff->Length == 7)
+                if(recvUartDataObj.length == 8 || recvUartDataObj.length == 7)
                     ackStatus = MODBUS_ACK_OK;
                 else
                     ackStatus = MODBUS_ACK_NOTOK;
@@ -577,8 +584,10 @@ void testBrakeServoInit()
 	
 	//初始化串口
 	UartNs550SetMode(SERVOR_MOTOR_UART, UART_RS485_MODE);
-	UartNs550Init(SERVOR_MOTOR_UART,UartServorIntrHandler);
+	UartNs550Init(SERVOR_MOTOR_UART,uartServorIntrHandler);
 	UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
+
+    UartNs550Recv(SERVOR_MOTOR_UART, &brakeUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 	//初始化信号量
 	initSem();
 

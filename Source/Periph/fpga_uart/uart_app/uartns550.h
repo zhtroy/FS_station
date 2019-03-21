@@ -1,92 +1,86 @@
 #ifndef __UARTNS550_H__
 #define __UARTNS550_H__
-
 #include "Xuartns550.h"
 #include "Xparameters.h"
+#include "common.h"
 
-//#define UART_DEVICE_NUMS XPAR_XUARTNS550_NUM_INSTANCES
-
+/* 宏定义 */
+/* 计算结构体数量 */
 #define NELEMENTS(array)		/* number of elements in an array */ \
 		(sizeof (array) / sizeof ((array) [0]))
-		
-#define BUFFER_MAX_SIZE 32
-#define BUFFER_MAX_DEPTH 32
 
+/* FPGA串口特殊寄存器地址 */
 #define UART_INT_STATUS_ADDR (SOC_EMIFA_CS2_ADDR + (0x20<<1))
 #define UART_RESET_ADDR (SOC_EMIFA_CS2_ADDR + (0x22<<1))
 #define UART_INT_ENABLE_ADDR (SOC_EMIFA_CS2_ADDR + (0x24<<1))
 #define UART_INT_MASK_ADDR (SOC_EMIFA_CS2_ADDR + (0x25<<1))
 #define UART_RS485_ADDR (SOC_EMIFA_CS2_ADDR + (0x08<<1))
 
+/* 串口模式 */
 #define UART_RS485_MODE (1)
 #define UART_RS232_MODE (0)
 
+/* 串口接收Buffer的大小 */
+#define UART_REC_BUFFER_SIZE (32)
 
-#define UartNs550HardReset(DeviceNum) do {\
+/* 串口设备硬件复位 */
+#define UartNs550HardReset(deviceNum) do {\
     /* 串口控制器硬件复位 */ \
-        *(volatile u16 *) (UART_RESET_ADDR) = (1 << DeviceNum); \
-        *(volatile u16 *) (UART_RESET_ADDR) = 0; \
+        *(volatile uint16_t *) (UART_RESET_ADDR) = (1 << deviceNum); \
+        *(volatile uint16_t *) (UART_RESET_ADDR) = 0; \
     }while(0)
 
-
+/* 串口设备硬件中断全局使能 */
 #define UartNs550HardIntEnable() \
-    (*(volatile u16 *) (UART_INT_ENABLE_ADDR) = 1)
-    
+    (*(volatile uint16_t *) (UART_INT_ENABLE_ADDR) = 1)
+
+/* 串口设备硬件中断全局关闭 */
 #define UartNs550HardIntDisable() \
-    (*(volatile u16 *) (UART_INT_ENABLE_ADDR) = 0)
+    (*(volatile uint16_t *) (UART_INT_ENABLE_ADDR) = 0)
 
+/* 串口设备硬件中断全局Mask */
 #define UartNs550HardIntMaskAll() \
-    (*(volatile u16 *) (UART_INT_MASK_ADDR) = 0xff)
-    
+    (*(volatile uint16_t *) (UART_INT_MASK_ADDR) = 0xff)
+
+/* 串口设备硬件中断全局取消Mask */
 #define UartNs550HardIntUnMaskAll() \
-    (*(volatile u16 *) (UART_INT_MASK_ADDR) = 0)
+    (*(volatile uint16_t *) (UART_INT_MASK_ADDR) = 0)
 
+/* 串口设备中断状态：返回产生中断的设备 */
 #define UartNs550GetHardIntStatus() \
-    (*(volatile u16 *) (UART_INT_STATUS_ADDR))
+    (*(volatile uint16_t *) (UART_INT_STATUS_ADDR))
 
-typedef struct HW_UART_BUFFER
+/* 数据类型定义 */
+/* 串口配置表 */
+typedef struct _HW_UART_CFG 
 {
-    u8                      Buffer[BUFFER_MAX_SIZE];
-    u8                      Length;
-}UART550_BUFFER;
+    uint16_t                     deviceNum;		/**< Unique Num  of device */
+	uint32_t                     baseAddress;	/**< Base address of device */
+	uint32_t                     inputClockHz;	/**< Input clock frequency */
+    XUartNs550Format        dataFormat;     /**< Data Format */
+    uint16_t                     options;        /**< Options */
+    uint8_t                      triggerLevel;   /**< FIFO TriggerLevel */
+    XUartNs550              instance;       /**Ns550 Instance */
+}uartCfgTable_t;
 
-typedef struct HW_UART_LOOP_BUFFER
+/* 串口数据结构 */
+typedef struct _UART_DATA_OBJ
 {
-    UART550_BUFFER          LoopBuffer[BUFFER_MAX_DEPTH];
-    u8                      WritePoint;
-    u8                      ReadPoint;
-}UART550_LOOP_BUFFER;
+    uint8_t                      length;
+    uint8_t                      buffer[UART_REC_BUFFER_SIZE];
+}uartDataObj_t;
 
-
-typedef struct HW_UART_CFG 
-{
-    u16                     DeviceNum;		/**< Unique Num  of device */
-	u32                     BaseAddress;	/**< Base address of device */
-	u32                     InputClockHz;	/**< Input clock frequency */
-    XUartNs550Format        DataFormat;     /**< Data Format */
-    u16                     Options;        /**< Options */
-    u8                      TriggerLevel;   /**< FIFO TriggerLevel */
-    XUartNs550              Instance;       /**Ns550 Instance */
-    UART550_LOOP_BUFFER     Buffer;         /**Loop Buffer */
-}UART_CFG_TABLE;
-
-
-
-
-s32 UartNs550Init(u16 DeivceNum,XUartNs550_Handler FuncPtr);
-u32 UartNs550Send(u16 DeivceNum, u8 *BufferPtr,u32 NumBytes);
-u32 UartNs550Recv(u16 DeivceNum, u8 *BufferPtr,u32 NumBytes);
-void UartNs550IntrHandler(u16 DeivceNum);
-void UartNs550HardIntMask(u16 DeviceNum);
-void UartNs550HardIntUnmask(u16 DeviceNum);
-void UartNs550InitBuffer(u16 DeviceNum);
-u8 * UartNs550PushBuffer(u16 DeviceNum,u8 Length);
-UART550_BUFFER* UartNs550PopBuffer(u16 DeviceNum);
-u8 UartNs550GetLastErrors(u16 DeviceNum);
-u8 UartNs550BufferIsEmpty(u16 DeviceNum);
-void UartNs550SetMode(u16 DeviceNum,u8 mode);
-void UartNs550RS485TxEnable(u16 DeviceNum);
-void UartNs550RS485TxDisable(u16 DeviceNum);
+/* 外部函数API声明 */
+int32_t UartNs550Init(uint16_t deviceNum,XUartNs550_Handler funcPtr);
+uint32_t UartNs550Send(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes);
+uint32_t UartNs550Recv(uint16_t deviceNum, uint8_t *bufferPtr,uint32_t numBytes);
+void UartNs550IntrHandler(uint16_t deviceNum);
+void UartNs550HardIntMask(uint16_t deviceNum);
+void UartNs550HardIntUnmask(uint16_t deviceNum);
+uint8_t UartNs550GetLastErrors(uint16_t deviceNum);
+void UartNs550SetMode(uint16_t deviceNum,uint8_t mode);
+void UartNs550RS485TxEnable(uint16_t deviceNum);
+void UartNs550RS485TxDisable(uint16_t deviceNum);
 
 #endif
 

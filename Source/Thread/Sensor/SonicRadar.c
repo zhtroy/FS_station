@@ -7,21 +7,25 @@
 #include <xdc/std.h>
 #include "uartns550.h"
 #include "xil_types.h"
-#include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
 #include <ti/sysbios/BIOS.h>
 #include "xdc/runtime/System.h"
 #include "Message/Message.h"
 #include <ti/sysbios/knl/Task.h>
 
 #define SONIC_UARTNUM 1
+#define SONIC_MBOX_DEPTH (16)
 
 /****************************************************************************/
 /*                                                                          */
 /*         变量                                                        */
 /*                                                                          */
 /****************************************************************************/
-static Semaphore_Handle sem_sonicRadar;
+//static Semaphore_Handle sem_sonicRadar;
+static Mailbox_Handle recvMbox;
 static uint16_t m_distance;
+static uartDataObj_t sonicUartDataObj;
+static uartDataObj_t recvUartDataObj;
 /****************************************************************************/
 /*                                                                          */
 /*              函数声明                                                        */
@@ -37,19 +41,23 @@ void SonicRadarUartIntrHandler(void *CallBackRef, u32 Event, unsigned int EventD
 /****************************************************************************/
 Void taskSonicRadar(UArg a0, UArg a1)
 {
-	Semaphore_Params semParams;
 	uint8_t Sonic_query[3] = {0xe8,0x02,0xb4};
-	UART550_BUFFER * Buf;
+	Mailbox_Params mboxParams;
 	p_msg_t pmsg;
 
 	//初始化串口
 	UartNs550Init(SONIC_UARTNUM,SonicRadarUartIntrHandler);
 
+	UartNs550Recv(SONIC_UARTNUM, &sonicUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 
 	//创建信号量
-	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_COUNTING;
-	sem_sonicRadar = Semaphore_create(0, &semParams, NULL);
+	//Semaphore_Params_init(&semParams);
+	//semParams.mode = Semaphore_Mode_COUNTING;
+	//sem_sonicRadar = Semaphore_create(0, &semParams, NULL);
+
+	/* 初始化接收邮箱 */
+	Mailbox_Params_init(&mboxParams);
+	recvMbox = Mailbox_create (sizeof (uartDataObj_t),SONIC_MBOX_DEPTH, &mboxParams, NULL);
 
 	while(1)
 	{
@@ -57,17 +65,18 @@ Void taskSonicRadar(UArg a0, UArg a1)
 
 		UartNs550Send(SONIC_UARTNUM, Sonic_query, 3);
 
-		Semaphore_pend(sem_sonicRadar,BIOS_WAIT_FOREVER);
+		//Semaphore_pend(sem_sonicRadar,BIOS_WAIT_FOREVER);
+		Mailbox_pend(recvMbox,(Ptr*) &recvUartDataObj, BIOS_WAIT_FOREVER);
 
-		Buf = UartNs550PopBuffer(SONIC_UARTNUM);
+		///Buf = UartNs550PopBuffer(SONIC_UARTNUM);
 
-		if(Buf->Length != 2)
+		if(recvUartDataObj.length != 2)
 		{
-			System_printf("Sonic Radar error: recved %d bytes\n", Buf->Length);
+			System_printf("Sonic Radar error: recved %d bytes\n", recvUartDataObj.length);
 			BIOS_exit(0);
 		}
 
-		m_distance = Buf->Buffer[0] * 256 + Buf->Buffer[1];
+		m_distance = recvUartDataObj.buffer[0] * 256 + recvUartDataObj.buffer[1];
 
 		pmsg = Message_getEmpty();
 		pmsg->type = sonicradar;
@@ -87,16 +96,15 @@ uint16_t SonicGetDistance()
 	return m_distance;
 }
 
-void SonicRadarUartIntrHandler(void *CallBackRef, u32 Event, unsigned int EventData)
+void SonicRadarUartIntrHandler(void *callBackRef, u32 event, unsigned int eventData)
 {
 	u8 Errors;
-	u16 DeviceNum = *((u16 *)CallBackRef);
-    u8 *NextBuffer;
+	u16 DeviceNum = *((u16 *)callBackRef);
 
 	/*
 	 * All of the data has been sent.
 	 */
-	if (Event == XUN_EVENT_SENT_DATA) {
+	if (event == XUN_EVENT_SENT_DATA) {
 //		TotalSentCount = EventData;
 
 	}
@@ -104,29 +112,18 @@ void SonicRadarUartIntrHandler(void *CallBackRef, u32 Event, unsigned int EventD
 	/*
 	 * All of the data has been received.
 	 */
-	if (Event == XUN_EVENT_RECV_DATA) {
+	if (event == XUN_EVENT_RECV_DATA || event == XUN_EVENT_RECV_TIMEOUT) {
 //		TotalReceivedCount = EventData;
-        NextBuffer = UartNs550PushBuffer(DeviceNum,EventData);
-        UartNs550Recv(DeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-        Semaphore_post(sem_sonicRadar);
-	}
+		sonicUartDataObj.length = eventData;
+		Mailbox_post(recvMbox, (Ptr *)&sonicUartDataObj, BIOS_NO_WAIT);
+        UartNs550Recv(DeviceNum, &sonicUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 
-	/*
-	 * Data was received, but not the expected number of bytes, a
-	 * timeout just indicates the data stopped for 4 character times.
-	 */
-	if (Event == XUN_EVENT_RECV_TIMEOUT) {
-        NextBuffer = UartNs550PushBuffer(DeviceNum,EventData);
-        UartNs550Recv(DeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-//		TotalReceivedCount = EventData;
-		 Semaphore_post(sem_sonicRadar);
 	}
-
 	/*
 	 * Data was received with an error, keep the data but determine
 	 * what kind of errors occurred.
 	 */
-	if (Event == XUN_EVENT_RECV_ERROR) {
+	if (event == XUN_EVENT_RECV_ERROR) {
 //		TotalReceivedCount = EventData;
 //		TotalErrorCount++;
 		Errors = UartNs550GetLastErrors(DeviceNum);
