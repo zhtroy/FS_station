@@ -1,25 +1,15 @@
-/*
- * emifa.h
- *
- *  Created on: 2018��11��25��
- *      Author: hk
- */
-
-#ifndef EMIFA_APP_H_
-#define EMIFA_APP_H_
+#ifndef _EMIFA_APP_H_
+#define _EMIFA_APP_H_
 
 #include "stdint.h"
-#include "soc_C6748.h"			    // DSP C6748 外设寄存器
 
-void EMIFA_init(void);
-uint8_t EMIFAReadUart(uintptr_t *addr,uint8_t offset);
-void EMIFAWriteUart(uintptr_t Addr,uint8_t offset,uint8_t Value);
-
-#define EMIFA_read(RegOffset) \
-		(*(volatile unsigned short *)((SOC_EMIFA_CS2_ADDR) + (RegOffset)))
-
-#define EMIFA_write(RegOffset, RegisterValue) \
-		(*(volatile unsigned short *)((SOC_EMIFA_CS2_ADDR) + (RegOffset))) = (RegisterValue)
-
+/* 函数声明 */
+void emifaInit(void);
+uint8_t emifaReadByte(uint32_t addr, uint32_t offset);
+void emifaWriteByte(uint32_t addr, uint32_t offset, uint8_t value);
+uint16_t emifaReadWord(uint32_t addr, uint32_t offset);
+void emifaWriteWord(uint32_t addr, uint32_t offset, uint16_t value);
+uint32_t emifaReadDword(uint32_t addr, uint32_t offset);
+void emifaWriteDword(uint32_t addr, uint32_t offset, uint32_t value);
 
 #endif /* EMIFA_APP_H_ */

@@ -15,6 +15,9 @@
 #define PHOTO_LIGHT_1_ON  (2)
 #define PHOTO_LIGHT_2_ON  (4)
 
+#define PHOTO_MBOX_DEPTH (16)
+
+
 #pragma pack(1)
 typedef struct{
 	uint8_t cmd;

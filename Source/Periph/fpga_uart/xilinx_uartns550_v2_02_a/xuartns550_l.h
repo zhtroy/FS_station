@@ -75,6 +75,7 @@ extern "C" {
 #include "xil_types.h"
 #include "xil_assert.h"
 #include "xil_io_dsp.h"
+#include "emifa_app.h"
 
 /************************** Constant Definitions *****************************/
 
@@ -90,15 +91,15 @@ extern "C" {
  */
 #define XUN_RBR_OFFSET	(XUN_REG_OFFSET) /**< Receive buffer, read only */
 #define XUN_THR_OFFSET	(XUN_REG_OFFSET) /**< Transmit holding register */
-#define XUN_IER_OFFSET	(XUN_REG_OFFSET + 0x02) /**< Interrupt enable */
-#define XUN_IIR_OFFSET	(XUN_REG_OFFSET + 0x04) /**< Interrupt id, read only */
-#define XUN_FCR_OFFSET	(XUN_REG_OFFSET + 0x04) /**< Fifo control, write only */
-#define XUN_LCR_OFFSET	(XUN_REG_OFFSET + 0x06) /**< Line Control Register */
-#define XUN_MCR_OFFSET	(XUN_REG_OFFSET + 0x08) /**< Modem Control Register */
-#define XUN_LSR_OFFSET	(XUN_REG_OFFSET + 0x0A) /**< Line Status Register */
-#define XUN_MSR_OFFSET	(XUN_REG_OFFSET + 0x0C) /**< Modem Status Register */
+#define XUN_IER_OFFSET	(XUN_REG_OFFSET + 0x01) /**< Interrupt enable */
+#define XUN_IIR_OFFSET	(XUN_REG_OFFSET + 0x02) /**< Interrupt id, read only */
+#define XUN_FCR_OFFSET	(XUN_REG_OFFSET + 0x02) /**< Fifo control, write only */
+#define XUN_LCR_OFFSET	(XUN_REG_OFFSET + 0x03) /**< Line Control Register */
+#define XUN_MCR_OFFSET	(XUN_REG_OFFSET + 0x04) /**< Modem Control Register */
+#define XUN_LSR_OFFSET	(XUN_REG_OFFSET + 0x05) /**< Line Status Register */
+#define XUN_MSR_OFFSET	(XUN_REG_OFFSET + 0x06) /**< Modem Status Register */
 #define XUN_DRLS_OFFSET	(XUN_REG_OFFSET + 0x00) /**< Divisor Register LSB */
-#define XUN_DRLM_OFFSET	(XUN_REG_OFFSET + 0x02) /**< Divisor Register MSB */
+#define XUN_DRLM_OFFSET	(XUN_REG_OFFSET + 0x01) /**< Divisor Register MSB */
 /* @} */
 
 /*
@@ -205,7 +206,8 @@ extern "C" {
 *
 ******************************************************************************/
 #define XUartNs550_ReadReg(BaseAddress, RegOffset) \
-	Xil_In16((BaseAddress) + (RegOffset))
+    emifaReadWord(BaseAddress, RegOffset)
+	//Xil_In16((BaseAddress) + (RegOffset))
 	//Xil_In32((BaseAddress) + (RegOffset))
 
 /****************************************************************************/
@@ -225,7 +227,8 @@ extern "C" {
 *
 ******************************************************************************/
 #define XUartNs550_WriteReg(BaseAddress, RegOffset, RegisterValue) \
-	Xil_Out16((BaseAddress) + (RegOffset), (RegisterValue))
+    emifaWriteWord(BaseAddress, RegOffset, RegisterValue)
+	//Xil_Out16((BaseAddress) + (RegOffset), (RegisterValue))
 	//Xil_Out32((BaseAddress) + (RegOffset), (RegisterValue))
 
 /****************************************************************************/

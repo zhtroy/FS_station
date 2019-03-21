@@ -3,7 +3,7 @@
 
 ctrlData g_carCtrlData =
 {
-    FRONT_REAR,	//MotoSel
+	.MotoSel = FRONT_REAR,	//MotoSel
     THROTTLE,	//ControlMode
     NONE,		//Gear
     0,			//Throttle

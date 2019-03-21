@@ -1,25 +1,23 @@
-
 #ifndef __CAN_MODULE__
 #define __CAN_MODULE__
 
 #ifdef __cplusplus
 extern "C"{
 #endif
-#include <xdc/runtime/Log.h>
-#include "sja_common.h"
-#include "soc_C6748.h"
 
+/* 文件头 */
+#include "common.h"
+#include "soc_C6748.h"
+/* 宏定义 */
 #define ZMD_SJA1000_MODULE 1
 
-/*define*/
 #define NELEMENTS(array)		/* number of elements in an array */ \
 		(sizeof (array) / sizeof ((array) [0]))
+		
 /*调试信息控制*/
-#define CAN_DEBUG_LOG(level,fmt,arg0,arg1,arg2,arg3,arg4,arg5) do{\
-		if (level <= DBG_LEVEL) { \
-			logMsg(0,"\rcan:%d\n",arg0); \
-			logMsg(1,"\r%s(%d):"fmt"\n",__FUNCTION__,__LINE__,arg1,arg2,arg3,arg4,arg5);  \
-		}\
+#define CAN_DEBUG_LOG(type,fmt,arg1,arg2,arg3,arg4,arg5) do{\
+			FSZX_DEBUG_LOG(type,"\r0:can:%d\n",arg1, 0, 0, 0, 0, 0); \
+			FSZX_DEBUG_LOG(type,"\r1:%s(%d):"fmt"\n",__FUNCTION__,__LINE__,arg2,arg3,arg4,arg5);  \
 	}while(0)
 /*目前支持的CAN波特率*/
 #define	BAUDTATE_20K        (0)            /*0 ByteRate_20k*/  /*Not Supoort*/           
@@ -35,6 +33,7 @@ extern "C"{
 #define	BAUDTATE_666K       (10)           /*a ByteRate_666k*/          
 #define	BAUDTATE_800K       (11)           /*b ByteRate_800k*/          
 #define	BAUDTATE_1000K      (12)           /*c ByteRate_1000k:NBT=6TQ*/ 
+
 /*CAN模块IO控制*/
 #define  CAN_BAUD_SET		(0)/*波特率设置*/
 #define  CAN_BAUD_GET		(1)/*获取波特率*/
@@ -47,21 +46,26 @@ extern "C"{
 #define  CAN_DEBUG			(8)/*can模块信息打印级别控制*/
 #define  CAN_RESET			(9)/*CAN芯片硬件复位*/
 #define  CAN_BUS_STATUS		(10)/*can总线状态*/
+
 /*CAN滤波方式宏定义*/
 #define FILTER_DUAL          (0<<16)        /*双滤波*/
 #define FILTER_SINGLE        (1<<16)        /*单滤波*/
+
 /*CAN工作方式宏定义。用于open函数中的flags参数配置*/
 #define OPERATION_NORMAL     0        /*正常模式*/
 #define OPERATION_RDONLY     1        /*只听模式*/
 #define OPERATION_LOOPBACK   2        /*自测模式*/
+
 /*CAN帧格式定义*/
 #define CAN_FRAME_TYPE_STD	 (0)	/*标准帧*/
 #define CAN_FRAME_TYPE_EXT	 (1)	/*扩展帧*/
 #define CAN_FRAME_TYPE_DATA	 (0)	/*数据帧*/
 #define CAN_FRAME_TYPE_RTR	 (1)	/*远程帧*/
+
 /*CAN中断类型定义*/
 #define RIE			(1<<0) 			  /*接收中断*/
 #define TIE			(1<<1)			  /*发送中断*/	
+
 /*设备状态*/
 #define CAN_DEV_OPENED			(0xffff)
 #define CAN_DEV_CLOSED			(0)
@@ -71,197 +75,135 @@ extern "C"{
 #define CAN_INT_ENABLE_ADDR (SOC_EMIFA_CS2_ADDR + (0x26<<1))
 #define CAN_INT_MASK_ADDR (SOC_EMIFA_CS2_ADDR + (0x27<<1))
 
-/* CAN缓冲的最大深度 */
-#define CAN_BUFFER_MAX_DEPTH 32
 
-
-#define canHardIntEnable() \
-    (*(volatile UINT16 *) (CAN_INT_ENABLE_ADDR) = 1)
+#define CanHardIntEnable() \
+    (*(volatile uint16_t *) (CAN_INT_ENABLE_ADDR) = 1)
     
-#define canHardIntDisable() \
-    (*(volatile UINT16 *) (CAN_INT_ENABLE_ADDR) = 0)
+#define CanHardIntDisable() \
+    (*(volatile uint16_t *) (CAN_INT_ENABLE_ADDR) = 0)
 
-#define canHardIntMaskAll() \
-    (*(volatile UINT16 *) (CAN_INT_MASK_ADDR) = 0xff)
+#define CanHardIntMaskAll() \
+    (*(volatile uint16_t *) (CAN_INT_MASK_ADDR) = 0xff)
     
-#define canHardIntUnMaskAll() \
-    (*(volatile UINT16 *) (CAN_INT_MASK_ADDR) = 0)
+#define CanHardIntUnMaskAll() \
+    (*(volatile uint16_t *) (CAN_INT_MASK_ADDR) = 0)
 
-#define canGetHardIntStatus() \
-    (~(*(volatile UINT16 *) (CAN_INT_STATUS_ADDR)))
+#define CanGetHardIntStatus() \
+    (~(*(volatile uint16_t *) (CAN_INT_STATUS_ADDR)))
 
 
 /*typedef*/
+/* 函数指针 */
+typedef int32_t (*canOpenFuncPtr_t)(void *canObj);	
+
+typedef int32_t (*canWriteFuncPtr_t)(void *canObj,void * canData);
+
+typedef int32_t (*canReadFuncPtr_t)(void *canObj,void * canData);
+
+typedef int32_t (*canCloseFuncPtr_t)(void *canObj);
+
+typedef int32_t (*canCtrlFuncPtr_t)(void *canObj,uint8_t funcNo,uint32_t *arg);
+
+typedef void (*canIsrFuncPtr_t)(int32_t arg);
+
+typedef void (*hwIsrFuncPtr_t)(int32_t arg,int32_t event);
+
 #pragma pack(1)/*考虑字节对齐操作*/
+
 /*can诊断项定义*/
 typedef struct _can_diagnose
 {
-	UINT32   nIntCount;	/*产生的中断次数*/
-	UINT32   nIntRecvCount;	/*产生的接收中断次数*/
-	UINT32   nIntSendCount;	/*产生的发送中断次数*/
-	UINT32   nWriteCount;	/*应用调用写的次数*/
-	UINT32   nReadCount;   /*应用调用读的次数*/
-	UINT32   nBEICount; /*总线错误中断次数*/
-	UINT32   nEICount;	/*错误报警中断次数*/
-	UINT32   nDOICount;	/*数据溢出中断次数*/
-	UINT32   nEPICount;	/*错误消极中断次数*/
-	UINT32   nALIICount;	/*仲裁丢失中断次数*/
-	UINT8    nALErrValue;  /*最后一次仲裁丢失的错误代码值*/
-	UINT8    nErrValue;  /*最后一次的错误代码值*/	
-	UINT8    nTxErrValue;  /*发送错误计数*/
-	UINT8    nRxErrValue;  /*接收错误计数*/		
-} CAN_DIAGNOSE;
+	uint32_t   nIntCount;	/*产生的中断次数*/
+	uint32_t   nIntRecvCount;	/*产生的接收中断次数*/
+	uint32_t   nIntSendCount;	/*产生的发送中断次数*/
+	uint32_t   nWriteCount;	/*应用调用写的次数*/
+	uint32_t   nReadCount;   /*应用调用读的次数*/
+	uint32_t   nBEICount; /*总线错误中断次数*/
+	uint32_t   nEICount;	/*错误报警中断次数*/
+	uint32_t   nDOICount;	/*数据溢出中断次数*/
+	uint32_t   nEPICount;	/*错误消极中断次数*/
+	uint32_t   nALIICount;	/*仲裁丢失中断次数*/
+	uint8_t    nALErrValue;  /*最后一次仲裁丢失的错误代码值*/
+	uint8_t    nErrValue;  /*最后一次的错误代码值*/	
+	uint8_t    nTxErrValue;  /*发送错误计数*/
+	uint8_t    nRxErrValue;  /*接收错误计数*/		
+} canDiagnose_t;
+
 /*can数据结构定义*/
 typedef struct _can_data_obj
 {
-	UINT32  ID;/*报文ID*/
-	UINT8 SendType;/*发送帧类型，=0时为正常发送，=1时为单次发送，=2时为自发自收，
+	uint32_t  ID;/*报文ID*/
+	uint8_t SendType;/*发送帧类型，=0时为正常发送，=1时为单次发送，=2时为自发自收，
 	                        =3时为单次自发自收，只在此帧为发送帧时有意*/
-	UINT8 RemoteFlag;/*是否是远程帧；1/远程帧 0/非远程帧*/
-	UINT8 ExternFlag;/*是否是扩展帧,1/扩展帧 0/标准帧*/
-	UINT8 DataLen;/*数据长度(<=8)，即Data 的长度*/
-	INT8  Data[8];/*报文的数据；*/
-}CAN_DATA_OBJ;
+	uint8_t RemoteFlag;/*是否是远程帧；1/远程帧 0/非远程帧*/
+	uint8_t ExternFlag;/*是否是扩展帧,1/扩展帧 0/标准帧*/
+	uint8_t DataLen;/*数据长度(<=8)，即Data 的长度*/
+	int8_t  Data[8];/*报文的数据；*/
+}canDataObj_t;
 
-typedef struct _can_buffer_obj
+ typedef struct _hw_int_params 
 {
-    CAN_DATA_OBJ            LoopBuffer[CAN_BUFFER_MAX_DEPTH];
-    UINT8                     WritePoint;
-    UINT8                      ReadPoint;
-}CAN_BUFFER_OBJ;
+	uint32_t eventId;/*中断事件号*/
+	uint32_t intTxRx;/*CAN接收发送中断使能*/
+	hwIsrFuncPtr_t irqCall;/*中断回调*/
+	int32_t  arg;/*中断回调函数参数*/
+}canIntTable_t;
 
-/*
- @var typedef HW_INT_PARAMS CAN_INT_TABLE
- @brief struct
- @ingroup dspchip_can_api_functions
- */
- typedef struct HW_INT_PARAMS 
+typedef struct _hw_can_params 
 {
-	UINT32 eventId;/*中断事件号*/
-	UINT32 intTxRx;/*CAN接收发送中断使能*/
-	ISRPFUNC irqCall;/*中断回调*/
-	INT32  arg;/*中断回调函数参数*/
-}CAN_INT_TABLE;
-/*
- @var typedef HW_CAN_PARAMS CAN_PARAMS_TABLE
- @brief struct
- @ingroup dspchip_can_api_functions
- */
-typedef struct HW_CAN_PARAMS 
+	uint32_t addr_index;/*SJA1000 EMIF总线基地址 ECAN表示模块内索引*/
+	uint32_t width_gpioArray;/*SJA1000 EMIF总线位宽 ECAN使用那组GPIO*/
+	uint32_t frameMode;/*CAN控制器的帧模式 对于sja1000来说帧模块还包括滤波方式 高16位存滤波方式 低16位存帧模式*/
+	uint32_t acr;	/*验收屏蔽寄存器*/
+	uint32_t amr;	/*验收掩码寄存器*/
+	uint32_t rate;/*波特率设置*/
+}canParamsTable_t;
+
+typedef struct _hw_can_params_int 
 {
-	UINT32 addr_index;/*SJA1000 EMIF总线基地址 ECAN表示模块内索引*/
-	UINT32 width_gpioArray;/*SJA1000 EMIF总线位宽 ECAN使用那组GPIO*/
-	UINT32 frameMode;/*CAN控制器的帧模式 对于sja1000来说帧模块还包括滤波方式 高16位存滤波方式 低16位存帧模式*/
-	UINT32 acr;	/*验收屏蔽寄存器*/
-	UINT32 amr;	/*验收掩码寄存器*/
-	UINT32 rate;/*波特率设置*/
-}CAN_PARAMS_TABLE;
-/*
- @var typedef HW_CAN_PARAMS CAN_PARAMS_TABLE
- @brief struct
- @ingroup dspchip_can_api_functions
- */
-typedef struct HW_CAN_PARAMS_INT 
+	canParamsTable_t can_params_table;/*CAN参数表*/
+	canIntTable_t    can_int_cfg_table;/*CAN中断配置表*/
+	canDiagnose_t	can_diagnose_table;/*CAN诊断表*/
+}canParamsIntTable_t;
+
+typedef struct _hw_can_cfg 
 {
-	CAN_PARAMS_TABLE can_params_table;/*CAN参数表*/
-	CAN_INT_TABLE    can_int_cfg_table;/*CAN中断配置表*/
-	CAN_DIAGNOSE	can_diagnose_table;/*CAN诊断表*/
-}CAN_PARAMS_INT_TABLE;
-/*
- @var typedef HW_CAN_CFG CAN_CFG_TABLE
- @brief struct
- @ingroup dspchip_can_api_functions
- */
-typedef struct HW_CAN_CFG 
+	uint8_t*      	 		hwName;			/*设备名*/
+	uint8_t 				devsNum;		/*设备序列号*/
+	canParamsIntTable_t 	hwCfg;			/*设备资源信息*/
+}canCfgTable_t;
+
+typedef struct _can_func
 {
-	UINT8*      	 		hwName;			/*设备名*/
-	UINT8 					devsNum;		/*设备序列号*/
-	CAN_PARAMS_INT_TABLE 	hwCfg;			/*设备资源信息*/
-    CAN_BUFFER_OBJ          lpBuf;          /*设备Loop-Buffer*/
-}CAN_CFG_TABLE;
-/*
- @var typedef INT32 (*PHWCANOPEN)(UINT8 devNum)
- @brief function
- @ingroup dspchip_can_api_functions
- */
-typedef INT32 (*PHWCANOPEN)(void *canObj);	
+	uint8_t*       	    hwName;			/*设备名*/
+	canOpenFuncPtr_t  	hwCanOpen;		/**< chip CAN open*/
+	canWriteFuncPtr_t 	hwCanWrite;		/**< chip CAN write*/
+	canReadFuncPtr_t  	hwCanRead;		/**< chip CAN read*/
+	canCloseFuncPtr_t 	hwCanClose;		/**< chip CAN close*/
+	canCtrlFuncPtr_t  	hwCanCtl;		/**< chip CAN ctrl*/
+    canIsrFuncPtr_t       hwcanisr;       /**< chip CAN ISR*/
+}canFuncTable_t;
 
-/*
- @var typedef INT32 (*PHWCANWRITE)(UINT8 devNum,unsigned short devId,unsigned short devOffset,UINT8 * dataSrc,UINT32 devDataLen)
- @brief function
- @ingroup dspchip_can_api_functions
- */
-typedef INT32 (*PHWCANWRITE)(void *canObj,void * canData);
-
-/*
- @var typedef INT32 (*PHWCANREAD)(UINT8 devNum,unsigned short devId,unsigned short devOffset,UINT8 * dataDst,UINT32 devDataLen)
- @brief function
- @ingroup dspchip_can_api_functions
- */
-typedef INT32 (*PHWCANREAD)(void *canObj,void * canData);
-
-/*
- @var typedef INT32 (*PHWCANCLOSE)(UINT8 devNum)
- @brief function
- @ingroup dspchip_can_api_functions
- */
-typedef INT32 (*PHWCANCLOSE)(void *canObj);
-
-/*
- @var typedef INT32 (*PHWCANCTRL)(UINT8 devNum,UINT32 devCtrlOption,void* devCtrlData)
- @brief function
- @ingroup dspchip_can_api_functions
- */
-typedef INT32 (*PHWCANCTRL)(void *canObj,UINT8 funcNo,UINT32 *arg);
-/*
- @struct CAN_FUNC
- @brief can底层操作API结构体.
- @ingroup dspchip_can_api_functions
-*/
-
-typedef void (*PHWCANISR)(INT32 arg);
-
-
-
-typedef struct CAN_FUNC
+typedef struct _can_dev
 {
-	UINT8*       	hwName;			/*设备名*/
-	PHWCANOPEN  	hwCanOpen;		/**< chip CAN open*/
-	PHWCANWRITE 	hwCanWrite;		/**< chip CAN write*/
-	PHWCANREAD  	hwCanRead;		/**< chip CAN read*/
-	PHWCANCLOSE 	hwCanClose;		/**< chip CAN close*/
-	PHWCANCTRL  	hwCanCtl;		/**< chip CAN ctrl*/
-    PHWCANISR       hwcanisr;       /**< chip CAN ISR*/
-}CAN_FUNC_TABLE;
-/*
- @struct CAN_DEV
- @brief can底层操作API结构体.
- @ingroup dspchip_can_api_functions
-*/
-typedef struct CAN_DEV
-{
-	UINT32 devStatus;		/*设备状态*/
-	UINT8	devsNum;	/*设备序列号*/
-	UINT8   hwName[20];	/*设备名 NOTE:设备名长度不能超过20*/
-	UINT32 drvIndex;		/*设备驱动索引*/
-	UINT32 paramIndex;	/*设备资源索引*/
-}CAN_DEV_TABLE;
+	uint32_t devStatus;		/*设备状态*/
+	uint8_t	devsNum;	/*设备序列号*/
+	uint8_t   hwName[20];	/*设备名 NOTE:设备名长度不能超过20*/
+	uint32_t drvIndex;		/*设备驱动索引*/
+	uint32_t paramIndex;	/*设备资源索引*/
+}canDevTable_t;
 #pragma pack()
+
 /*CAN API接口定义*/
-extern INT32 canTableInit(void);
-extern INT32 canOpen(UINT8 devsNum,ISRPFUNC canIsrCall,INT32 arg);
-extern INT32 canClose(UINT8 devsNum);
-extern INT32 canWrite(UINT8 devsNum,CAN_DATA_OBJ * canData);
-extern INT32 canRead(UINT8 devsNum,CAN_DATA_OBJ * canData);
-extern INT32 canIoCtl(UINT8 devsNum,UINT8 funcNo,UINT32 *arg);
-void canIsr(INT32 arg);
-static canHardWareReset(UINT8 devsNum);
-void canInitBuffer(UINT8 devsNum);
-UINT8 canBufferIsEmpty(UINT8 devsNum);
-CAN_DATA_OBJ* canPopBuffer(UINT8 devsNum);
-CAN_DATA_OBJ * canPushBuffer(UINT8 devsNum);
-void canHardIntMask(UINT8 devsNum);
-void canHardIntUnmask(UINT8 devsNum);
+int32_t CanTableInit(void);
+int32_t CanOpen(uint8_t devsNum,hwIsrFuncPtr_t canIsrCall,int32_t arg);
+int32_t CanClose(uint8_t devsNum);
+int32_t CanWrite(uint8_t devsNum,canDataObj_t * canData);
+int32_t CanRead(uint8_t devsNum,canDataObj_t * canData);
+int32_t CanIoCtl(uint8_t devsNum,uint8_t funcNo,uint32_t *arg);
+void CanIsr(int32_t devsNum);
+void CanHardIntMask(uint8_t devsNum);
+void CanHardIntUnmask(uint8_t devsNum);
 
 
 #ifdef __cplusplus

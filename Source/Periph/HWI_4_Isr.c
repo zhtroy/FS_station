@@ -23,7 +23,7 @@ void HWI_4_Isr(void)
     unsigned char IntStatus,DeviceIndex;
 	//Disable UART 中断
 	UartNs550HardIntDisable ();
-    canHardIntDisable();
+    CanHardIntDisable();
 
     // 关闭 GPIO BANK 0 中断
     GPIOBankIntDisable(SOC_GPIO_0_REGS, 0);
@@ -49,16 +49,16 @@ void HWI_4_Isr(void)
     {
 		
 		GPIOPinIntClear(SOC_GPIO_0_REGS, GPIO_CAN_INT);
-        IntStatus = canGetHardIntStatus();
+        IntStatus = CanGetHardIntStatus();
         for(DeviceIndex = 0;DeviceIndex < 8;DeviceIndex++)
         {
             if(IntStatus & (1 << DeviceIndex))
-                canIsr(DeviceIndex);
+                CanIsr(DeviceIndex);
         }
         
     }
 	// 使能 GPIO BANK 0 中断 */
     GPIOBankIntEnable(SOC_GPIO_0_REGS, 0);
     UartNs550HardIntEnable();
-    canHardIntEnable();
+    CanHardIntEnable();
 }

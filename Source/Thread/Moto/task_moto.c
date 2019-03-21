@@ -1,5 +1,4 @@
 #include "canModule.h"
-#include "sja_common.h"
 #include "task_moto.h"
 #include "task_ctrldata.h"
 #include "Sensor/CellCommunication/CellCommunication.h"
@@ -7,13 +6,15 @@
 /*SYSBIOS includes*/
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
 #include "stdio.h"
 #include <math.h>
 
-
+/* 宏定义 */
+#define RX_MBOX_DEPTH (32)
 
 /********************************************************************************/
 /*          外部全局变量                                                              */
@@ -34,47 +35,49 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t
 /********************************************************************************/
 /*          静态全局变量                                                              */
 /********************************************************************************/
-static Semaphore_Handle sem_dataReady;
-static Semaphore_Handle sem_txReady;
-static Semaphore_Handle sem_pid;
+static Semaphore_Handle txReadySem;
+static Semaphore_Handle pidSem;
+static Mailbox_Handle rxDataMbox = NULL;
 
-static CAN_DATA_OBJ canSendData;
-    
+static canDataObj_t canSendData;
+
 
 /********************************************************************************/
 /*          外部CAN0的用户中断Handler                                                   */
 /*                                                                              */
 /********************************************************************************/
-static void CAN0IntrHandler(INT32 devsNum,INT32 event)
+static void CAN0IntrHandler(int32_t devsNum,int32_t event)
 {
-    CAN_DATA_OBJ *CurrntBuffer;
-	/*
-	 * a Frame has been received.
-	 */
-	if (event == 1) {
-        CurrntBuffer = canPushBuffer(devsNum);
-        canRead(devsNum, CurrntBuffer);
-        Semaphore_post(sem_dataReady);
+    canDataObj_t rxData;
+	
+	if (event == 1)         /* 收到一帧数据 */ 
+    {
+        CanRead(devsNum, &rxData);
+        Mailbox_post(rxDataMbox, (Ptr *)&rxData, BIOS_NO_WAIT);
 	}
-
-    if (event == 2) {
+    else if (event == 2)    /* 一帧数据发送完成 */ 
+    {
         /* 发送中断 */
-        Semaphore_post(sem_txReady);
+        Semaphore_post(txReadySem);
     }
 
 }
 
 static void InitSem()
 {
-
 	Semaphore_Params semParams;
+    Mailbox_Params mboxParams;
+
+    /* 初始化发送和PID信用量 */
 	Semaphore_Params_init(&semParams);
 	semParams.mode = Semaphore_Mode_COUNTING;
-	sem_dataReady = Semaphore_create(0, &semParams, NULL);
+    txReadySem = Semaphore_create(1, &semParams, NULL);
+    pidSem = Semaphore_create(1, &semParams, NULL);
 
-    sem_txReady = Semaphore_create(1, &semParams, NULL);
-
-    sem_pid = Semaphore_create(1, &semParams, NULL);
+    /* 初始化接收邮箱 */
+    Mailbox_Params_init(&mboxParams);
+    rxDataMbox = Mailbox_create (sizeof (canDataObj_t),RX_MBOX_DEPTH, &mboxParams, NULL);
+    
 }
 
 static void motoSendTask(void)
@@ -100,7 +103,7 @@ static void motoSendTask(void)
     
 	while (1)
 	{
-        Semaphore_pend(sem_pid, 100);        //100ms超时发送油门
+        Semaphore_pend(pidSem, 100);        //100ms超时发送油门
 
 		canTx->Gear = g_carCtrlData.Gear;
         
@@ -121,8 +124,8 @@ static void motoSendTask(void)
 			canTx->Mode = 0x28;		                //前后电机方向相反
 			canSendData.ID = MOTO_F_CANID1;
             //canSendData.DataLen = 8;
-            Semaphore_pend(sem_txReady, BIOS_WAIT_FOREVER);
-			canWrite(MOTO_CAN_DEVNUM, &canSendData);      
+            Semaphore_pend(txReadySem, BIOS_WAIT_FOREVER);
+			CanWrite(MOTO_CAN_DEVNUM, &canSendData);      
 		}
         
 		if ((g_carCtrlData.MotoSel == REAR_ONLY) || (g_carCtrlData.MotoSel == FRONT_REAR))
@@ -130,12 +133,12 @@ static void motoSendTask(void)
 			canTx->Mode = 0x20;		                //前后电机方向相反
 			canSendData.ID = MOTO_R_CANID1;
             //canSendData.DataLen = 8;
-            Semaphore_pend(sem_txReady, BIOS_WAIT_FOREVER);
-			canWrite(MOTO_CAN_DEVNUM, &canSendData);      
+            Semaphore_pend(txReadySem, BIOS_WAIT_FOREVER);
+			CanWrite(MOTO_CAN_DEVNUM, &canSendData);      
 		}
 
-		Task_sleep(50);
-	}
+		
+	}/* end while(1) */
 }
 
 static void motoRecvTask(void)
@@ -153,27 +156,26 @@ static void motoRecvTask(void)
     uint8_t data_error = 0;
     uint16_t calcRpm = 0;
 
-    CAN_DATA_OBJ *canRecvData;
+    canDataObj_t canRecvData;
 	g_fbData.motorDataF.MotoId = MOTO_FRONT;
 	g_fbData.motorDataR.MotoId = MOTO_REAR;
 	
 	while (1)
 	{
-        Semaphore_pend(sem_dataReady, BIOS_WAIT_FOREVER);
-        canRecvData = canPopBuffer(MOTO_CAN_DEVNUM);
+        Mailbox_pend(rxDataMbox, (Ptr *)&canRecvData, BIOS_WAIT_FOREVER);
         
-		switch ((canRecvData->ID) & 0x1fffffff)
+		switch ((canRecvData.ID) & 0x1fffffff)
 		{
     		//Front电机反馈信息打包
     		case MOTO_F_CANID2:
-    			g_fbData.motorDataF.Gear       = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataF.ThrottleL  = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataF.ThrottleH  = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataF.MotoMode   = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataF.RPML       = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataF.RPMH       = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData->Data[6] - 40;
-    			g_fbData.motorDataF.DriverTemp = (uint8_t)canRecvData->Data[7] - 40;
+    			g_fbData.motorDataF.Gear       = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataF.ThrottleL  = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataF.ThrottleH  = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataF.MotoMode   = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataF.RPML       = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataF.RPMH       = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData.Data[6] - 40;
+    			g_fbData.motorDataF.DriverTemp = (uint8_t)canRecvData.Data[7] - 40;
 
     			//printf("m %d\n", carCtrlData.AutoMode);
     			//mode = carCtrlData.AutoMode;
@@ -265,60 +267,60 @@ static void motoRecvTask(void)
     				pidCalc(0,0,0,0,0,1);
     			}
 
-    			Semaphore_post(sem_pid);
+    			Semaphore_post(pidSem);
 
 
     			break;
     		case MOTO_F_CANID3:
-    			g_fbData.motorDataF.VoltL      = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataF.VoltH      = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataF.CurrentL   = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataF.CurrentH   = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataF.DistanceL  = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataF.DistanceH  = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataF.ErrCodeL   = (uint8_t)canRecvData->Data[6];
-    			g_fbData.motorDataF.ErrCodeH   = (uint8_t)canRecvData->Data[7];
+    			g_fbData.motorDataF.VoltL      = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataF.VoltH      = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataF.CurrentL   = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataF.CurrentH   = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataF.DistanceL  = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataF.DistanceH  = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataF.ErrCodeL   = (uint8_t)canRecvData.Data[6];
+    			g_fbData.motorDataF.ErrCodeH   = (uint8_t)canRecvData.Data[7];
     			break;
     		case MOTO_F_CANID4:
-    			g_fbData.motorDataF.TorqueCtrlL    = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataF.TorqueCtrlH    = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataF.RPMCtrlL       = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataF.RPMCtrlH       = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataF.TorqueL        = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataF.TorqueH        = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataF.CanReserved1   = (uint8_t)canRecvData->Data[6];
-    			g_fbData.motorDataF.CanReserved2   = (uint8_t)canRecvData->Data[7];
+    			g_fbData.motorDataF.TorqueCtrlL    = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataF.TorqueCtrlH    = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataF.RPMCtrlL       = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataF.RPMCtrlH       = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataF.TorqueL        = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataF.TorqueH        = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataF.CanReserved1   = (uint8_t)canRecvData.Data[6];
+    			g_fbData.motorDataF.CanReserved2   = (uint8_t)canRecvData.Data[7];
     			break;
     		//Front电机反馈信息打包
     		case MOTO_R_CANID2:
-    			g_fbData.motorDataR.Gear           = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataR.ThrottleL      = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataR.ThrottleH      = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataR.MotoMode       = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataR.RPML           = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataR.RPMH           = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataR.MotoTemp       = (uint8_t)canRecvData->Data[6] - 40;
-    			g_fbData.motorDataR.DriverTemp     = (uint8_t)canRecvData->Data[7] - 40;
+    			g_fbData.motorDataR.Gear           = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataR.ThrottleL      = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataR.ThrottleH      = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataR.MotoMode       = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataR.RPML           = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataR.RPMH           = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataR.MotoTemp       = (uint8_t)canRecvData.Data[6] - 40;
+    			g_fbData.motorDataR.DriverTemp     = (uint8_t)canRecvData.Data[7] - 40;
     			break;
     		case MOTO_R_CANID3:
-    			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataR.VoltH          = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataR.CurrentL       = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataR.CurrentH       = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataR.DistanceL      = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataR.DistanceH      = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataR.ErrCodeL       = (uint8_t)canRecvData->Data[6];
-    			g_fbData.motorDataR.ErrCodeH       = (uint8_t)canRecvData->Data[7];
+    			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataR.VoltH          = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataR.CurrentL       = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataR.CurrentH       = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataR.DistanceL      = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataR.DistanceH      = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataR.ErrCodeL       = (uint8_t)canRecvData.Data[6];
+    			g_fbData.motorDataR.ErrCodeH       = (uint8_t)canRecvData.Data[7];
     			break;
     		case MOTO_R_CANID4:
-    			g_fbData.motorDataR.TorqueCtrlL    = (uint8_t)canRecvData->Data[0];
-    			g_fbData.motorDataR.TorqueCtrlH    = (uint8_t)canRecvData->Data[1];
-    			g_fbData.motorDataR.RPMCtrlL       = (uint8_t)canRecvData->Data[2];
-    			g_fbData.motorDataR.RPMCtrlH       = (uint8_t)canRecvData->Data[3];
-    			g_fbData.motorDataR.TorqueL        = (uint8_t)canRecvData->Data[4];
-    			g_fbData.motorDataR.TorqueH        = (uint8_t)canRecvData->Data[5];
-    			g_fbData.motorDataR.CanReserved1   = (uint8_t)canRecvData->Data[6];
-    			g_fbData.motorDataR.CanReserved2   = (uint8_t)canRecvData->Data[7];
+    			g_fbData.motorDataR.TorqueCtrlL    = (uint8_t)canRecvData.Data[0];
+    			g_fbData.motorDataR.TorqueCtrlH    = (uint8_t)canRecvData.Data[1];
+    			g_fbData.motorDataR.RPMCtrlL       = (uint8_t)canRecvData.Data[2];
+    			g_fbData.motorDataR.RPMCtrlH       = (uint8_t)canRecvData.Data[3];
+    			g_fbData.motorDataR.TorqueL        = (uint8_t)canRecvData.Data[4];
+    			g_fbData.motorDataR.TorqueH        = (uint8_t)canRecvData.Data[5];
+    			g_fbData.motorDataR.CanReserved1   = (uint8_t)canRecvData.Data[6];
+    			g_fbData.motorDataR.CanReserved2   = (uint8_t)canRecvData.Data[7];
     			break;
     		default:
     			break;
@@ -353,7 +355,7 @@ void testMototaskInit()
     /*初始化CAN设备表*/
     //canTableInit();
     /*初始化CAN设备*/
-    canOpen(CAN_DEV_0, CAN0IntrHandler, CAN_DEV_0);
+    CanOpen(CAN_DEV_0, CAN0IntrHandler, CAN_DEV_0);
     
     Task_Params_init(&taskParams);
 	taskParams.priority = 5;

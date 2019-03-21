@@ -1,5 +1,4 @@
 #include "canModule.h"
-#include "sja_common.h"
 #include <xdc/runtime/Log.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/BIOS.h>
@@ -28,7 +27,7 @@ void logMsg(INT32 level,INT8 *fmt, ...)
 /********************************************************************************/
 static void CAN0IntrHandler(INT32 devsNum,INT32 event)
 {
-    CAN_DATA_OBJ *CurrntBuffer;
+    canDataObj_t *CurrntBuffer;
 	/*
 	 * a Frame has been received.
 	 */
@@ -55,7 +54,7 @@ static void InitSem()
 
 static void testSja1000Task()
 {
-    CAN_DATA_OBJ *canRecvData;
+    canDataObj_t *canRecvData;
     
     /*初始化信用量*/
     InitSem();
