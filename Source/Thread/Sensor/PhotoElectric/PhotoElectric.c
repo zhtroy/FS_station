@@ -64,7 +64,7 @@ static void InitSem()
 }
 
 //解析并处理光电对管数据
-static photo_t PhotoEle_resolveCANdata(canDataObj_t * pdata)
+static photo_t PhotoEleResolveCANdata(canDataObj_t * pdata)
 {
 	photo_data_t * pphoto;
 	photo_t p;
@@ -82,7 +82,10 @@ void taskPhotoElectric()
     canDataObj_t canRecvData;
     photo_t photo;
     p_msg_t msg;
-    uint8_t state = 0;
+    /*
+     * 对管状态，1为有光状态，0为无光
+     */
+    uint8_t levelState = 0;
 
     /*初始化信用量*/
     InitSem();
@@ -93,16 +96,16 @@ void taskPhotoElectric()
     { 
         Mailbox_pend(rxDataMbox, (Ptr *) &canRecvData,BIOS_WAIT_FOREVER);
 
-        photo = PhotoEle_resolveCANdata(&canRecvData);
+        photo = PhotoEleResolveCANdata(&canRecvData);
 
         /*
          * 串口输出，调试用
          */
-        switch(state){
+        switch(levelState){
         case 0:
         	if(photo.content.cmd == CAN_CMD_RISE)
         	{
-        		state = 1;
+        		levelState = 1;
         	}
         	break;
         case 1:
@@ -111,7 +114,7 @@ void taskPhotoElectric()
         		msg = Message_getEmpty();
         		msg->type = photon;
         		Message_post(msg);
-        		state = 0;
+        		levelState = 0;
         	}
         	break;
         }
@@ -128,13 +131,6 @@ void taskPhotoElectric()
 
 		UARTprintf("time: %d ms\tchn:%d\n", photo.content.data,photo.content.chn);
 
-
-
-		/*
-		 * 调试用 end
-		 */
-
-
     }
 }
 
@@ -144,7 +140,7 @@ void taskPhotoElectric()
  */
 
 //FIXME: 目前arm板卡在上电后只能改一次CAN ID
-void PhotoEle_changeID(uint32_t oldID, uint32_t newID)
+void PhotoEleChangeID(uint32_t oldID, uint32_t newID)
 {
 	canDataObj_t can_obj;
 	photo_data_t * pphoto;
@@ -161,7 +157,7 @@ void PhotoEle_changeID(uint32_t oldID, uint32_t newID)
 	CanWrite(PHOTO_CAN_DEV, &can_obj);
 }
 
-void PhotoEle_setLight(uint32_t id, uint8_t mask)
+void PhotoEleSetLight(uint32_t id, uint8_t mask)
 {
 	canDataObj_t can_obj;
 	photo_data_t * pphoto;
@@ -178,23 +174,3 @@ void PhotoEle_setLight(uint32_t id, uint8_t mask)
 
 }
 
-/*
- * 启动接收线程
- */
-void PhotoEle_init()
-{
-	Task_Handle task;
-	Error_Block eb;
-	Task_Params taskParams;
-
-	Error_init(&eb);
-    Task_Params_init(&taskParams);
-	taskParams.priority = 5;
-	taskParams.stackSize = 2048;
-	task = Task_create(taskPhotoElectric, &taskParams, &eb);
-
-	if (task == NULL) {
-		System_printf("Task_create() failed!\n");
-		BIOS_exit(0);
-	}
-}

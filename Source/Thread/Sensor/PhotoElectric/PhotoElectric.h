@@ -8,7 +8,7 @@
 #ifndef PHOTOELECTRIC_H_
 #define PHOTOELECTRIC_H_
 
-#define PHOTO_CAN_DEV 2          //暂时使用CAN 0
+#define PHOTO_CAN_DEV 2          //暂时使用CAN 2
 
 
 #define PHOTO_LIGHT_0_ON  (1)
@@ -50,18 +50,15 @@ typedef struct{
  * API
  */
 
-/*
- * 初始化
- */
-extern void PhotoEle_init();
+
 /*
  * 修改对管设备ID（即CAN ID)
  */
-extern void PhotoEle_changeID(uint32_t oldID, uint32_t newID);
+extern void PhotoEleChangeID(uint32_t oldID, uint32_t newID);
 /*
  * 设置对管发射端通断
  */
-extern void PhotoEle_setLight(uint32_t id, uint8_t mask);
+extern void PhotoEleSetLight(uint32_t id, uint8_t mask);
 
 extern void taskPhotoElectric();
 

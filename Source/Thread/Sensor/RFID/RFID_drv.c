@@ -147,9 +147,15 @@ static uint16_t getRFIDnumByUartNum(uint16_t uartNum)
 //-----------------------------//
 
 
-
-
-
+/*****************************************************************************
+ * 函数名称: void RFIDDeviceOpen(uint16_t deviceNum)
+ * 函数说明: 打开RFID读写器
+ * 输入参数:
+ *        deviceNum：设备号，对应的是设备配置表rfid_cfg_table中的数组下标
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
 void RFIDDeviceOpen(uint16_t deviceNum)
 {
 	RFID_instance_t * pinst;
@@ -169,6 +175,16 @@ void RFIDDeviceOpen(uint16_t deviceNum)
     UartNs550Recv(deviceNum, &rfidUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 }
 
+/*****************************************************************************
+ * 函数名称: void RFIDRegisterReadCallBack(uint16_t deviceNum, RFIDcallback cb)
+ * 函数说明: 为指定RFID设备注册一个读数据的回调函数cb
+ * 输入参数:
+ *        deviceNum：设备号，对应的是设备配置表rfid_cfg_table中的数组下标
+ *        cb: 回调函数，当读到一个数据包时，调用cb
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
 
 void RFIDRegisterReadCallBack(uint16_t deviceNum, RFIDcallback cb)
 {
@@ -179,9 +195,16 @@ void RFIDRegisterReadCallBack(uint16_t deviceNum, RFIDcallback cb)
 
 }
 
+/*****************************************************************************
+ * 函数名称: int RFIDStartLoopCheckEpc(uint16_t deviceNum)
+ * 函数说明: 开始循环查询EPC
+ * 输入参数:
+ *        deviceNum：设备号，对应的是设备配置表rfid_cfg_table中的数组下标
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
 
-
-//开始循环查询EPC
 int RFIDStartLoopCheckEpc(uint16_t deviceNum)
 {
 	unsigned char data[4];
@@ -193,6 +216,16 @@ int RFIDStartLoopCheckEpc(uint16_t deviceNum)
 
 	return RFID_send_packet(deviceNum, data, 4);
 }
+
+/*****************************************************************************
+ * 函数名称: int RFIDStopLoopCheckEpc(uint16_t deviceNum)
+ * 函数说明: 停止循环查询EPC
+ * 输入参数:
+ *        deviceNum：设备号，对应的是设备配置表rfid_cfg_table中的数组下标
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
 
 int RFIDStopLoopCheckEpc(uint16_t deviceNum)
 {
@@ -299,7 +332,15 @@ static RFID_state protocolStateMachine(uint8_t c,uint16_t deviceNum)
 	return inst->state;
 }
 
-
+/*****************************************************************************
+ * 函数名称: void RFIDProcess(uint16_t deviceNum)
+ * 函数说明: 处理串口输入字符
+ * 输入参数:
+ *        deviceNum：设备号，对应的是设备配置表rfid_cfg_table中的数组下标
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注: 从Mailbox中取出所有接收到的字符，输入到状态机中处理串口协议
+*****************************************************************************/
 void RFIDProcess(uint16_t deviceNum)
 {
 	int i;

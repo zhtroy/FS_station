@@ -115,8 +115,8 @@ static void taskSendHeartBeatToServer()
 	net_packet_t packet;
 	int len;
 
-	net_packet_ctor(&packet,0x01,0x1001,0x0001,0x42,2,0,0);
-	len = net_packet_to_netorder(&packet);
+	NetPacketCtor(&packet,0x01,0x1001,0x0001,0x42,2,0,0);
+	len = NetPacketToNetOrder(&packet);
 
 	while(1)
 	{
@@ -179,7 +179,7 @@ Void taskServerCommunication(UArg a0, UArg a1)
 			recv_head_num++;
 			if(recv_head_num>=HDR_LEN)
 			{
-				net_packet_build_header_from_raw(&packet,headbuff);
+				NetPacketBuildHeaderFromRaw(&packet,headbuff);
 				recv_head_num=0;
 				state = CELL_RECV_DATA;
 			}
@@ -274,7 +274,7 @@ Void taskCellCommunication(UArg a0, UArg a1)
         	}
 
         }
-        else    /*lteMode.workMode = LTE_TEST_MODE*/
+        else    /*lteMode.workMode == LTE_TEST_MODE*/
         {
             vOutputString(&c,1);
         }
