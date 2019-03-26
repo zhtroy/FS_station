@@ -37,7 +37,7 @@
 
 #elif CAR_VERSION == 20
 /*机车2.0*/
-#define BRAKE_STEP_PULSE (150)
+#define BRAKE_STEP_PULSE (-7500)
 #endif
 
 typedef struct{
