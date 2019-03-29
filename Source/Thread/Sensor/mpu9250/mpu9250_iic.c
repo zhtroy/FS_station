@@ -80,44 +80,39 @@ void IICInterruptHandler(IICObj_t *insPtr)
 
         if (intCode == I2C_INTCODE_TX_READY)
         {
-           
             if(insPtr->sendBuffer.remainingBytes != 0)
             {
                 if(insPtr->sendBuffer.remainingBytes == insPtr->sendBuffer.requestedBytes)
                 {
+                	/* 发送寄存器地址 */
                     I2CMasterDataPut(insPtr->baseAddr, insPtr->regAddr);
+                    insPtr->sendBuffer.remainingBytes--;
                 }
                 else
                 {
+                	/* 发送数据 */
                     I2CMasterDataPut(insPtr->baseAddr, *(insPtr->sendBuffer.nextBytePtr));
                     insPtr->sendBuffer.nextBytePtr++;
+                    insPtr->sendBuffer.remainingBytes--;
                 }
-                insPtr->sendBuffer.remainingBytes--;
-            }
-            else
-            {
-                I2CMasterDataPut(insPtr->baseAddr, 0x00);
             }
         }
-        else;
-
-        if(intCode == I2C_INTCODE_RX_READY)
+        else if(intCode == I2C_INTCODE_RX_READY)
         {
             if(insPtr->recvBuffer.remainingBytes != 0)
             {
+            	/* 接收数据并放入缓存中 */
                 *(insPtr->recvBuffer.nextBytePtr) = I2CMasterDataGet(insPtr->baseAddr);
-                
                 insPtr->recvBuffer.remainingBytes--;
                 insPtr->recvBuffer.nextBytePtr++;
             }
             else
             {
+            	/* 多余/异常接收中断，获取并丢弃数据 */
                 I2CMasterDataGet(insPtr->baseAddr);
             }
         }
-        else;
-
-        if (intCode == I2C_INTCODE_STOP)
+        else if (intCode == I2C_INTCODE_STOP)
         {
             I2CMasterIntDisableEx(insPtr->baseAddr, I2C_INT_TRANSMIT_READY |
                                                     I2C_INT_DATA_READY |
@@ -125,14 +120,17 @@ void IICInterruptHandler(IICObj_t *insPtr)
                                                     I2C_INT_STOP_CONDITION);
             
             if(insPtr->sendBuffer.remainingBytes != 0)
-                insPtr->handler(insPtr,IIC_EVENT_SEND_ERROR,insPtr->sendBuffer.requestedBytes - insPtr->sendBuffer.remainingBytes);
+            {
+            	insPtr->handler(insPtr,IIC_EVENT_SEND_ERROR,insPtr->sendBuffer.requestedBytes - insPtr->sendBuffer.remainingBytes);
+            	insPtr->sendBuffer.remainingBytes = 0;
+            }
+            else if(insPtr->recvBuffer.remainingBytes != 0)
+            {
+            	insPtr->handler(insPtr,IIC_EVENT_RECV_ERROR,insPtr->recvBuffer.requestedBytes - insPtr->recvBuffer.remainingBytes);
+            	insPtr->recvBuffer.remainingBytes = 0;
+            }
             else
-                insPtr->handler(insPtr,IIC_EVENT_SEND_DATA,insPtr->sendBuffer.requestedBytes);
-            
-            if(insPtr->recvBuffer.remainingBytes != 0)
-                insPtr->handler(insPtr,IIC_EVENT_RECV_ERROR,insPtr->recvBuffer.requestedBytes - insPtr->recvBuffer.remainingBytes);
-            else
-                insPtr->handler(insPtr,IIC_EVENT_RECV_ERROR,insPtr->recvBuffer.requestedBytes);
+                insPtr->handler(insPtr,IIC_EVENT_TRANS_COMP,insPtr->recvBuffer.requestedBytes);
         }
         else;
 
@@ -174,7 +172,6 @@ void IICInterruptHandler(IICObj_t *insPtr)
 
         }
         else;
-
         intCode = I2CInterruptVectorGet(insPtr->baseAddr);
     }
 }

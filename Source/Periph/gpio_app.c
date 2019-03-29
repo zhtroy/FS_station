@@ -23,6 +23,7 @@ static void GPIOBankPinInit(void);
 static void GPIOBank6Pin0PinMuxSetup(void);
 static void GPIOBank6Pin15PinMuxSetup(void);
 static void GPIOBank6Pin14PinMuxSetup(void); //test int
+static void GPIOBank6Pin10PinMuxSetup(void);
 static void GPIOBank0Pin0PinMuxSetup(void);  //uart int
 static void GPIOBank0Pin1PinMuxSetup(void);  //can int
 static void GPIOBank2Pin5PinMuxSetup(void);
@@ -49,7 +50,8 @@ static void rst_delay(uint32_t n)
 static void GPIOBankPinInterruputInit(void)
 {
     // 配置UART为上升沿中断
-    GPIOIntTypeSet(SOC_GPIO_0_REGS, 111, GPIO_INT_TYPE_RISEDGE);
+    //GPIOIntTypeSet(SOC_GPIO_0_REGS, 111, GPIO_INT_TYPE_RISEDGE);
+	GPIOIntTypeSet(SOC_GPIO_0_REGS, 107, GPIO_INT_TYPE_FALLEDGE);
     GPIOIntTypeSet(SOC_GPIO_0_REGS, 1, GPIO_INT_TYPE_RISEDGE);
     GPIOIntTypeSet(SOC_GPIO_0_REGS, 2, GPIO_INT_TYPE_RISEDGE);
     /* Enable interrupts for Bank*/
@@ -114,7 +116,8 @@ static void GPIOBankPinMuxSet(void)
 {
     GPIOBank6Pin0PinMuxSetup();  //run led
     GPIOBank6Pin15PinMuxSetup(); //fpga rst
-    GPIOBank6Pin14PinMuxSetup(); //test int
+    //GPIOBank6Pin14PinMuxSetup(); //test int
+    GPIOBank6Pin10PinMuxSetup(); //MPU9250 int
     GPIOBank0Pin0PinMuxSetup();  //uart int
     GPIOBank0Pin1PinMuxSetup();  //can int
     //4G 模块复位 调试时为了restart后不用等4G上电，先屏蔽，等后面再加入
@@ -125,7 +128,8 @@ static void GPIOBankPinInit(void)
 {
     GPIODirModeSet(SOC_GPIO_0_REGS, 97, GPIO_DIR_OUTPUT);  // GPIO6[0]
     GPIODirModeSet(SOC_GPIO_0_REGS, 112, GPIO_DIR_OUTPUT); // GPIO6[15]
-    GPIODirModeSet(SOC_GPIO_0_REGS, 111, GPIO_DIR_INPUT);  // GPIO6[14]
+    //GPIODirModeSet(SOC_GPIO_0_REGS, 111, GPIO_DIR_INPUT);  // GPIO6[14]
+    GPIODirModeSet(SOC_GPIO_0_REGS, 107, GPIO_DIR_INPUT);  // GPIO6[10]
     GPIODirModeSet(SOC_GPIO_0_REGS, 1, GPIO_DIR_INPUT);    // GPIO0[0]
     GPIODirModeSet(SOC_GPIO_0_REGS, 2, GPIO_DIR_INPUT);    // GPIO0[1]
 
@@ -204,6 +208,22 @@ static void GPIOBank6Pin14PinMuxSetup(void)
     /* Setting the pins corresponding to GP6[14] in PINMUX13 register.*/
     HWREG(SOC_SYSCFG_0_REGS + SYSCFG0_PINMUX(13)) =
         (PINMUX13_GPIO6_14_ENABLE | savePinmux);
+}
+
+static void GPIOBank6Pin10PinMuxSetup(void)
+{
+    unsigned int savePinmux = 0;
+
+    /*
+     ** Clearing the bit in context and retaining the other bit values
+     ** in PINMUX13 register.
+     */
+    savePinmux = (HWREG(SOC_SYSCFG_0_REGS + SYSCFG0_PINMUX(13)) &
+                  ~(SYSCFG_PINMUX13_PINMUX13_23_20));
+
+    /* Setting the pins corresponding to GP6[14] in PINMUX13 register.*/
+    HWREG(SOC_SYSCFG_0_REGS + SYSCFG0_PINMUX(13)) =
+        (PINMUX13_GPIO6_10_ENABLE | savePinmux);
 }
 
 static void GPIOBank0Pin0PinMuxSetup(void)

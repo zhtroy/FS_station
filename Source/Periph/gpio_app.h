@@ -86,6 +86,8 @@ extern "C" {
 
 /* Pin Multiplexing bit mask to select GP6[0] pin. */
 #define PINMUX19_GPIO6_0_ENABLE (SYSCFG_PINMUX19_PINMUX19_27_24_GPIO6_0 << SYSCFG_PINMUX19_PINMUX19_27_24_SHIFT)
+/* Pin Multiplexing bit mask to select GP6[10] pin. */
+#define PINMUX13_GPIO6_10_ENABLE (SYSCFG_PINMUX13_PINMUX13_23_20_GPIO6_10 << SYSCFG_PINMUX13_PINMUX13_23_20_SHIFT)
 /* Pin Multiplexing bit mask to select GP6[15] pin. */
 #define PINMUX13_GPIO6_15_ENABLE (SYSCFG_PINMUX13_PINMUX13_3_0_GPIO6_15 << SYSCFG_PINMUX13_PINMUX13_3_0_SHIFT)
 /* Pin Multiplexing bit mask to select GP6[0] pin. */

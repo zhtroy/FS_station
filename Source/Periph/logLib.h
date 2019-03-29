@@ -8,7 +8,7 @@ extern "C" {
 #define MAX_LOGARGS	(6)	            /* 消息携带的最大参数个数 */
 
 #define LOG_TASK_PRIORITY (5)       /* log任务的优先级 */
-#define LOG_TASK_STACK_SIZE  (2048) /* log任务占用的栈大小 */
+#define LOG_TASK_STACK_SIZE  (4096) /* log任务占用的栈大小 */
 
 #ifndef OK
 #define OK (0)
