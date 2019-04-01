@@ -20,6 +20,7 @@
 #include <xdc/runtime/System.h>
 #include "Message/Message.h"
 #include "Sensor/CellCommunication/CellCommunication.h"
+#include "Sensor/CellCommunication/NetPacket.h"
 
 
 
@@ -31,7 +32,7 @@ static uint16_t buff_head = 0;
 static uint16_t buff_tail = 0;
 extern int8_t lteMode;
 
-
+char cell_packet_divider[] = "SOCKA:";
 
 
 extern void vOutputString( const char * const pcMessage,int numBytesToWrite);
@@ -105,7 +106,111 @@ void CellSendData(char * pbuff, uint32_t size)
 	UART2Send(pbuff, size);
 
 }
+
 /*
+ * 发送心跳包线程
+ */
+static void taskSendHeartBeatToServer()
+{
+	net_packet_t packet;
+	int len;
+
+	net_packet_ctor(&packet,0x01,0x1001,0x0001,0x42,2,0,0);
+	len = net_packet_to_netorder(&packet);
+
+	while(1)
+	{
+		Task_sleep(1000);
+		CellSendData((char*) &packet, len);
+	}
+}
+/*
+ * 通过4G模块与上海后台服务器通信
+ */
+Void taskServerCommunication(UArg a0, UArg a1)
+{
+	Task_Handle task;
+	Task_Params taskParams;
+
+	int8_t c;
+	cell_state_new_t state = CELL_DIV;
+	net_packet_t packet;
+	int div_num = 0;
+	int recv_head_num = 0;
+	char headbuff[HDR_LEN];
+	int recv_data_num = 0;
+	p_msg_t pmsg;
+
+	SemInit();
+
+
+	Task_Params_init(&taskParams);
+	taskParams.priority = 5;
+	taskParams.stackSize = 2048;
+	task = Task_create(taskSendHeartBeatToServer, &taskParams, NULL);
+	if (task == NULL) {
+		System_printf("Task_create() failed!\n");
+		BIOS_exit(0);
+	}
+
+	while(1)
+	{
+		Semaphore_pend(sem_cell_data_received, BIOS_WAIT_FOREVER);
+		c = cell_data_buffer[buff_head];
+		switch(state)
+		{
+		case CELL_DIV:
+			if(c == cell_packet_divider[div_num]){
+				div_num ++;
+				if(div_num>=sizeof(cell_packet_divider)-1)
+				{
+					div_num = 0;
+					state = CELL_RECV_HEAD;
+				}
+			}
+			else{
+				div_num = 0;
+			}
+
+			break;
+
+		case CELL_RECV_HEAD:
+			headbuff[recv_head_num] = c;
+			recv_head_num++;
+			if(recv_head_num>=HDR_LEN)
+			{
+				net_packet_build_header_from_raw(&packet,headbuff);
+				recv_head_num=0;
+				state = CELL_RECV_DATA;
+			}
+			break;
+
+		case CELL_RECV_DATA:
+			packet.data[recv_data_num] = c;
+			recv_data_num++;
+			if(recv_data_num >= packet.len-HDR_LEN)
+			{
+				recv_data_num = 0;
+				state = CELL_DIV;
+				//TODO: 接收到一个完整包，进行后续处理
+				pmsg = Message_getEmpty();
+
+				pmsg->type = cell;
+
+				*((uint16_t*) (pmsg->data)) = packet.cmd;
+
+				Message_post(pmsg);
+
+			}
+
+		} //switch
+
+		buff_head = (buff_head+1) % CELL_BUFF_SIZE;
+	}
+}
+/*
+ * TODO: 将遥控功能从4G模块转移到其他的无线模块上
+ * 使用4G模块实现遥控功能
  * 接收4G数据， 将数据按 $command^分包后放入消息队列
  */
 Void taskCellCommunication(UArg a0, UArg a1)

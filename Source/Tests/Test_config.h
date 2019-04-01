@@ -20,9 +20,11 @@
 //#define TEST_SONIC_RADAR
 //#define TEST_UART_COMMAND_LINE
 //#define TEST_WATCHDOG
-#define TEST_UART_COMMAND_LINE
+//#define TEST_UART_COMMAND_LINE
 //#define TEST_NDK
 //#define TEST_CELL_COM
+#define TEST_SERVER_COM
+
 
 //#define TEST_MOTO_TASK
 //#define TEST_BREAK_TASK
@@ -31,7 +33,7 @@
 //#define TEST_PHOTOELEC
 #define TEST_MPU9250
 
-#define TEST_4G_CONTROL
+//#define TEST_4G_CONTROL
 
 
 #endif /* TEST_CONFIG_H_ */
