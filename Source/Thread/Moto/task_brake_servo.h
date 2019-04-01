@@ -50,9 +50,9 @@ typedef struct{
     uint16_t    crc;
 } modbusCmd_t;
 
-void ChangeRailStart();
+void ServoChangeRailStart();
 void ChangeRailClear();
-uint8_t ChangeRailIsComplete(); //1 表示成功， 0表示失败
+uint8_t ServoChangeRailIsComplete(); //1 表示成功， 0表示失败
 
 
 #endif

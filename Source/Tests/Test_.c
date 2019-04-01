@@ -66,7 +66,7 @@ testBrakeServoInit();
 #endif
 
 #ifdef TEST_MPU9250
-    testMPU9250TaskInit();
+    MPU9250TaskInit();
 #endif
 
 #ifdef TEST_4G_CONTROL

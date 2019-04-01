@@ -11,35 +11,32 @@
 #include "soc_C6748.h"
 #include "uart.h"
 #include <mlmath.h>
+#include "mpu9250_task.h"
 
-/* Starting sampling rate. */
-#define DEFAULT_MPU_HZ  (5)
-
-#define PEDO_READ_MS    (1000)
-#define TEMP_READ_MS    (500)
+/* 宏定义 */
+#define DEFAULT_MPU_HZ  (10)
 #define COMPASS_READ_MS (100)
 #define MPU_Q30  (1073741824.0f)
-#define  Pitch_error  (1.0)
-#define  Roll_error   (-2.0)
-#define  Yaw_error    (0.0)
+#define PITCH_ERROR  (0)
+#define ROLL_ERROR   (0)
+#define YAW_ERROR    (0)
 
-
+/* 全局变量定义 */
 static signed char gyro_orientation[9] = {-1, 0, 0,
                                            0,-1, 0,
                                            0, 0, 1};
-/* Every time new gyro data is available, this function is called in an
- * ISR context. In this example, it sets a flag protecting the FIFO read
- * function.
- */
-# if 0
-static Semaphore_Handle newGyroSem;
-void gyro_data_ready_cb(void)
-{
-	Semaphore_post(newGyroSem);
-	testCnt++;
-}
-#endif
+static mpu9250DataCorrect_t compassDataCor = {
+			.xMax = 1,
+			.xMin = -1,
+			.yMax = 1,
+			.yMin = -1,
+			.zMax = 1,
+			.zMin = -1,
+};
 
+static uint8_t selfTestMode = 0;	/* 默认不进行自检 */
+static uint8_t compassCorrect = 0;	/* 磁力计默认不校准 */
+static uint8_t correctTrigger = 0;	/* 磁力计校准触发 */
 
 /* These next two functions converts the orientation matrix (see
  * gyro_orientation) to a scalar representation for use by the DMP.
@@ -66,8 +63,6 @@ static  unsigned short inv_row_2_scale(const signed char *row)
     return b;
 }
 
-
-
 static  unsigned short inv_orientation_matrix_to_scalar(const signed char *mtx)
 {
     unsigned short scalar;
@@ -90,21 +85,25 @@ static  unsigned short inv_orientation_matrix_to_scalar(const signed char *mtx)
 }
 
 
-/*自检函数*/
-static void run_self_test(void)
+/*****************************************************************************
+ * 函数名称: void MPU9250RunSelfTest(void)
+ * 函数说明: 设备自检，通过则更新gyro和accel的偏移量。
+ * 输入参数: 无
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+static void MPU9250RunSelfTest(void)
 {
    int result;
-
    long gyro[3], accel[3];
+   float sens;
+   unsigned short accel_sens;
 
    result = mpu_run_self_test(gyro, accel);
    if (result == 0x7)
    {
-       /* Test passed. We can trust the gyro data here, so let's push it down
-        * to the DMP.
-        */
-       float sens;
-       unsigned short accel_sens;
+	   /* 测试通过，将gyro和accel的偏移量放入DMP中 */
        mpu_get_gyro_sens(&sens);
        gyro[0] = (long)(gyro[0] * sens);
        gyro[1] = (long)(gyro[1] * sens);
@@ -115,144 +114,303 @@ static void run_self_test(void)
        accel[1] *= accel_sens;
        accel[2] *= accel_sens;
        dmp_set_accel_bias(accel);
-       logMsg("setting bias succesfully!!\r\n",0,0,0,0,0,0);
-	//	printf("setting bias succesfully ......\n");
+       logMsg("MPU9250 setting bias succesfully!!\r\n");
    }
 	else
 	{
-	//	printf("bias has not been modified ......\n");
-		logMsg("bias has not been modified ......\r\n",0,0,0,0,0,0);
+		logMsg("MPU9250 bias has not been modified ......\r\n");
 	}
-
 }
 
-static void mpu9250Task(void)
+/*****************************************************************************
+ * 函数名称: void MPU9250OpenDev(void)
+ * 函数说明: 初始化MPU9250设备
+ * 输入参数: 无
+ * 输出参数: 无
+ * 返 回 值: 0(成功)/负数(失败)
+ * 备注:
+*****************************************************************************/
+static int32_t MPU9250OpenDev()
 {
-    struct int_param_s int_param;
-    Semaphore_Params semParams;
-    unsigned long sensor_timestamp;
-    short gyro[3], accel_short[3], compass[3], sensors;
-	unsigned char more;
-	long quat[4], temperature;
-	int32_t result;
-	unsigned short gyro_rate;
-	float q0,q1,q2,q3;
-	float Pitch,Roll,Yaw,Direction;
+	struct int_param_s intParam;
+	int32_t result = 0;
+	uint8_t selfTestMode;
 
-
-    /* IIC初始化 */
-    mpu9250I2CInit();
-#if 0
-    /* 初始化信用量配置 */
-	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_BINARY;
-	newGyroSem = Semaphore_create(0, &semParams, NULL);
-#endif
+	/* 初始化I2C的相关配置 */
+	mpu9250I2CInit();
 
 	/* 初始化MPU9250*/
-	result = mpu_init(&int_param);
-	if (result) {
-		logMsg("MPU9250 Init Failed!!\r\n",0,0,0,0,0,0);
+	result = mpu_init(&intParam);
+	if (result)
+	{
+		logMsg("mpu_init Failed!!\r\n");
+		return -1;
 	}
 
-    /* 配置硬件，并启动传感器 */
-    /* 唤醒传感器: 陀螺仪，加速度计和磁力计*/
-    result = mpu_set_sensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
-    if (result) {
-    	logMsg("mpu_set_sensors Failed!!\r\n",0,0,0,0,0,0);
-    }
+	/* 唤醒传感器: 陀螺仪，加速度计和磁力计*/
+	result = mpu_set_sensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
+	if (result)
+	{
+		logMsg("mpu_set_sensors Failed!!\r\n",0,0,0,0,0,0);
+		return -1;
+	}
 
-    /* 陀螺仪(gyro)和加速度 (accel)数据都放到FIFO中 */
-    result = mpu_configure_fifo(INV_XYZ_GYRO | INV_XYZ_ACCEL);
-    if (result) {
+	/* 陀螺仪(gyro)和加速度 (accel)数据都放到FIFO中 */
+	result = mpu_configure_fifo(INV_XYZ_GYRO | INV_XYZ_ACCEL);
+	if (result)
+	{
 		logMsg("mpu_configure_fifo Failed!!\r\n",0,0,0,0,0,0);
+		return -1;
 	}
 
-    /* 设置陀螺仪和加速度计的采样速率 */
-    result = mpu_set_sample_rate(DEFAULT_MPU_HZ);
-    if (result) {
-		logMsg("mpu_set_sample_rate Failed!!\r\n",0,0,0,0,0,0);
+	/* 设置陀螺仪和加速度计的采样速率，非DMP模式生效。(DMP模式下采样率固定为200Hz）*/
+	result = mpu_set_sample_rate(DEFAULT_MPU_HZ);
+	if (result)
+	{
+		logMsg("mpu_set_sample_rate Failed!!\r\n");
+		return -1;
 	}
 
-    mpu_get_sample_rate(&gyro_rate);
-    logMsg("mpu_get_sample_rate:%d!!\r\n",gyro_rate,0,0,0,0,0);
-    /* 设置磁力计的采样速率 */
-    mpu_set_compass_sample_rate(1000 / COMPASS_READ_MS);
-
-    /* 初始化DMP */
-    result = dmp_load_motion_driver_firmware();
-    if (result) {
-		logMsg("dmp_load_motion_driver_firmware Failed!!\r\n",0,0,0,0,0,0);
+	/* 设置磁力计的采样速率 */
+	result = mpu_set_compass_sample_rate(1000 / COMPASS_READ_MS);
+	if (result)
+	{
+		logMsg("mpu_set_sample_rate Failed!!\r\n");
+		return -1;
 	}
 
-    if(dmp_set_orientation(inv_orientation_matrix_to_scalar(gyro_orientation)))
+	/*
+	mpu_get_compass_sample_rate(&compassRate);
+	logMsg("MPU9250 Compass Sample Rate:%d\r\n",compassRate);
+	*/
+
+	/* 初始化DMP */
+	result = dmp_load_motion_driver_firmware();
+	if (result)
+	{
+		logMsg("dmp_load_motion_driver_firmware Failed!!\r\n");
+		return -1;
+	}
+
+	/* 设置DMP的gyro方向 */
+	result = dmp_set_orientation(inv_orientation_matrix_to_scalar(gyro_orientation));
+	if(result)
+	{
+		logMsg("dmp_set_orientation Failed!!\r\n");
+		return -1;
+	}
+
+	/* 设置DMP实现的功能 */
+	result = dmp_enable_feature(DMP_FEATURE_6X_LP_QUAT  | DMP_FEATURE_SEND_RAW_ACCEL |
+					   DMP_FEATURE_SEND_CAL_GYRO | DMP_FEATURE_GYRO_CAL);
+	if (result)
+	{
+		logMsg("dmp_enable_feature Failed!!\r\n");
+		return -1;
+	}
+
+	/* 设置DMP输出数据的频率 */
+	result = dmp_set_fifo_rate(DEFAULT_MPU_HZ);
+	if (result)
+	{
+		logMsg("dmp_set_fifo_rate Failed!!\r\n");
+		return -1;
+	}
+
+	/* 复位FIFO */
+	result = mpu_reset_fifo();
+	if (result)
+	{
+		logMsg("mpu_reset_fifo Failed!!\r\n");
+		return -1;
+	}
+
+	/* 自检:自检成功后，以当前位置作为参考原点 */
+	MPU9250GetSelfTestMode(&selfTestMode);
+	if(selfTestMode == 1)
+	{
+		MPU9250RunSelfTest();
+	}
+
+	/* 启动DMP */
+	result = mpu_set_dmp_state(1);
+	if (result)
+	{
+		logMsg("mpu_reset_fifo Failed!!\r\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*****************************************************************************
+ * 函数名称: void MPU9250CompassCorrectEnable(void)
+ * 函数说明: 磁力计校准使能
+ * 输入参数: 无
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+void MPU9250CompassCorrectEnable(void)
+{
+	compassCorrect = 1;
+	correctTrigger = 1;
+}
+
+/*****************************************************************************
+ * 函数名称: void MPU9250CompassCorrectDisable(void)
+ * 函数说明: 磁力计校准关闭
+ * 输入参数: 无
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+void MPU9250CompassCorrectDisable(void)
+{
+	compassCorrect = 0;
+}
+
+/*****************************************************************************
+ * 函数名称: static void MPU9250CompassCorrect(uint16_t *compass,mpu9250DataCorrect_t *dataCor)
+ * 函数说明: 磁力计校准，获取各方向磁力的最大、最小值
+ * 输入参数:
+ * 		compass: 3轴磁力值指针；
+ * 输出参数:
+ * 		dataCor: 3轴磁力值的最大，最小值；
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+static void MPU9250CompassCorrect(int16_t *compass,mpu9250DataCorrect_t *dataCor)
+{
+	if(correctTrigger)
+	{
+		dataCor->xMax = 1;
+		dataCor->xMin = -1;
+		dataCor->yMax = 1;
+		dataCor->yMin = -1;
+		dataCor->zMax = 1;
+		dataCor->zMin = -1;
+		correctTrigger = 0;
+	}
+	dataCor->xMax = MAX(compass[0],dataCor->xMax);
+	dataCor->xMin = MIN(compass[0],dataCor->xMin);
+	dataCor->yMax = MAX(compass[1],dataCor->yMax);
+	dataCor->yMin = MIN(compass[1],dataCor->yMin);
+	dataCor->zMax = MAX(compass[2],dataCor->zMax);
+	dataCor->zMin = MIN(compass[2],dataCor->zMin);
+}
+
+/*****************************************************************************
+ * 函数名称: static void MPU9250DataUpdate(mpu9250DataObj_t *dataObj)
+ * 函数说明: 更新MPU9250数据。
+ * 输入参数: 无
+ * 输出参数:
+ * 		dataObj:mpu9250数据对象，成员包括(姿态，加速度，磁力计和温度)
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+static void MPU9250DataUpdate(mpu9250DataObj_t *dataObj)
+{
+	unsigned long sensor_timestamp;
+	short gyro[3], accel_short[3], compass[3], sensors;
+	unsigned char more,accelFsr;
+	long quat[4], temperature;
+	int32_t result;
+	float q0,q1,q2,q3;
+	int16_t compassX,compassY,compassZ;
+
+	do
+	{
+		result = dmp_read_fifo(gyro, accel_short, quat, &sensor_timestamp, &sensors, &more);
+	} while(more);
+
+	if(0 == result)
+	{
+		/* 四元数转姿态计算 */
+		if (sensors & INV_WXYZ_QUAT )
+		{
+			q0 = quat[0] / MPU_Q30;
+			q1 = quat[1] / MPU_Q30;
+			q2 = quat[2] / MPU_Q30;
+			q3 = quat[3] / MPU_Q30;
+
+			dataObj->pitch  = asin(-2 * q1 * q3 + 2 * q0* q2)* 57.3 + PITCH_ERROR;
+			dataObj->roll = atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1)* 57.3 + ROLL_ERROR;
+			dataObj->yaw = atan2(2*(q1*q2 + q0*q3),q0*q0+q1*q1-q2*q2-q3*q3) * 57.3 + YAW_ERROR;
+		}
+
+		/* 加速度归一化，单位g */
+		mpu_get_accel_fsr(&accelFsr);
+		dataObj->accelX = accel_short[0]/32768.0f*accelFsr;
+		dataObj->accelY = accel_short[1]/32768.0f*accelFsr;
+		dataObj->accelZ = accel_short[2]/32768.0f*accelFsr;
+
+		/* 温度计算
+		 * TODO: 手册中的计算公式为21+xxx，而DMP中为35+xxx，需要在温度归一化之后-14.
+		 * */
+		mpu_get_temperature(&temperature, &sensor_timestamp);
+		dataObj->temp = temperature/65536.0f - 14;
+
+		/* 磁力计：电子罗盘方向计算 */
+
+		mpu_get_compass_reg(compass, &sensor_timestamp);
+		if(compassCorrect == 1)
+		{
+			MPU9250CompassCorrect(compass,&compassDataCor);
+		}
+		compassX = compass[0] - ((compassDataCor.xMax+compassDataCor.xMin)/2);
+		compassY = (compassDataCor.xMax-compassDataCor.xMin)/(compassDataCor.yMax-compassDataCor.yMin)*compass[1] -
+				((compassDataCor.yMax+compassDataCor.yMin)/2);
+		compassZ = (compassDataCor.xMax-compassDataCor.xMin)/(compassDataCor.zMax-compassDataCor.zMin)*compass[1] -
+						((compassDataCor.zMax+compassDataCor.zMin)/2);
+		dataObj->direct =	atan2((double) (compassY),
+						  (double) (compassX)
+						 )*(180/M_PI)+180;
+
+		dataObj->horizontal = compassZ;
+	}
+}
+
+static void MPU9250Task(void)
+{
+	mpu9250DataObj_t dataObj;
+	int32_t result;
+	/* 打开设备
+	 * 若设备初始化失败，每隔1S尝试1次；
+	 * */
+	do{
+		result = MPU9250OpenDev();
+		if(result)
+		{
+			logMsg("MPU9250 Initial Failed!!!\r\n");
+			Task_sleep(1000);
+		}
+	}while(result);
+
+	/* 主任务 */
+    while(1)
     {
-    	logMsg("dmp_set_orientation Failed!!\r\n",0,0,0,0,0,0);
-    }
-
-    result = dmp_enable_feature(DMP_FEATURE_6X_LP_QUAT  | DMP_FEATURE_SEND_RAW_ACCEL |
-    		           DMP_FEATURE_SEND_CAL_GYRO | DMP_FEATURE_GYRO_CAL);
-    if (result) {
-		logMsg("dmp_enable_feature Failed!!\r\n",0,0,0,0,0,0);
-	}
-
-    result = dmp_set_fifo_rate(DEFAULT_MPU_HZ);
-    if (result) {
-		logMsg("dmp_enable_feature Failed!!\r\n",0,0,0,0,0,0);
-	}
-
-//    result = dmp_set_interrupt_mode(DMP_INT_CONTINUOUS);
-    if (result) {
-		logMsg("dmp_enable_feature Failed!!\r\n",0,0,0,0,0,0);
-	}
-
-    mpu_reset_fifo();
-
-    run_self_test();
-
-    mpu_set_dmp_state(1);
-
-    while(1){
-//    	Semaphore_pend(newGyroSem,BIOS_WAIT_FOREVER);
-    	do
-    	{
-    		result = dmp_read_fifo(gyro, accel_short, quat, &sensor_timestamp, &sensors, &more);
-    	} while(more);
-    	if(0 == result)
-    	{
-    		if (sensors & INV_WXYZ_QUAT )
-			{
-				q0 = quat[0] / MPU_Q30;
-				q1 = quat[1] / MPU_Q30;
-				q2 = quat[2] / MPU_Q30;
-				q3 = quat[3] / MPU_Q30;
-
-				Pitch  = asin(-2 * q1 * q3 + 2 * q0* q2)* 57.3 + Pitch_error; // pitch
-				Roll = atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1)* 57.3 + Roll_error; // roll
-				Yaw = atan2(2*(q1*q2 + q0*q3),q0*q0+q1*q1-q2*q2-q3*q3) * 57.3 + Yaw_error;
-			}
-    		logMsg("Gyro: %06d,%06d,%06d\r\n",gyro[0], gyro[1], gyro[2], 0, 0, 0);
-    		logMsg("Aceel: x-%d,y-%d,z-%d\r\n",accel_short[0], accel_short[1], accel_short[2], 0, 0, 0);
-    		logMsg("quat: %d,%d,%d\r\n",Pitch, Roll, Yaw, 0, 0, 0);
-
-    		mpu_get_temperature(&temperature, &sensor_timestamp);
-    		//logMsg("Temptrature: %d(%d)\r\n",temperature, sensor_timestamp, 0, 0, 0, 0);
-
-    		mpu_get_compass_reg(compass, &sensor_timestamp);
-    		Direction=	atan2((double) (compass[0]),
-    						  (double) (compass[1])
-    						 )*(180/M_PI)+180;
-
-    		logMsg("Compass: Direction-%d,z-%d\r\n",Direction, compass[2], 0, 0, 0, 0);
-    		//logMsg("%d(%d)\r\n",sensor_timestamp, result, 0, 0, 0, 0);
-    	}/*end if(0 == result)*/
+    	MPU9250DataUpdate(&dataObj);
+    	logMsg("加速度: %.3f,y-%.3f,z-%.3f\r\n",dataObj.accelX, dataObj.accelY, dataObj.accelZ);
+    	logMsg("俯仰: %3.3f,横滚: %3.3f,偏航: %3.3f\r\n",dataObj.pitch, dataObj.roll, dataObj.yaw);
+    	logMsg("温度: %.1f\r\n",dataObj.temp);
+    	logMsg("方向: %.2f,水平: %.2f\r\n",dataObj.direct, dataObj.horizontal);
         Task_sleep(1000/DEFAULT_MPU_HZ);
-    }
+    } /* end while(1) */
 
 }
 
+void MPU9250GetSelfTestMode(uint8_t *mode)
+{
+	mode[0] = selfTestMode;
+}
 
-void testMPU9250TaskInit(void)
+void MPU9250SetSelfTestMode(uint8_t mode)
+{
+	selfTestMode = mode;
+}
+
+void MPU9250TaskInit(void)
 {
     Task_Handle task;
 	Task_Params taskParams;
@@ -261,7 +419,7 @@ void testMPU9250TaskInit(void)
 	taskParams.priority = 5;
 	taskParams.stackSize = 4096;
     
-	task = Task_create(mpu9250Task, &taskParams, NULL);
+	task = Task_create(MPU9250Task, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);

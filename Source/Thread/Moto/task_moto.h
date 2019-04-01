@@ -19,7 +19,7 @@
 #define MOTO_CAN_DEVNUM CAN_DEV_0
 
 //Moto CAN控制数据结构
-typedef struct
+typedef struct _CAN_DATA
 {
 	uint8_t Gear;
 	uint8_t ThrottleL;
@@ -29,7 +29,7 @@ typedef struct
 	uint8_t TorqueH;
 	uint8_t SpeedOrBreakL;
 	uint8_t SpeedOrBreakH;
-}canData;
+}canData_t;
 
 
 enum motoSel
@@ -95,12 +95,12 @@ typedef struct
 	uint8_t TorqueH;
 	uint8_t CanReserved1;
 	uint8_t CanReserved2;
-}motor_data_t;
+}motorData_t;
 
 #pragma pack(1)
 typedef struct{
-	motor_data_t motorDataF;
-	motor_data_t motorDataR;
+	motorData_t motorDataF;
+	motorData_t motorDataR;
 	uint8_t rfid;
 	uint8_t mode;
 	uint8_t brake;
@@ -187,8 +187,8 @@ typedef struct{
 
 #define BRAKE_THRO_RATIO (1)
 
-uint16_t getRPM(void);
-uint8_t setErrorCode(uint8_t code);
+uint16_t MotoGetRPM(void);
+uint8_t MotoSetErrorCode(uint8_t code);
 
 
 #endif
