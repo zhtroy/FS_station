@@ -36,8 +36,8 @@ typedef struct				    /* log消息 */
 
 
 /* 函数声明 */
-int logInit(void);
-int logMsg(const char *fmt, ...);
+int LogInit(void);
+int LogMsg(const char *fmt, ...);
 
 
 #ifdef __cplusplus

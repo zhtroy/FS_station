@@ -69,7 +69,7 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 		case 0x97:  //循环查询EPC的返回  回传EPC第一个byte
 			Log_info2("RFID[%d] EPC:\t%2X ", deviceNum,data[2]);
 			//填充回传数据
-			logMsg("RFID[%d] EPC:\t%2X\r\n", deviceNum,data[2],0,0,0,0);
+			//logMsg("RFID[%d] EPC:\t%2X\r\n", deviceNum,data[2],0,0,0,0);
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
 			g_fbData.rfid = data[2];

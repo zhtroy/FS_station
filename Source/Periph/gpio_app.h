@@ -84,27 +84,42 @@ extern "C" {
 /* This is used to write a logic 1 to a pin.*/
 #define GPIO_PIN_HIGH                 1
 
-/* Pin Multiplexing bit mask to select GP6[0] pin. */
 #define PINMUX19_GPIO6_0_ENABLE (SYSCFG_PINMUX19_PINMUX19_27_24_GPIO6_0 << SYSCFG_PINMUX19_PINMUX19_27_24_SHIFT)
-/* Pin Multiplexing bit mask to select GP6[10] pin. */
 #define PINMUX13_GPIO6_10_ENABLE (SYSCFG_PINMUX13_PINMUX13_23_20_GPIO6_10 << SYSCFG_PINMUX13_PINMUX13_23_20_SHIFT)
-/* Pin Multiplexing bit mask to select GP6[15] pin. */
 #define PINMUX13_GPIO6_15_ENABLE (SYSCFG_PINMUX13_PINMUX13_3_0_GPIO6_15 << SYSCFG_PINMUX13_PINMUX13_3_0_SHIFT)
-/* Pin Multiplexing bit mask to select GP6[0] pin. */
 #define PINMUX13_GPIO6_14_ENABLE (SYSCFG_PINMUX13_PINMUX13_7_4_GPIO6_14 << SYSCFG_PINMUX13_PINMUX13_7_4_SHIFT)
-/* Pin Multiplexing bit mask to select GP6[15] pin. */
 #define PINMUX1_GPIO0_0_ENABLE (SYSCFG_PINMUX1_PINMUX1_31_28_GPIO0_0 << SYSCFG_PINMUX1_PINMUX1_31_28_SHIFT)
-/* Pin Multiplexing bit mask to select GP6[0] pin. */
 #define PINMUX1_GPIO0_1_ENABLE (SYSCFG_PINMUX1_PINMUX1_27_24_GPIO0_1 << SYSCFG_PINMUX1_PINMUX1_27_24_SHIFT)
-
 #define PINMUX19_GPIO2_15_ENABLE (SYSCFG_PINMUX5_PINMUX5_3_0_GPIO2_15 << SYSCFG_PINMUX5_PINMUX5_3_0_SHIFT)
+#define PINMUX13_GPIO8_10_ENABLE (SYSCFG_PINMUX18_PINMUX18_31_28_GPIO8_10 << SYSCFG_PINMUX18_PINMUX18_31_28_SHIFT)
+
+#define GPIO_BANK_NUMS 	(16)
+#define GPIO0_0_INDEX	(0*GPIO_BANK_NUMS + 1 + 0)
+#define GPIO0_1_INDEX	(0*GPIO_BANK_NUMS + 1 + 1)
+#define GPIO2_15_INDEX	(2*GPIO_BANK_NUMS + 1 + 15)
+#define GPIO6_0_INDEX 	(6*GPIO_BANK_NUMS + 1 + 0)
+#define GPIO6_10_INDEX 	(6*GPIO_BANK_NUMS + 1 + 10)
+#define GPIO6_14_INDEX 	(6*GPIO_BANK_NUMS + 1 + 14)
+#define GPIO6_15_INDEX 	(6*GPIO_BANK_NUMS + 1 + 15)
+#define GPIO8_10_INDEX	(8*GPIO_BANK_NUMS + 1 + 10)
+
+#define GPIO_MPU9250_INT 	GPIO6_10_INDEX
+#define GPIO_UART_INT		GPIO0_0_INDEX
+#define GPIO_CAN_INT		GPIO0_1_INDEX
+#define GPIO_FPGA_RST		GPIO6_15_INDEX
+#define GPIO_FPGA_DONE		GPIO8_10_INDEX
+#define	GPIO_RUN_LED		GPIO6_0_INDEX
+
+
+
 
 /*****************************************************************************
 **                   FUNCTION DECLARATIONS
 *****************************************************************************/
-void gpio_init(void);
-void gpio_fpga_rst(void);
-void gpio_toggle_led(void);
+void GPIOInit(void);
+void GPIOFpgaReset(void);
+void GPIOToggleLed(void);
+void GPIOWaitFpgaDone(void);
 //void GPIOTESTIsr(void);
 
 #ifdef __cplusplus

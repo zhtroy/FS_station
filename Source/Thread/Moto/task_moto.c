@@ -10,11 +10,15 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Clock.h>
+#include "Message/Message.h"
 #include "stdio.h"
 #include <math.h>
+#include "common.h"
 
 /* 宏定义 */
 #define RX_MBOX_DEPTH (32)
+#define MOTO_CONNECT_TIMEOUT (3000)
 
 /********************************************************************************/
 /*          外部全局变量                                                              */
@@ -28,7 +32,8 @@ extern uint8_t g_connectStatus;
 motordata_t g_fbData.motorDataF, g_fbData.motorDataR;
 static uint8_t g_connectStatus = 1;
 #endif
-
+static Clock_Handle clockMotoRearHeart;
+static Clock_Handle clockMotoFrontHeart;
 
 static float MotoPidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear);
 
@@ -78,6 +83,46 @@ static void MotoInitSem()
     Mailbox_Params_init(&mboxParams);
     rxDataMbox = Mailbox_create (sizeof (canDataObj_t),RX_MBOX_DEPTH, &mboxParams, NULL);
     
+}
+static xdc_Void MotoRearConnectClosed(xdc_UArg arg)
+{
+    p_msg_t msg;
+    /*
+    *TODO:添加后轮断连处理，发送错误码消息
+    */
+    msg = Message_getEmpty();
+	msg->type = error;
+	msg->data[0] = ERROR_MOTOR_TIMEOUT;
+	msg->dataLen = 1;
+	Message_post(msg);
+	LogMsg("Moto Rear Connect Failed!!\r\n");
+}
+
+static xdc_Void MotoFrontConnectClosed(xdc_UArg arg)
+{
+    p_msg_t msg;
+    /*
+    *TODO:添加前轮断连处理，发送错误码消息
+    */
+    msg = Message_getEmpty();
+	msg->type = error;
+	msg->data[0] = ERROR_MOTOF_TIMEOUT;
+	msg->dataLen = 1;
+	Message_post(msg);
+	LogMsg("Moto Front Connect Failed!!\r\n");
+}
+
+
+static void MotoInitTimer()
+{
+	Clock_Params clockParams;
+	Clock_Params_init(&clockParams);
+	clockParams.period = 0;       // one shot
+	clockParams.startFlag = FALSE;
+	clockMotoRearHeart = Clock_create(MotoRearConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
+	clockMotoFrontHeart = Clock_create(MotoFrontConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
+	Clock_start(clockMotoRearHeart);
+	Clock_start(clockMotoFrontHeart);
 }
 
 static void MotoSendTask(void)
@@ -268,7 +313,9 @@ static void MotoRecvTask(void)
     			}
 
     			Semaphore_post(pidSem);
-
+    			/* 收到心跳，重启定时器 */
+    			Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
+    			Clock_start(clockMotoFrontHeart);
 
     			break;
     		case MOTO_F_CANID3:
@@ -301,6 +348,9 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataR.RPMH           = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataR.MotoTemp       = (uint8_t)canRecvData.Data[6] - 40;
     			g_fbData.motorDataR.DriverTemp     = (uint8_t)canRecvData.Data[7] - 40;
+    			/* 收到心跳，重启定时器 */
+    			Clock_setTimeout(clockMotoRearHeart,MOTO_CONNECT_TIMEOUT);
+    			Clock_start(clockMotoRearHeart);
     			break;
     		case MOTO_R_CANID3:
     			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData.Data[0];
@@ -352,8 +402,10 @@ void MototaskInit()
 
     /*初始化信用量*/
     MotoInitSem();
-    /*初始化CAN设备表*/
-    //canTableInit();
+
+    /*初始化定时器*/
+    MotoInitTimer();
+
     /*初始化CAN设备*/
     CanOpen(CAN_DEV_0, MotoCanIntrHandler, CAN_DEV_0);
     

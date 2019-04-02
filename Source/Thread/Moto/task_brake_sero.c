@@ -10,6 +10,7 @@
 #include <ti/sysbios/BIOS.h>
 #include "Moto/task_ctrldata.h"
 #include "Message/Message.h"
+#include "common.h"
 
 #define BRAKE_MBOX_DEPTH (16)
 
@@ -22,7 +23,7 @@ extern uint16_t MotoGetRPM(void);
 static uint8_t uBrake,uLastBrake;	//刹车信号
 static int8_t  deltaBrake;
 static int16_t sDeltaRPM,sBrake;
-static uint8_t servo_step=0;			//标记伺服位置
+static uint8_t servoStep=0;			//标记伺服位置
 static int32_t pulseCount;			//刹车位置与伺服当前位置差
 static int16_t pulseE4;
 static int16_t pulseE0;
@@ -267,9 +268,10 @@ void ServoBrakeTask(void *param)
 {
 	uint8_t state;
     p_msg_t sendmsg;
-    uint8_t brake_timeout_cnt = 0;
+    uint8_t brakeTimeoutCnt = 0;
     uint16_t recvReg;
     uint8_t motoEnableFlag = 0;
+    uint8_t idleCnt = 0;
 
     /*Pn070 Son使能驱动器*/
     ServoModbusWriteReg(0x01,0x0046,0x7FFE);
@@ -288,7 +290,7 @@ void ServoBrakeTask(void *param)
 		Task_sleep(BRAKETIME);
         
         
-        if(brake_timeout_cnt > BRAKE_TIMEOUT)
+        if(brakeTimeoutCnt > BRAKE_TIMEOUT)
         {
             /*
             *TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
@@ -297,9 +299,10 @@ void ServoBrakeTask(void *param)
             sendmsg->type = error;
             sendmsg->data[0] = ERROR_BRAKE_TIMEOUT;
             Message_post(sendmsg);
-            brake_timeout_cnt = 0;
-            servo_step = 0;    
+            brakeTimeoutCnt = 0;
+            servoStep = 0;    
             g_carCtrlData.BrakeReady = 0;
+            LogMsg("Brake Servo Connect Timeout !!!\r\n");
             continue;
         }
 
@@ -310,11 +313,12 @@ void ServoBrakeTask(void *param)
 		/*	总行程45000个脉冲
 			每步450脉冲
 		*/
-		if(servo_step!=uBrake)
+		if(servoStep!=uBrake)
 		{
-			pulseCount=BRAKE_STEP_PULSE*(uBrake-servo_step);
+			pulseCount=BRAKE_STEP_PULSE*(uBrake-servoStep);
 			pulseE4=pulseCount/10000;				//万位
 			pulseE0=pulseCount-10000*pulseE4;		//个位
+			idleCnt = 0;
 			while(1)
 			{
 
@@ -326,11 +330,11 @@ void ServoBrakeTask(void *param)
 					else
 						motoEnableFlag = 0;
 
-					brake_timeout_cnt = 0;
+					brakeTimeoutCnt = 0;
 				}
 				else
 				{
-					brake_timeout_cnt ++;
+					brakeTimeoutCnt ++;
 					break;
 				}
 
@@ -340,11 +344,11 @@ void ServoBrakeTask(void *param)
 
 					if(state != MODBUS_ACK_OK)
 					{
-						brake_timeout_cnt ++;
+						brakeTimeoutCnt ++;
 						break;
 					}
 					else
-						brake_timeout_cnt = 0;
+						brakeTimeoutCnt = 0;
 
 					Task_sleep(100);
 				}
@@ -354,50 +358,68 @@ void ServoBrakeTask(void *param)
 				
 				if(state != MODBUS_ACK_OK)
 				{
-                    brake_timeout_cnt ++;
+                    brakeTimeoutCnt ++;
                     break;
 				}
                 else
-                    brake_timeout_cnt = 0;
+                    brakeTimeoutCnt = 0;
 
 				Task_sleep(SLEEPTIME);
                 state = ServoModbusWriteReg(0x01,0x0078,pulseE4);
 				
 				if(state != MODBUS_ACK_OK)
 				{
-                    brake_timeout_cnt ++;
+                    brakeTimeoutCnt ++;
                     break;
 				}
                 else
-                    brake_timeout_cnt = 0;
+                    brakeTimeoutCnt = 0;
 
 				Task_sleep(SLEEPTIME);
                 state = ServoModbusWriteReg(0x01,0x0079,pulseE0);
 				
 				if(state != MODBUS_ACK_OK)
 				{
-                    brake_timeout_cnt ++;
+                    brakeTimeoutCnt ++;
                     break;
 				}
                 else
-                    brake_timeout_cnt = 0;
+                    brakeTimeoutCnt = 0;
 			
 				Task_sleep(SLEEPTIME);
 				state = ServoModbusWriteReg(0x01,0x0047,0x7BFF);
                 
                 if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
                 {
-				    servo_step=uBrake;		//标记伺服位置
-				    brake_timeout_cnt = 0;
+				    servoStep=uBrake;		//标记伺服位置
+				    brakeTimeoutCnt = 0;
 				    break;
                 }
 				else
 				{
-                    brake_timeout_cnt ++;
+                    brakeTimeoutCnt ++;
                     break;
 				}
 				
+			}/*end of while(1)*/
+		}/* end of if(servo_step!=uBrake)*/
+		else
+		{
+			/* 每5个刹车控制空闲周期之后，执行一次读取ModBus的读取操作，判定是否在线 */
+			if(idleCnt < 5)
+				idleCnt++;
+			else
+			{
+				state = ServoModbusReadReg(0x01,0x0046,&recvReg);
+
+				if(state == MODBUS_ACK_TIMEOUT)
+					brakeTimeoutCnt ++;
+				else
+					brakeTimeoutCnt = 0;
+
+				idleCnt = 0;
 			}
+
 		}
 
 	}
@@ -421,7 +443,7 @@ static void ServoChangeRailTask(void)
 	static uint8_t preach=0;
 	static uint8_t change_en=1;
 	//static uint8_t SCount=0;
-	uint8_t changerail_timeout_cnt = 0;
+	uint8_t changeRailTimeoutCnt = 0;
 	uint8_t uRail = 0;
 	uint8_t lastuRail = 0;
 	
@@ -444,7 +466,7 @@ static void ServoChangeRailTask(void)
 			complete= 0;
 			while(step != STEP_EXIT && change_en == 1)//正转270度
 			{
-				if(changerail_timeout_cnt > CHANGERAIL_TIMEOUT)
+				if(changeRailTimeoutCnt > CHANGERAIL_TIMEOUT)
 				{
 					/*
 					*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
@@ -453,7 +475,7 @@ static void ServoChangeRailTask(void)
 					sendmsg->type = error;
 					sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
 					Message_post(sendmsg);
-					changerail_timeout_cnt = 0;
+					changeRailTimeoutCnt = 0;
 					g_carCtrlData.ChangeRailReady = 0;
 					break;
 				}
@@ -471,10 +493,10 @@ static void ServoChangeRailTask(void)
 						{
 							//写成功，进行下一步
 							step++;
-							changerail_timeout_cnt=0;
+							changeRailTimeoutCnt=0;
 						}
 						else
-							changerail_timeout_cnt ++;
+							changeRailTimeoutCnt ++;
 
 						break;
 					case 1:
@@ -486,10 +508,10 @@ static void ServoChangeRailTask(void)
 						{
 							//写成功，进行下一步
 							step++;
-							changerail_timeout_cnt=0;
+							changeRailTimeoutCnt=0;
 						}
 						else
-							changerail_timeout_cnt ++;
+							changeRailTimeoutCnt ++;
 
 						break;
 					case 2:
@@ -505,11 +527,11 @@ static void ServoChangeRailTask(void)
 						{
 							//写成功，进行下一步
 							step++;
-							changerail_timeout_cnt=0;
+							changeRailTimeoutCnt=0;
 							Task_sleep(500);
 						}
 						else
-							changerail_timeout_cnt ++;
+							changeRailTimeoutCnt ++;
 
 						break;
 					case 3:
@@ -530,11 +552,11 @@ static void ServoChangeRailTask(void)
 								//到达指定位置，进行下一步
 								preach=1;
 								step++;
-								changerail_timeout_cnt=0;
+								changeRailTimeoutCnt=0;
 							}
 						}
 						else
-							changerail_timeout_cnt ++;
+							changeRailTimeoutCnt ++;
 
 						break;
 					case 4:
@@ -558,19 +580,41 @@ static void ServoChangeRailTask(void)
 								change_en=0;//指令完成但位置偏差时，禁止变轨
 							}
 							step = STEP_EXIT;
-							changerail_timeout_cnt=0;
+							changeRailTimeoutCnt=0;
 							complete= 1;
 						}
 						else
-							changerail_timeout_cnt ++;
+							changeRailTimeoutCnt ++;
 
 						break;
-				}
+				}/*end of switch(step)*/
+			}/*end of while(step != STEP_EXIT && change_en == 1)*/
+
+		}/* end of if(1 == changeRail)*/
+		else
+		{
+			/* 每个变轨空闲周期内执行一次ModBus读操作，判定电机是否离线 */
+			state = ServoModbusReadReg(0x02,0x0046,&recvReg);
+			if(state == MODBUS_ACK_TIMEOUT)
+				changeRailTimeoutCnt ++;
+			else
+				changeRailTimeoutCnt = 0;
+
+			if(changeRailTimeoutCnt > CHANGERAIL_TIMEOUT)
+			{
+				/*
+				*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+				*/
+				sendmsg = Message_getEmpty();
+				sendmsg->type = error;
+				sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
+				Message_post(sendmsg);
+				changeRailTimeoutCnt = 0;
+				g_carCtrlData.ChangeRailReady = 0;
+				LogMsg("ChangeRail Servo Connect Timeout !!!\r\n");
+				break;
 			}
-
-
 		}
-
 
 
 	}

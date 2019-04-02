@@ -114,11 +114,11 @@ static void MPU9250RunSelfTest(void)
        accel[1] *= accel_sens;
        accel[2] *= accel_sens;
        dmp_set_accel_bias(accel);
-       logMsg("MPU9250 setting bias succesfully!!\r\n");
+       LogMsg("MPU9250 setting bias succesfully!!\r\n");
    }
 	else
 	{
-		logMsg("MPU9250 bias has not been modified ......\r\n");
+		LogMsg("MPU9250 bias has not been modified ......\r\n");
 	}
 }
 
@@ -143,7 +143,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_init(&intParam);
 	if (result)
 	{
-		logMsg("mpu_init Failed!!\r\n");
+		LogMsg("mpu_init Failed!!\r\n");
 		return -1;
 	}
 
@@ -151,7 +151,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_set_sensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
 	if (result)
 	{
-		logMsg("mpu_set_sensors Failed!!\r\n",0,0,0,0,0,0);
+		LogMsg("mpu_set_sensors Failed!!\r\n",0,0,0,0,0,0);
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_configure_fifo(INV_XYZ_GYRO | INV_XYZ_ACCEL);
 	if (result)
 	{
-		logMsg("mpu_configure_fifo Failed!!\r\n",0,0,0,0,0,0);
+		LogMsg("mpu_configure_fifo Failed!!\r\n",0,0,0,0,0,0);
 		return -1;
 	}
 
@@ -167,7 +167,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_set_sample_rate(DEFAULT_MPU_HZ);
 	if (result)
 	{
-		logMsg("mpu_set_sample_rate Failed!!\r\n");
+		LogMsg("mpu_set_sample_rate Failed!!\r\n");
 		return -1;
 	}
 
@@ -175,7 +175,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_set_compass_sample_rate(1000 / COMPASS_READ_MS);
 	if (result)
 	{
-		logMsg("mpu_set_sample_rate Failed!!\r\n");
+		LogMsg("mpu_set_sample_rate Failed!!\r\n");
 		return -1;
 	}
 
@@ -188,7 +188,7 @@ static int32_t MPU9250OpenDev()
 	result = dmp_load_motion_driver_firmware();
 	if (result)
 	{
-		logMsg("dmp_load_motion_driver_firmware Failed!!\r\n");
+		LogMsg("dmp_load_motion_driver_firmware Failed!!\r\n");
 		return -1;
 	}
 
@@ -196,7 +196,7 @@ static int32_t MPU9250OpenDev()
 	result = dmp_set_orientation(inv_orientation_matrix_to_scalar(gyro_orientation));
 	if(result)
 	{
-		logMsg("dmp_set_orientation Failed!!\r\n");
+		LogMsg("dmp_set_orientation Failed!!\r\n");
 		return -1;
 	}
 
@@ -205,7 +205,7 @@ static int32_t MPU9250OpenDev()
 					   DMP_FEATURE_SEND_CAL_GYRO | DMP_FEATURE_GYRO_CAL);
 	if (result)
 	{
-		logMsg("dmp_enable_feature Failed!!\r\n");
+		LogMsg("dmp_enable_feature Failed!!\r\n");
 		return -1;
 	}
 
@@ -213,7 +213,7 @@ static int32_t MPU9250OpenDev()
 	result = dmp_set_fifo_rate(DEFAULT_MPU_HZ);
 	if (result)
 	{
-		logMsg("dmp_set_fifo_rate Failed!!\r\n");
+		LogMsg("dmp_set_fifo_rate Failed!!\r\n");
 		return -1;
 	}
 
@@ -221,7 +221,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_reset_fifo();
 	if (result)
 	{
-		logMsg("mpu_reset_fifo Failed!!\r\n");
+		LogMsg("mpu_reset_fifo Failed!!\r\n");
 		return -1;
 	}
 
@@ -236,7 +236,7 @@ static int32_t MPU9250OpenDev()
 	result = mpu_set_dmp_state(1);
 	if (result)
 	{
-		logMsg("mpu_reset_fifo Failed!!\r\n");
+		LogMsg("mpu_reset_fifo Failed!!\r\n");
 		return -1;
 	}
 
@@ -382,7 +382,7 @@ static void MPU9250Task(void)
 		result = MPU9250OpenDev();
 		if(result)
 		{
-			logMsg("MPU9250 Initial Failed!!!\r\n");
+			LogMsg("MPU9250 Initial Failed!!!\r\n");
 			Task_sleep(1000);
 		}
 	}while(result);
@@ -391,10 +391,10 @@ static void MPU9250Task(void)
     while(1)
     {
     	MPU9250DataUpdate(&dataObj);
-    	logMsg("加速度: %.3f,y-%.3f,z-%.3f\r\n",dataObj.accelX, dataObj.accelY, dataObj.accelZ);
-    	logMsg("俯仰: %3.3f,横滚: %3.3f,偏航: %3.3f\r\n",dataObj.pitch, dataObj.roll, dataObj.yaw);
-    	logMsg("温度: %.1f\r\n",dataObj.temp);
-    	logMsg("方向: %.2f,水平: %.2f\r\n",dataObj.direct, dataObj.horizontal);
+    	LogMsg("加速度: %.3f,y-%.3f,z-%.3f\r\n",dataObj.accelX, dataObj.accelY, dataObj.accelZ);
+    	LogMsg("俯仰: %3.3f,横滚: %3.3f,偏航: %3.3f\r\n",dataObj.pitch, dataObj.roll, dataObj.yaw);
+    	LogMsg("温度: %.1f\r\n",dataObj.temp);
+    	LogMsg("方向: %.2f,水平: %.2f\r\n",dataObj.direct, dataObj.horizontal);
         Task_sleep(1000/DEFAULT_MPU_HZ);
     } /* end while(1) */
 

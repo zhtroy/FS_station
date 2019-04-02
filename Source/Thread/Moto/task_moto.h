@@ -156,6 +156,12 @@ typedef struct{
 /*RFID通信异常*/
 #define ERROR_RFID_TIMEOUT    (14)
 
+/*MOTO后轮通信异常*/
+#define ERROR_MOTOR_TIMEOUT    (15)
+
+/*MOTO后轮通信异常*/
+#define ERROR_MOTOF_TIMEOUT    (16)
+
 
 
 #define DIFF_RPM_UPSCALE (4000)

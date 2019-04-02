@@ -21,9 +21,9 @@ static char strArray[MAILBOX_DEPTH][MAX_CHAR_NUMS];
 static uint8_t strIndex = 0;
 
 /* 静态函数声明 */
-static void logTask (void);
-static void logPuts(char *txBuffer);
-static void logPrintf(char *fmt, ...);
+static void LogTask (void);
+static void LogPuts(char *txBuffer);
+static void LogPrintf(char *fmt, ...);
 
 /*****************************************************************************
 * 函数名称: logInit
@@ -33,7 +33,7 @@ static void logPrintf(char *fmt, ...);
 * 返 回 值: 0(成功)/-1(失败)
 * 备注:
 *****************************************************************************/
-int logInit(void)
+int LogInit(void)
 {
     Mailbox_Params mboxParams;
     Task_Params taskParams;
@@ -56,7 +56,7 @@ int logInit(void)
     Task_Params_init(&taskParams);
 	taskParams.priority = LOG_TASK_PRIORITY;
 	taskParams.stackSize = LOG_TASK_STACK_SIZE;
-    logTaskId = Task_create (logTask, &taskParams, NULL);
+    logTaskId = Task_create (LogTask, &taskParams, NULL);
 
     if (logTaskId == NULL)
     {
@@ -87,7 +87,7 @@ int logInit(void)
 * 返 回 值: 消息长度/-1(失败)
 * 备注:
 *****************************************************************************/
-int logMsg(const char *fmt, ...)
+int LogMsg(const char *fmt, ...)
 {
 
 	va_list vp;
@@ -121,7 +121,7 @@ int logMsg(const char *fmt, ...)
 * 返 回 值: 无
 * 备注:
 *****************************************************************************/
-static void logTask (void)
+static void LogTask (void)
 {
     static int oldMsgsLost;
 
@@ -133,18 +133,18 @@ static void logTask (void)
     	if (FALSE == Mailbox_pend (logMailbox, (Ptr *) &strAddr, BIOS_WAIT_FOREVER))
     	{
             /*获取消息失败*/
-    		logPuts ("logTask: error reading log messages.\n");
+    		LogPuts ("logTask: error reading log messages.\n");
     	}
     	else
     	{
     	    if (strAddr == NULL)
     	    {
                 /*无格式化信息*/
-    	    	logPuts ("<null \"fmt\" parameter>\n");
+    	    	LogPuts ("<null \"fmt\" parameter>\n");
     	    }
     	    else
     		{
-    		    logPuts (strAddr);
+    		    LogPuts (strAddr);
     		}
         }
 
@@ -154,7 +154,7 @@ static void logTask (void)
 
     	if (newMsgsLost != oldMsgsLost)
     	{
-    		logPrintf ("logTask: %d log messages lost.\n",
+    		LogPrintf ("logTask: %d log messages lost.\n",
     		     newMsgsLost - oldMsgsLost);
 
     	    oldMsgsLost = newMsgsLost;
@@ -173,7 +173,7 @@ static void logTask (void)
 * 返 回 值: 无
 * 备注:
 *****************************************************************************/
-static void logPuts(char *txBuffer)
+static void LogPuts(char *txBuffer)
 {
     /*添加信号量锁，保证打印信息的顺序*/
     Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
@@ -182,7 +182,7 @@ static void logPuts(char *txBuffer)
 }
 
 
-static void logPrintf(char *fmt, ...)
+static void LogPrintf(char *fmt, ...)
 {
 	va_list vp;
 	va_start(vp,fmt);

@@ -387,9 +387,9 @@ void CanIsr(int32_t devsNum)
 static CanHardWareReset(uint8_t devsNum)
 {
     uint8_t reg;
-    reg = emifaReadWord(CAN_RESET_ADDR,0);
-    emifaWriteWord(CAN_RESET_ADDR,0, reg | (1 << devsNum));
-    emifaWriteWord(CAN_RESET_ADDR,0, reg & (~(1 << devsNum)));
+    reg = EMIFAReadWord(CAN_RESET_ADDR,0);
+    EMIFAWriteWord(CAN_RESET_ADDR,0, reg | (1 << devsNum));
+    EMIFAWriteWord(CAN_RESET_ADDR,0, reg & (~(1 << devsNum)));
 }
 
 
@@ -405,8 +405,8 @@ static CanHardWareReset(uint8_t devsNum)
 void CanHardIntMask(uint8_t devsNum)
 {
     uint8_t reg;
-    reg = emifaReadWord(CAN_INT_MASK_ADDR, 0);
-    emifaWriteWord(CAN_INT_MASK_ADDR, 0, reg | (1 << devsNum));
+    reg = EMIFAReadWord(CAN_INT_MASK_ADDR, 0);
+    EMIFAWriteWord(CAN_INT_MASK_ADDR, 0, reg | (1 << devsNum));
 }
 
 /*****************************************************************************
@@ -421,8 +421,8 @@ void CanHardIntMask(uint8_t devsNum)
 void CanHardIntUnmask(uint8_t devsNum)
 {
     uint8_t reg;
-    reg = emifaReadWord(CAN_INT_MASK_ADDR, 0);
-    emifaWriteWord(CAN_INT_MASK_ADDR, 0, reg & (~(1 << devsNum)));
+    reg = EMIFAReadWord(CAN_INT_MASK_ADDR, 0);
+    EMIFAWriteWord(CAN_INT_MASK_ADDR, 0, reg & (~(1 << devsNum)));
 }
 
 

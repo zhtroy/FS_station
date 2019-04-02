@@ -206,7 +206,7 @@ extern "C" {
 *
 ******************************************************************************/
 #define XUartNs550_ReadReg(BaseAddress, RegOffset) \
-    emifaReadWord(BaseAddress, RegOffset)
+    EMIFAReadWord(BaseAddress, RegOffset)
 	//Xil_In16((BaseAddress) + (RegOffset))
 	//Xil_In32((BaseAddress) + (RegOffset))
 
@@ -227,7 +227,7 @@ extern "C" {
 *
 ******************************************************************************/
 #define XUartNs550_WriteReg(BaseAddress, RegOffset, RegisterValue) \
-    emifaWriteWord(BaseAddress, RegOffset, RegisterValue)
+    EMIFAWriteWord(BaseAddress, RegOffset, RegisterValue)
 	//Xil_Out16((BaseAddress) + (RegOffset), (RegisterValue))
 	//Xil_Out32((BaseAddress) + (RegOffset), (RegisterValue))
 
