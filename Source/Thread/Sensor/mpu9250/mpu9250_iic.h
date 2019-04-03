@@ -38,10 +38,9 @@
 #define MPU9250_PWR_MGMT_1      0x6B    //电源管理，典型值：0x00(正常启用)
 #define MPU9250_WHO_AM_I        0x75    //IIC地址寄存器(默认数值0x68，只读)
 
-#define IIC_EVENT_RECV_DATA     (1) /**< Data has been received */
-#define IIC_EVENT_RECV_ERROR    (2) /**< When Data is receiving, transmit NACK or STOP */
-#define IIC_EVENT_SEND_DATA     (3) /**< All Data has been sent */
-#define IIC_EVENT_SEND_ERROR    (4) /**< When Data is sending, receive NACK or transmit STOP */
+#define IIC_EVENT_TRANS_COMP    (1) /* 发送/接收完成 */
+#define IIC_EVENT_RECV_ERROR    (2) /* 数据接收过程中受到NACK或者STOP */
+#define IIC_EVENT_SEND_ERROR    (3) /* 数据发送过程中受到NACK或者STOP */
 
 
 typedef struct {

@@ -1,13 +1,3 @@
-/*
- * HWI_4_Isr.c
- *
- *  HWI 4 中断处理函数
- *  处理GPIO bank 0中断
- *  FPGA的UART 和 CAN中断都在这里处理
- *
- *  Created on: 2018-12-3
- *      Author: zhtro
- */
 
 #include "interrupt.h"
 #include "soc_C6748.h"
@@ -15,9 +5,20 @@
 
 extern void IICInterruptHandler(IICObj_t *insPtr);
 
+#if 0
+extern void gyro_data_ready_cb(void);
+#endif
+
 extern IICObj_t mpu9250IICInst;
 
-void HWI_6_Isr(void)
+void HWI_5_Isr(void)
 {
      IICInterruptHandler(&mpu9250IICInst);
 }
+
+#if 0
+void HWI_8_Isr(void)
+{
+	gyro_data_ready_cb();
+}
+#endif

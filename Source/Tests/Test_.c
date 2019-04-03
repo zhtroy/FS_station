@@ -70,6 +70,10 @@ testBrakeServoInit();
     testPhotoElectric_init();
 #endif
 
+#ifdef TEST_MPU9250
+    MPU9250TaskInit();
+#endif
+
 #ifdef TEST_4G_CONTROL
     test4GControl_init();
 #endif

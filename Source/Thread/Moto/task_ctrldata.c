@@ -1,7 +1,7 @@
 #include "task_ctrldata.h"
 
 
-ctrlData g_carCtrlData =
+ctrlData_t g_carCtrlData =
 {
 	.MotoSel = FRONT_REAR,	//MotoSel
     THROTTLE,	//ControlMode
@@ -22,22 +22,22 @@ ctrlData g_carCtrlData =
 /*发送控制命令任务*/
 
 
-uint8_t getBrake(void)
+uint8_t CtrlGetBrake(void)
 {
 	return g_carCtrlData.Brake;
 }
 
-uint8_t getRail(void)
+uint8_t CtrlGetRail(void)
 {
 	return g_carCtrlData.Rail;
 }
 
-uint8_t getRailState(void)
+uint8_t CtrlGetRailState(void)
 {
 	return g_carCtrlData.RailState;
 }
 
-uint8_t setRailState(uint8_t sts)
+uint8_t CtrlSetRailState(uint8_t sts)
 {
 	g_carCtrlData.RailState = sts;
 	return sts;

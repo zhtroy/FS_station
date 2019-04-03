@@ -8,16 +8,20 @@
 #include "uartStdio.h"
 #include "logLib.h"
 
+/* 宏定义 */
+#define MAILBOX_DEPTH	(32)	           	 	/* 邮箱深度 */
+#define MAX_CHAR_NUMS	(256)					/* 单次打印的最大字符数 */
+
 /* 静态全局变量声明 */
 static Task_Handle logTaskId = NULL;            /* 任务句柄*/
 static Semaphore_Handle logSem = NULL;          /* 信号量句柄*/
 static Mailbox_Handle logMailbox = NULL;        /* 邮箱句柄*/
 static int logMsgsLost = 0;	                    /* 丢失消息计数*/
+static char strArray[MAILBOX_DEPTH][MAX_CHAR_NUMS];
+static uint8_t strIndex = 0;
 
 /* 静态函数声明 */
-static void logTask (void);
-static void lprintf (char *fmt, int arg1, int arg2, int arg3, int arg4,
-		     int arg5, int arg6);
+static void LogTask (void);
 
 /*****************************************************************************
 * 函数名称: logInit
@@ -27,7 +31,7 @@ static void lprintf (char *fmt, int arg1, int arg2, int arg3, int arg4,
 * 返 回 值: 0(成功)/-1(失败)
 * 备注:
 *****************************************************************************/
-int logInit(void)
+int LogInit(void)
 {
     Mailbox_Params mboxParams;
     Task_Params taskParams;
@@ -40,7 +44,7 @@ int logInit(void)
     }
     
     Mailbox_Params_init(&mboxParams);
-    logMailbox = Mailbox_create (sizeof (logMsg_t),MAX_LOGARGS, &mboxParams, NULL);
+    logMailbox = Mailbox_create (sizeof (char *),MAILBOX_DEPTH, &mboxParams, NULL);
     if (logMailbox == NULL)
     {
         /*邮箱创建失败*/
@@ -50,7 +54,7 @@ int logInit(void)
     Task_Params_init(&taskParams);
 	taskParams.priority = LOG_TASK_PRIORITY;
 	taskParams.stackSize = LOG_TASK_STACK_SIZE;
-    logTaskId = Task_create (logTask, &taskParams, NULL);
+    logTaskId = Task_create (LogTask, &taskParams, NULL);
 
     if (logTaskId == NULL)
     {
@@ -81,26 +85,29 @@ int logInit(void)
 * 返 回 值: 消息长度/-1(失败)
 * 备注:
 *****************************************************************************/
-int logMsg(char *fmt, int arg1, int arg2,int arg3,int arg4,int arg5,int arg6)
+int LogMsg(const char *fmt, ...)
 {
-    logMsg_t msg;
 
-    msg.fmt    = fmt;
-    msg.arg[0] = arg1;
-    msg.arg[1] = arg2;
-    msg.arg[2] = arg3;
-    msg.arg[3] = arg4;
-    msg.arg[4] = arg5;
-    msg.arg[5] = arg6;
+	va_list vp;
+	uint32_t strAddr;
+    va_start(vp,fmt);
+    vsprintf(strArray[strIndex],fmt,vp);
+    strAddr = strArray[strIndex];
 
-    if(FALSE == Mailbox_post(logMailbox,(Ptr *)&msg,BIOS_NO_WAIT))
+    if(FALSE == Mailbox_post(logMailbox,(Ptr *)&strAddr,BIOS_NO_WAIT))
 	{
         /*邮箱已满，消息丢失*/
 	    ++logMsgsLost;
 	    return (ERROR);
 	}
 
-    return (sizeof (msg));
+    /* 消息发送成功，字符串数组地址累加 */
+    if(strIndex < (MAILBOX_DEPTH-1))
+    	strIndex++;
+    else
+    	strIndex = 0;
+
+    return 0;
 }
 
 /*****************************************************************************
@@ -112,32 +119,30 @@ int logMsg(char *fmt, int arg1, int arg2,int arg3,int arg4,int arg5,int arg6)
 * 返 回 值: 无
 * 备注:
 *****************************************************************************/
-static void logTask (void)
+static void LogTask (void)
 {
     static int oldMsgsLost;
 
     int newMsgsLost;	/* used in case logMsgsLost is changed during use */
-    logMsg_t msg;
-    char *checkName;
+    int32_t strAddr;
 
     while(1)
 	{
-    	if (FALSE == Mailbox_pend (logMailbox, (Ptr *) &msg, BIOS_WAIT_FOREVER))
+    	if (FALSE == Mailbox_pend (logMailbox, (Ptr *) &strAddr, BIOS_WAIT_FOREVER))
     	{
             /*获取消息失败*/
-    	    lprintf ("logTask: error reading log messages.\n", 0, 0, 0, 0, 0,0);
+    		LogPuts ("logTask: error reading log messages.\n",MAX_CHAR_NUMS);
     	}
     	else
     	{
-    	    if (msg.fmt == NULL)
+    	    if (strAddr == NULL)
     	    {
                 /*无格式化信息*/
-    		    lprintf ("<null \"fmt\" parameter>\n", 0, 0, 0, 0, 0, 0);
+    	    	LogPuts ("<null \"fmt\" parameter>\n",MAX_CHAR_NUMS);
     	    }
     	    else
     		{
-    		    lprintf (msg.fmt, msg.arg[0], msg.arg[1], msg.arg[2],
-    				    msg.arg[3], msg.arg[4], msg.arg[5]);
+    		    LogPuts ((char *)strAddr,MAX_CHAR_NUMS);
     		}
         }
 
@@ -147,8 +152,8 @@ static void logTask (void)
 
     	if (newMsgsLost != oldMsgsLost)
     	{
-    	    lprintf ("logTask: %d log messages lost.\n",
-    		     newMsgsLost - oldMsgsLost, 0, 0, 0, 0, 0);
+    		LogPrintf ("logTask: %d log messages lost.\n",
+    		     newMsgsLost - oldMsgsLost);
 
     	    oldMsgsLost = newMsgsLost;
     	}
@@ -157,19 +162,39 @@ static void logTask (void)
 
 
 /*****************************************************************************
-* 函数名称: lprintf
+* 函数名称: void LogPuts(char *txBuffer, int numBytesToWrite)
 * 函数说明: 静态函数，通过串口打印字符串
 * 输入参数: 
-*           fmt:参数格式化方式
-*           arg1-arg6:待格式化参数
+*           txBuffer: 发送数据指针
+*           numBytesToWrite: 发送数据长度
 * 输出参数: 无
 * 返 回 值: 无
 * 备注:
 *****************************************************************************/
-static void lprintf(char *fmt,	int arg1,	int arg2,int arg3,int arg4,int arg5,int arg6 )
+void LogPuts(char *txBuffer, int numBytesToWrite)
 {
     /*添加信号量锁，保证打印信息的顺序*/
     Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
-    UARTprintf(fmt, arg1, arg2, arg3, arg4, arg5, arg6);
+    UARTPuts(txBuffer, numBytesToWrite);
     Semaphore_post (logSem);
+}
+
+/*****************************************************************************
+* 函数名称: LogPrintf(char *fmt, ...)
+* 函数说明: 静态函数，通过串口打印字符串
+* 输入参数:
+*           fmt:参数格式化方式
+*           ...:待格式化参数
+* 输出参数: 无
+* 返 回 值: 无
+* 备注:
+*****************************************************************************/
+void LogPrintf(char *fmt, ...)
+{
+	va_list vp;
+	va_start(vp,fmt);
+	/*添加信号量锁，保证打印信息的顺序*/
+	Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
+	UARTprintf(fmt,vp);
+	Semaphore_post (logSem);
 }

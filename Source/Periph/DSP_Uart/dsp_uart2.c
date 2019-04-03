@@ -79,7 +79,7 @@ static void UARTInterruptInit(void)
     UARTIntEnable(SOC_UART_2_REGS, intFlags);
 }
 
-void dsp_uart2_init()
+void UART2StdioInit()
 {
 	// 外设使能配置
 	PSCInit();

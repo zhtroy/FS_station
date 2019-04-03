@@ -52,7 +52,7 @@ void sja1000RegWrite(sja1000Obj_t * sja100Obj,uint32_t addr,int8_t data)
 {
 	sja1000Params_t *sja1000_param=(sja1000Params_t *)&sja100Obj->sja1000_params_table;
 	//xIoWrite(sja1000_param->sja1000Baseaddr ,addr,data);
-	emifaWriteWord(sja1000_param->sja1000Baseaddr, addr,data);
+	EMIFAWriteWord(sja1000_param->sja1000Baseaddr, addr,data);
 }
 
 /*****************************************************************************
@@ -72,7 +72,7 @@ void sja1000RegRead(sja1000Obj_t * sja100Obj,uint32_t addr,int8_t *data)
 {
 	sja1000Params_t *sja1000_param=(sja1000Params_t *)&sja100Obj->sja1000_params_table;
 	//xIoRead(sja1000_param->sja1000Baseaddr, addr,data);
-    *data = emifaReadWord(sja1000_param->sja1000Baseaddr, addr);
+    *data = EMIFAReadWord(sja1000_param->sja1000Baseaddr, addr);
 }
 
 /*****************************************************************************
@@ -1048,20 +1048,20 @@ int32_t sja1000IoCtl(void * obj,uint8_t funcNo,uint32_t *arg)
 			sja1000Obj->sja1000_diagnose_table.nTxErrValue=regValue;
 			sja1000RegRead(sja1000Obj,(uint32_t)&sja1000Regs->regs_p.rxerr_p,&regValue);
 			sja1000Obj->sja1000_diagnose_table.nRxErrValue=regValue;
-			logMsg("\r中断总和: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntCount, 0, 0, 0, 0, 0);
-			logMsg("\r发送中断: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntSendCount, 0, 0, 0, 0, 0);
-			logMsg("\r接收中断: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntRecvCount, 0, 0, 0, 0, 0);
-			logMsg("\r总线错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nBEICount, 0, 0, 0, 0, 0);
-			logMsg("\r错误报警: %d次\n",sja1000Obj->sja1000_diagnose_table.nEICount, 0, 0, 0, 0, 0);
-			logMsg("\r数据溢出: %d次\n",sja1000Obj->sja1000_diagnose_table.nDOICount, 0, 0, 0, 0, 0);
-			logMsg("\r错误消极: %d次\n",sja1000Obj->sja1000_diagnose_table.nEPICount, 0, 0, 0, 0, 0);
-			logMsg("\r仲裁丢失: %d次\n",sja1000Obj->sja1000_diagnose_table.nALIICount, 0, 0, 0, 0, 0);
-			logMsg("\r发送错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nTxErrValue, 0, 0, 0, 0, 0);
-			logMsg("\r接收错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nRxErrValue, 0, 0, 0, 0, 0);
-			logMsg("\r发送次数: %d次\n",sja1000Obj->sja1000_diagnose_table.nWriteCount, 0, 0, 0, 0, 0);
-			logMsg("\r接收次数: %d次\n",sja1000Obj->sja1000_diagnose_table.nReadCount, 0, 0, 0, 0, 0);
-			logMsg("\r最后一次仲裁丢失值: %d次\n",sja1000Obj->sja1000_diagnose_table.nALErrValue, 0, 0, 0, 0, 0);
-			logMsg("\r最后一次错误代码值: %d次\n",sja1000Obj->sja1000_diagnose_table.nErrValue, 0, 0, 0, 0, 0);
+			LogMsg("\r中断总和: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntCount);
+			LogMsg("\r发送中断: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntSendCount);
+			LogMsg("\r接收中断: %d次\n",sja1000Obj->sja1000_diagnose_table.nIntRecvCount);
+			LogMsg("\r总线错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nBEICount);
+			LogMsg("\r错误报警: %d次\n",sja1000Obj->sja1000_diagnose_table.nEICount);
+			LogMsg("\r数据溢出: %d次\n",sja1000Obj->sja1000_diagnose_table.nDOICount);
+			LogMsg("\r错误消极: %d次\n",sja1000Obj->sja1000_diagnose_table.nEPICount);
+			LogMsg("\r仲裁丢失: %d次\n",sja1000Obj->sja1000_diagnose_table.nALIICount);
+			LogMsg("\r发送错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nTxErrValue);
+			LogMsg("\r接收错误: %d次\n",sja1000Obj->sja1000_diagnose_table.nRxErrValue);
+			LogMsg("\r发送次数: %d次\n",sja1000Obj->sja1000_diagnose_table.nWriteCount);
+			LogMsg("\r接收次数: %d次\n",sja1000Obj->sja1000_diagnose_table.nReadCount);
+			LogMsg("\r最后一次仲裁丢失值: %d次\n",sja1000Obj->sja1000_diagnose_table.nALErrValue);
+			LogMsg("\r最后一次错误代码值: %d次\n",sja1000Obj->sja1000_diagnose_table.nErrValue);
 			break;
 		case CAN_DEBUG:
 			/*sja1000_dbg_level=*arg;*/

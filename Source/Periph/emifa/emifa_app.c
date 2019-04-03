@@ -14,7 +14,7 @@
  * 返 回 值: 无
  * 备注: 
 *****************************************************************************/
-static void pscInit(void)
+static void PCSInit(void)
 {
 
 	PSCModuleControl(SOC_PSC_0_REGS, HW_PSC_EMIFA, PSC_POWERDOMAIN_ALWAYS_ON,
@@ -29,7 +29,7 @@ static void pscInit(void)
  * 返 回 值: 无
  * 备注: 
 *****************************************************************************/
-static void emifaSetup(void)
+static void EMIFASetup(void)
 {
 
     /* 管脚映射 */
@@ -60,10 +60,10 @@ static void emifaSetup(void)
  * 返 回 值: 无
  * 备注: 
 *****************************************************************************/
-void emifaInit()
+void EMIFAInit()
 {
-	pscInit();
-	emifaSetup();
+	PCSInit();
+	EMIFASetup();
 }
 
 /*****************************************************************************
@@ -76,7 +76,7 @@ void emifaInit()
  * 返 回 值: EMIFA返回值
  * 备注: emifaReadByte(0x00000000,0x4) -> 获取地址0x00000004的数据 
 *****************************************************************************/
-uint8_t emifaReadByte(uint32_t addr, uint32_t offset)
+uint8_t EMIFAReadByte(uint32_t addr, uint32_t offset)
 {
     return *((volatile uint8_t *)addr + offset);
 }
@@ -92,7 +92,7 @@ uint8_t emifaReadByte(uint32_t addr, uint32_t offset)
  * 返 回 值: 无
  * 备注: emifaWriteByte(0x00000000,0x4,0xAA) -> 将0xAA写入到地址0x00000004
 *****************************************************************************/
-void emifaWriteByte(uint32_t addr, uint32_t offset, uint8_t value)
+void EMIFAWriteByte(uint32_t addr, uint32_t offset, uint8_t value)
 {
     *((volatile uint8_t *)addr + offset) = value;
 }
@@ -108,7 +108,7 @@ void emifaWriteByte(uint32_t addr, uint32_t offset, uint8_t value)
  * 备注: emifaReadWord(0x00000000,0x4) -> 获取地址0x00000008（偏移4个Word）的
  *       数据 
 *****************************************************************************/
-uint16_t emifaReadWord(uint32_t addr, uint32_t offset)
+uint16_t EMIFAReadWord(uint32_t addr, uint32_t offset)
 {
     return *((volatile uint16_t *)addr + offset);
 }
@@ -125,7 +125,7 @@ uint16_t emifaReadWord(uint32_t addr, uint32_t offset)
  * 备注: emifaWriteWord(0x00000000,0x4,0xAA) -> 将0xAA写入到地址0x00000008（偏
  *       移4个Word）的数据
 *****************************************************************************/
-void emifaWriteWord(uint32_t addr, uint32_t offset, uint16_t value)
+void EMIFAWriteWord(uint32_t addr, uint32_t offset, uint16_t value)
 {
     *((volatile uint16_t *)addr + offset) = value;
 }
@@ -141,7 +141,7 @@ void emifaWriteWord(uint32_t addr, uint32_t offset, uint16_t value)
  * 备注: emifaReadDword(0x00000000,0x4) -> 获取地址0x00000010（偏移4个Dword）的
  *       数据 
 *****************************************************************************/
-uint32_t emifaReadDword(uint32_t addr, uint32_t offset)
+uint32_t EMIFAReadDword(uint32_t addr, uint32_t offset)
 {
     return *((volatile uint32_t *)addr + offset);
 }
@@ -158,7 +158,7 @@ uint32_t emifaReadDword(uint32_t addr, uint32_t offset)
  * 备注: emifaWriteWord(0x00000000,0x4,0xAA) -> 将0xAA写入到地址0x00000010（偏
  *       移4个Dword）的数据
 *****************************************************************************/
-void emifaWriteDword(uint32_t addr, uint32_t offset, uint32_t value)
+void EMIFAWriteDword(uint32_t addr, uint32_t offset, uint32_t value)
 {
     *((volatile uint32_t *)addr + offset) = value;
 }

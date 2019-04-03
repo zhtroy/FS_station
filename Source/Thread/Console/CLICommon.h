@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "uartStdio.h"
+#include "common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,9 +23,9 @@ extern "C" {
 #define taskEXIT_CRITICAL() 
 #define configASSERT(expr) assert(expr)
 #define pvPortMalloc(size) malloc(size)
-#define vSerialPutString(pTxBuffer,numBytesToWrite) UARTPuts(pTxBuffer, numBytesToWrite)
+#define vSerialPutString(pTxBuffer,numBytesToWrite) LogPuts(pTxBuffer, numBytesToWrite)
 #define xSerialGetChar() UARTGetc()
-#define xSerialPutChar(byteTx) UARTPutc(byteTx)
+//#define xSerialPutChar(byteTx) UARTPutc(byteTx)
 
 typedef long BaseType_t;
 typedef unsigned long UBaseType_t;

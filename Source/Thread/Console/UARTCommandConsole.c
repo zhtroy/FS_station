@@ -68,23 +68,23 @@ static const char * const pcDelchar = "\b \b";
 
 /* Used to guard access to the UART in case messages are sent to the UART from
 more than one task. */
-static Semaphore_Handle xTxMutex = NULL;
+/*static Semaphore_Handle xTxMutex = NULL;*/
  
 /*-----------------------------------------------------------*/
 
 void vUARTCommandConsoleStart( uint16_t usStackSize, UBaseType_t uxPriority )
 {
-    Semaphore_Params semParams;
+//    Semaphore_Params semParams;
     Error_Block eb;
     Task_Params taskParams;
     Task_Handle taskHdl;
 
     vRegisterSampleCLICommands();
 	/* Create the semaphore used to access the UART Tx. */
-    Semaphore_Params_init(&semParams);
-    semParams.mode = Semaphore_Mode_BINARY;
-    xTxMutex = Semaphore_create(1, &semParams, NULL);
-	configASSERT( xTxMutex );
+//    Semaphore_Params_init(&semParams);
+//    semParams.mode = Semaphore_Mode_BINARY;
+//    xTxMutex = Semaphore_create(1, &semParams, NULL);
+//	configASSERT( xTxMutex );
 
     
     Error_init(&eb);
@@ -170,7 +170,8 @@ static void prvUARTCommandConsoleTask( void *pvParameters )
             cCombKey = INVALID_COMBKEY;
 		/* Ensure exclusive access to the UART Tx. */
         
-		if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
+//		if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
+        if(1)
 		{
             if(cRxedChar == cmdASCII_CTRL_C)    /*CTRL-C:rst command*/
             {   
@@ -260,8 +261,9 @@ static void prvUARTCommandConsoleTask( void *pvParameters )
 					passed to the command interpreter. */
 					if( ( cRxedChar >= ' ' ) && ( cRxedChar <= '~' ) )
 					{
-                        xSerialPutChar( cRxedChar);
-                        
+                        //xSerialPutChar( cRxedChar);
+						vSerialPutString(&cRxedChar, 1 );
+
 						if( ucInputIndex < cmdMAX_INPUT_SIZE )
 						{
 							cInputString[ ucInputIndex ] = cRxedChar;
@@ -272,19 +274,9 @@ static void prvUARTCommandConsoleTask( void *pvParameters )
 			}
 
 			/* Must ensure to give the mutex back. */
-			Semaphore_post( xTxMutex );
+//			Semaphore_post( xTxMutex );
 		}
 	}
 }
-/*-----------------------------------------------------------*/
 
-void vOutputString( const char * const pcMessage ,int numBytesToWrite)
-{
-	if( Semaphore_pend( xTxMutex, BIOS_WAIT_FOREVER ) == pdPASS )
-	{
-		vSerialPutString( ( signed char * ) pcMessage, numBytesToWrite);
-		Semaphore_post( xTxMutex );
-	}
-}
-/*-----------------------------------------------------------*/
 

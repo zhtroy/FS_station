@@ -10,17 +10,21 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Clock.h>
+#include "Message/Message.h"
 #include "stdio.h"
 #include <math.h>
+#include "common.h"
 
 /* 宏定义 */
 #define RX_MBOX_DEPTH (32)
+#define MOTO_CONNECT_TIMEOUT (3000)
 
 /********************************************************************************/
 /*          外部全局变量                                                              */
 /********************************************************************************/
 
-extern ctrlData g_carCtrlData;
+extern ctrlData_t g_carCtrlData;
 #if 1
 fbdata_t g_fbData;
 extern uint8_t g_connectStatus;
@@ -28,9 +32,10 @@ extern uint8_t g_connectStatus;
 motordata_t g_fbData.motorDataF, g_fbData.motorDataR;
 static uint8_t g_connectStatus = 1;
 #endif
+static Clock_Handle clockMotoRearHeart;
+static Clock_Handle clockMotoFrontHeart;
 
-
-float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear);
+static float MotoPidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear);
 
 /********************************************************************************/
 /*          静态全局变量                                                              */
@@ -46,7 +51,7 @@ static canDataObj_t canSendData;
 /*          外部CAN0的用户中断Handler                                                   */
 /*                                                                              */
 /********************************************************************************/
-static void CAN0IntrHandler(int32_t devsNum,int32_t event)
+static void MotoCanIntrHandler(int32_t devsNum,int32_t event)
 {
     canDataObj_t rxData;
 	
@@ -63,7 +68,7 @@ static void CAN0IntrHandler(int32_t devsNum,int32_t event)
 
 }
 
-static void InitSem()
+static void MotoInitSem()
 {
 	Semaphore_Params semParams;
     Mailbox_Params mboxParams;
@@ -79,10 +84,50 @@ static void InitSem()
     rxDataMbox = Mailbox_create (sizeof (canDataObj_t),RX_MBOX_DEPTH, &mboxParams, NULL);
     
 }
-
-static void motoSendTask(void)
+static xdc_Void MotoRearConnectClosed(xdc_UArg arg)
 {
-    canData *canTx = (canData *)canSendData.Data;
+    p_msg_t msg;
+    /*
+    *TODO:添加后轮断连处理，发送错误码消息
+    */
+    msg = Message_getEmpty();
+	msg->type = error;
+	msg->data[0] = ERROR_MOTOR_TIMEOUT;
+	msg->dataLen = 1;
+	Message_post(msg);
+	LogMsg("Moto Rear Connect Failed!!\r\n");
+}
+
+static xdc_Void MotoFrontConnectClosed(xdc_UArg arg)
+{
+    p_msg_t msg;
+    /*
+    *TODO:添加前轮断连处理，发送错误码消息
+    */
+    msg = Message_getEmpty();
+	msg->type = error;
+	msg->data[0] = ERROR_MOTOF_TIMEOUT;
+	msg->dataLen = 1;
+	Message_post(msg);
+	LogMsg("Moto Front Connect Failed!!\r\n");
+}
+
+
+static void MotoInitTimer()
+{
+	Clock_Params clockParams;
+	Clock_Params_init(&clockParams);
+	clockParams.period = 0;       // one shot
+	clockParams.startFlag = FALSE;
+	clockMotoRearHeart = Clock_create(MotoRearConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
+	clockMotoFrontHeart = Clock_create(MotoFrontConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
+	Clock_start(clockMotoRearHeart);
+	Clock_start(clockMotoFrontHeart);
+}
+
+static void MotoSendTask(void)
+{
+    canData_t *canTx = (canData_t *)canSendData.Data;
 
     /*初始化帧类型*/
     canSendData.ID = 0;
@@ -141,7 +186,7 @@ static void motoSendTask(void)
 	}/* end while(1) */
 }
 
-static void motoRecvTask(void)
+static void MotoRecvTask(void)
 {
 	//pid
     uint16_t recvRpm;
@@ -220,7 +265,7 @@ static void motoRecvTask(void)
 
 					calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
 
-					adjThrottle = pidCalc(calcRpm,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
+					adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
 											(float)(g_carCtrlData.KI/1000000.0),(float)(g_carCtrlData.KU/1000000.0), 0);
 
 					if(hisThrottle < 0 && adjThrottle >0)
@@ -264,11 +309,13 @@ static void motoRecvTask(void)
     			{
     				calcRpm=0;
     				hisThrottle = 0;
-    				pidCalc(0,0,0,0,0,1);
+    				MotoPidCalc(0,0,0,0,0,1);
     			}
 
     			Semaphore_post(pidSem);
-
+    			/* 收到心跳，重启定时器 */
+    			Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
+    			Clock_start(clockMotoFrontHeart);
 
     			break;
     		case MOTO_F_CANID3:
@@ -301,6 +348,9 @@ static void motoRecvTask(void)
     			g_fbData.motorDataR.RPMH           = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataR.MotoTemp       = (uint8_t)canRecvData.Data[6] - 40;
     			g_fbData.motorDataR.DriverTemp     = (uint8_t)canRecvData.Data[7] - 40;
+    			/* 收到心跳，重启定时器 */
+    			Clock_setTimeout(clockMotoRearHeart,MOTO_CONNECT_TIMEOUT);
+    			Clock_start(clockMotoRearHeart);
     			break;
     		case MOTO_R_CANID3:
     			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData.Data[0];
@@ -328,7 +378,7 @@ static void motoRecvTask(void)
 	}
 }
 //TODO: 发送机车状态到4G
-void taskMotoSendFdbkToCell()
+void MotoSendFdbkToCellTask()
 {
 
 	while(1){
@@ -339,48 +389,50 @@ void taskMotoSendFdbkToCell()
 		fbData.motorDataF.RPML++;
 		*/
 		g_fbData.brake = g_carCtrlData.Brake;
-		g_fbData.railstate = getRailState();
+		g_fbData.railstate = CtrlGetRailState();
 		CellSendData((char*) &g_fbData, sizeof(g_fbData));
 
 		Task_sleep(100);
 	}
 }
-void testMototaskInit()
+void MototaskInit()
 {
 	Task_Handle task;
 	Task_Params taskParams;
 
     /*初始化信用量*/
-    InitSem();
-    /*初始化CAN设备表*/
-    //canTableInit();
+    MotoInitSem();
+
+    /*初始化定时器*/
+    MotoInitTimer();
+
     /*初始化CAN设备*/
-    CanOpen(CAN_DEV_0, CAN0IntrHandler, CAN_DEV_0);
+    CanOpen(CAN_DEV_0, MotoCanIntrHandler, CAN_DEV_0);
     
     Task_Params_init(&taskParams);
 	taskParams.priority = 5;
 	taskParams.stackSize = 2048;
     
-	task = Task_create(motoSendTask, &taskParams, NULL);
+	task = Task_create(MotoSendTask, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
 	}
 
-    task = Task_create(motoRecvTask, &taskParams, NULL);
+    task = Task_create(MotoRecvTask, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
 	}
 
-    task = Task_create(taskMotoSendFdbkToCell, &taskParams, NULL);
+    task = Task_create(MotoSendFdbkToCellTask, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
 	}
 }
 
-uint16_t getRPM(void)
+uint16_t MotoGetRPM(void)
 {
 	uint16_t uCarRPM;
 	if (g_carCtrlData.MotoSel == FRONT_ONLY)
@@ -399,7 +451,7 @@ uint16_t getRPM(void)
 	return uCarRPM;
 }
 #if 0
-float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
+float MotoPidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 {
     int32_t diffRpm;
     float adjThrottle;
@@ -436,7 +488,7 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, uint8_t clear)
 }
 #endif
 
-float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear)
+float MotoPidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear)
 {
     int32_t diffRpm;
     float adjThrottle;
@@ -473,7 +525,7 @@ float pidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t
     return adjThrottle;
 }
 
-uint8_t setErrorCode(uint8_t code)
+uint8_t MotoSetErrorCode(uint8_t code)
 {
     g_fbData.ErrorCode = code;
 }

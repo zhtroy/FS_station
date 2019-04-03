@@ -24,14 +24,14 @@ typedef struct
     uint8_t EnableChangeRail;
     uint8_t BrakeReady;
     uint8_t ChangeRailReady;
-}ctrlData;
+}ctrlData_t;
 
 
 
 //void vCtrldataTask(void *param);
-uint8_t getBrake(void);
-uint8_t getRail(void);
-uint8_t getRailState(void);
-uint8_t setRailState(uint8_t sts);
-extern ctrlData g_carCtrlData;
+uint8_t CtrlGetBrake(void);
+uint8_t CtrlGetRail(void);
+uint8_t CtrlGetRailState(void);
+uint8_t CtrlSetRailState(uint8_t sts);
+extern ctrlData_t g_carCtrlData;
 #endif

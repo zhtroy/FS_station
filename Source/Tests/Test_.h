@@ -25,9 +25,9 @@ void testPhotoElectric_init();
 void test4GControl_init();
 
 
-void testBrakeServoInit();
-void testMototaskInit();
+void ServoTaskInit();
+void MototaskInit();
 
-
+void testMPU9250TaskInit(void);
 
 #endif /* TESTS_H_ */

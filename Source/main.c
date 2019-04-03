@@ -23,60 +23,57 @@
 
 #include "DSP_Uart/dsp_uart2.h"
 #include "common.h"
+#include "TL6748.h"
 
 #define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
 
 void PeriphInit()
 {
+    /*
+     * **********DSP外设初始化*****************
+     * GPIO: 用户GPIO以及中断GPIO初始化 ;
+     * IIC0: 用于9轴传感器(MPU9250)以及EEPROM通信;
+     * UART1: 用作调试串口 (阻塞操作);
+     * UART2: 用作4G通信  (阻塞操作);
+     * EMIFA: 用于和FPGA之间通信;
+     * ************************************
+     */
+	GPIOInit();
 
-    uint16_t udelay;
-	//GPIO---------------------
-	gpio_init();       //初始化GPIO
-	gpio_fpga_rst();  //复位FPGA
+	I2CPinMuxSetup(0);
 
-	I2CPinMuxSetup(0);	//I2C0初始化
-	//DSP UART----------------------
-	UARTStdioInit();  //DSP调试串口1初始化
-	dsp_uart2_init(); //DSP串口2设置，连接4G
+	UARTStdioInit();
 
-	//EMIFA--------------------------
-	emifaInit();     //初始化EMIFA
+	UART2StdioInit();
 
-    while(1)
-    {
-        *(volatile uint16_t *)FPGA_TEST_REG = 0xaa;
-        if(0xaa == *(volatile uint16_t *)FPGA_TEST_REG)
-            break;
-        for(udelay = 10000;udelay > 0;udelay --);
-    }
+	EMIFAInit();
 
-    while(1)
-    {
-        *(volatile uint16_t *)FPGA_TEST_REG = 0x55;
-        if(0x55 == *(volatile uint16_t *)FPGA_TEST_REG)
-            break;
-        for(udelay = 10000;udelay > 0;udelay --);
-    }
-    
-	//FPGA UART--------------------------
+	/*
+	 * **********FPGA外设初始化***************
+	 * 1. 等待FPGA加载成功(FPGA的DONE信号拉高);
+	 * 2. 通过GPIO硬复位FPGA;
+	 * 3. 判断EMIFA通信是否正常;
+	 * 4. 初始化FPGA侧的CAN和串口中断配置;
+	 *    a) 选中所有UART中断，开启使能;
+	 *    b) 选中所有CAN中断，开启使能，并初始化CAN的
+	 *       设备表;
+	 * ************************************
+	 */
+	GPIOWaitFpgaDone();
+	GPIOFpgaReset();
 
-    // 串口0硬件中断MASK
-//    UartNs550HardIntMask (UART0_DEVICE);
+	EMIFAWriteWord(FPGA_TEST_REG,0,0xaa);
+	if(0xaa != EMIFAReadWord(FPGA_TEST_REG,0))
+	{
+		UARTprintf("ERROR: EMIFA Test Failed!!!\r\n");
+	}
 
-    // MASK所有串口硬件中断；
     UartNs550HardIntMaskAll();
-
-    // 使能串口硬件中断
     UartNs550HardIntEnable ();
 
-    // MASK所有串口硬件中断；
     CanHardIntMaskAll();
-
-    // 使能串口硬件中断
     CanHardIntEnable ();
-    
     CanTableInit();
-
 }
 
 void ThreadInit()
@@ -95,11 +92,16 @@ void SyncInit()
  */
 Int main()
 {
-	//7s
-	uint32_t delay = 0xFFFFFFF;
-	while(delay>0){
-		delay--;
-	}
+
+	/*
+	 * **********初始化和任务启动***************
+	 * 1. 外设初始化；
+	 * 2. 同步模块（消息机制）初始化；
+	 * 3. 线程初始化（暂未使用）；
+	 * 4. Log任务初始化；
+	 * 5. 测试任务入口；
+	 * ************************************
+	*/
 
 	PeriphInit();
 
@@ -107,7 +109,7 @@ Int main()
 
 	ThreadInit();
 
-	logInit();
+	LogInit();
 
 	TestEntry();
 
