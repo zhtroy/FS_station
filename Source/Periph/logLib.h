@@ -38,7 +38,8 @@ typedef struct				    /* log消息 */
 /* 函数声明 */
 int LogInit(void);
 int LogMsg(const char *fmt, ...);
-
+void LogPuts(char *txBuffer, int numBytesToWrite);
+void LogPrintf(char *fmt, ...);
 
 #ifdef __cplusplus
 }

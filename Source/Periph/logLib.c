@@ -22,8 +22,6 @@ static uint8_t strIndex = 0;
 
 /* 静态函数声明 */
 static void LogTask (void);
-static void LogPuts(char *txBuffer);
-static void LogPrintf(char *fmt, ...);
 
 /*****************************************************************************
 * 函数名称: logInit
@@ -133,18 +131,18 @@ static void LogTask (void)
     	if (FALSE == Mailbox_pend (logMailbox, (Ptr *) &strAddr, BIOS_WAIT_FOREVER))
     	{
             /*获取消息失败*/
-    		LogPuts ("logTask: error reading log messages.\n");
+    		LogPuts ("logTask: error reading log messages.\n",MAX_CHAR_NUMS);
     	}
     	else
     	{
     	    if (strAddr == NULL)
     	    {
                 /*无格式化信息*/
-    	    	LogPuts ("<null \"fmt\" parameter>\n");
+    	    	LogPuts ("<null \"fmt\" parameter>\n",MAX_CHAR_NUMS);
     	    }
     	    else
     		{
-    		    LogPuts (strAddr);
+    		    LogPuts ((char *)strAddr,MAX_CHAR_NUMS);
     		}
         }
 
@@ -164,25 +162,34 @@ static void LogTask (void)
 
 
 /*****************************************************************************
-* 函数名称: lprintf
+* 函数名称: void LogPuts(char *txBuffer, int numBytesToWrite)
 * 函数说明: 静态函数，通过串口打印字符串
 * 输入参数: 
-*           fmt:参数格式化方式
-*           arg1-arg6:待格式化参数
+*           txBuffer: 发送数据指针
+*           numBytesToWrite: 发送数据长度
 * 输出参数: 无
 * 返 回 值: 无
 * 备注:
 *****************************************************************************/
-static void LogPuts(char *txBuffer)
+void LogPuts(char *txBuffer, int numBytesToWrite)
 {
     /*添加信号量锁，保证打印信息的顺序*/
     Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
-    UARTPuts(txBuffer, MAX_CHAR_NUMS);
+    UARTPuts(txBuffer, numBytesToWrite);
     Semaphore_post (logSem);
 }
 
-
-static void LogPrintf(char *fmt, ...)
+/*****************************************************************************
+* 函数名称: LogPrintf(char *fmt, ...)
+* 函数说明: 静态函数，通过串口打印字符串
+* 输入参数:
+*           fmt:参数格式化方式
+*           ...:待格式化参数
+* 输出参数: 无
+* 返 回 值: 无
+* 备注:
+*****************************************************************************/
+void LogPrintf(char *fmt, ...)
 {
 	va_list vp;
 	va_start(vp,fmt);

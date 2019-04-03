@@ -21,7 +21,7 @@
 #include "Message/Message.h"
 #include "Sensor/CellCommunication/CellCommunication.h"
 #include "Sensor/CellCommunication/NetPacket.h"
-
+#include "common.h"
 
 
 
@@ -35,7 +35,6 @@ extern int8_t lteMode;
 char cell_packet_divider[] = "SOCKA:";
 
 
-extern void vOutputString( const char * const pcMessage,int numBytesToWrite);
 
 /****************************************************************************/
 /*                                                                          */
@@ -276,7 +275,7 @@ Void taskCellCommunication(UArg a0, UArg a1)
         }
         else    /*lteMode.workMode = LTE_TEST_MODE*/
         {
-            vOutputString(&c,1);
+            LogPuts(&c,1);
         }
         buff_head = (buff_head+1) % CELL_BUFF_SIZE;
 
