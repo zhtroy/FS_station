@@ -8,7 +8,6 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
-#include "Moto/task_ctrldata.h"
 #include "Message/Message.h"
 #include "common.h"
 
@@ -45,7 +44,14 @@ static uint8_t ackStatus = MODBUS_ACK_OK;
 static uint8_t changeRail = 0;
 static uint8_t complete = 0;
 
-
+static brake_ctrl_t m_brakeCtrl = {
+		.Brake = 0,
+		.BrakeReady = 1
+};
+static rail_ctrl_t m_railCtrl = {
+		.ChangeRailReady = 1,
+		.RailState = LEFTRAIL
+};
 
 static void ServorUartIntrHandler(void *callBackRef, u32 event, unsigned int eventData)
 {
@@ -301,15 +307,15 @@ void ServoBrakeTask(void *param)
             Message_post(sendmsg);
             brakeTimeoutCnt = 0;
             servoStep = 0;    
-            g_carCtrlData.BrakeReady = 0;
+            BrakeSetReady(0);
             LogMsg("Brake Servo Connect Timeout !!!\r\n");
             continue;
         }
 
-        if(g_carCtrlData.BrakeReady == 0)
+        if(BrakeGetReady() == 0)
         	continue;
         
-		uBrake = CtrlGetBrake();
+		uBrake = BrakeGetBrake();
 		/*	总行程45000个脉冲
 			每步450脉冲
 		*/
@@ -424,13 +430,13 @@ void ServoBrakeTask(void *param)
 
 	}
 }
-void ServoChangeRailStart()
+void RailChangeStart()
 {
 	changeRail = 1;
 }
 
 
-uint8_t ServoChangeRailIsComplete()
+uint8_t RailIsChangeComplete()
 {
 	return complete;
 }
@@ -454,7 +460,7 @@ static void ServoChangeRailTask(void)
 		preach = 0;
 		step = 0;
 
-		if(g_carCtrlData.ChangeRailReady == 0)
+		if(RailGetReady() == 0)
 		{
 			changeRail = 0;
 			continue;
@@ -476,7 +482,7 @@ static void ServoChangeRailTask(void)
 					sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
 					Message_post(sendmsg);
 					changeRailTimeoutCnt = 0;
-					g_carCtrlData.ChangeRailReady = 0;
+					RailSetReady(0);
 					break;
 				}
 
@@ -518,7 +524,7 @@ static void ServoChangeRailTask(void)
 						//触发内部位置，电机转动：Pn071
 						Task_sleep(SLEEPTIME);
 
-						if(CtrlGetRailState() == RIGHTRAIL)
+						if(RailGetRailState() == RIGHTRAIL)
 							state = ServoModbusWriteReg(0x02,0x0047,0x7BFF);
 						else
 							state = ServoModbusWriteReg(0x02,0x0047,0x7AFF);
@@ -568,10 +574,10 @@ static void ServoChangeRailTask(void)
 						{
 							if(preach)
 							{
-								if(CtrlGetRailState() == RIGHTRAIL)
-									CtrlSetRailState(LEFTRAIL);
+								if(RailGetRailState() == RIGHTRAIL)
+									RailSetRailState(LEFTRAIL);
 								else
-									CtrlSetRailState(RIGHTRAIL);
+									RailSetRailState(RIGHTRAIL);
 
 								preach=0;//清除状态
 							}
@@ -610,7 +616,7 @@ static void ServoChangeRailTask(void)
 				sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
 				Message_post(sendmsg);
 				changeRailTimeoutCnt = 0;
-				g_carCtrlData.ChangeRailReady = 0;
+				RailSetReady(0);
 				LogMsg("ChangeRail Servo Connect Timeout !!!\r\n");
 				break;
 			}
@@ -659,3 +665,38 @@ void ServoTaskInit()
 
 }
 
+
+void RailSetRailState(uint8_t state)
+{
+	m_railCtrl.RailState = state;
+}
+uint8_t RailGetRailState()
+{
+	return m_railCtrl.RailState;
+}
+
+void RailSetReady(uint8_t value) /*1 准备好*/
+{
+	m_railCtrl.ChangeRailReady = value;
+}
+uint8_t RailGetReady()
+{
+	return m_railCtrl.ChangeRailReady;
+}
+
+void BrakeSetBrake(uint8_t value)
+{
+	m_brakeCtrl.Brake = value;
+}
+uint8_t BrakeGetBrake()
+{
+	return m_brakeCtrl.Brake;
+}
+void BrakeSetReady(uint8_t value)
+{
+	m_brakeCtrl.BrakeReady = value;
+}
+uint8_t BrakeGetReady()
+{
+	return m_brakeCtrl.BrakeReady;
+}

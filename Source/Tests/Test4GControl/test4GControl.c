@@ -18,18 +18,17 @@
 #include "DSP_Uart/dsp_uart2.h"
 #include "uartStdio.h"
 #include <ti/sysbios/knl/Clock.h>
-#include "Moto/task_ctrldata.h"
 #include "task_moto.h"
 #include "Test4GControl/test4GControl.h"
 #include "Sensor/PhotoElectric/PhotoElectric.h"
 #include "task_brake_servo.h"
+#include "Parameter.h"
 
 
 
 /*
  * 全局变量，给Motor 和Brake 用
  */
-extern ctrlData_t g_carCtrlData;
 uint8_t g_connectStatus;
 extern fbdata_t g_fbData;
 
@@ -78,32 +77,16 @@ static void connectionOn()
 static void resetCarCtrlData()
 {
 	//初始化motor数据
-		g_carCtrlData.MotoSel =2;  //两个电机都用
-		g_carCtrlData.ControlMode = 0;  //Throttle模式
-		g_carCtrlData.Gear = 0;    //空挡
-		g_carCtrlData.Throttle = 0;
-		g_carCtrlData.Rail = 0;
-		g_carCtrlData.Brake = 0;
-		g_carCtrlData.RPM = 0;
+		MotoSetMotoSel(FRONT_REAR);  //两个电机都用
+		MotoSetControlMode(MODE_THROTTLE);  //Throttle模式
+		MotoSetGear(GEAR_NONE);    //空挡
+		MotoSetThrottle(0);
+		BrakeSetBrake(0);
+		MotoSetGoalRPM(0);
 
 		FSprintf("reset motor\n");
 }
 
-static void setCarRPM(uint16_t value)
-{
-	g_carCtrlData.RPM = value;
-	FSprintf("set RPM %d\n", value);
-}
-static void setCarBrake(uint8_t value)
-{
-	g_carCtrlData.Brake = value;
-	FSprintf("set brake %d\n", value);
-}
-static void setCarThrottle(uint8_t value)
-{
-	g_carCtrlData.Throttle = value;
-	FSprintf("set throttle %d\n", value);
-}
 
 static void sendTimeMsg(UArg arg)
 {
@@ -200,28 +183,29 @@ static Void task4GControlMain(UArg a0, UArg a1)
 				tempint = msg->data[1]-'0';   //转换字符串为int
 				carMode =(car_mode_t) tempint; //模式跳转
 				resetCarCtrlData();  //清零电机控制
-				g_carCtrlData.AutoMode = carMode;
+				MotoSetAutoMode(carMode);
 
 				switch(carMode)   ///模式跳转动作
 				{
                     case Manual:
                         MotoSetErrorCode(ERROR_NONE);
-                        g_carCtrlData.BrakeReady = 1;
-                        g_carCtrlData.ChangeRailReady = 1;
+                        BrakeSetReady(1);
+                        RailSetReady(1);
                         
                         break;
 					case Auto:
-						g_carCtrlData.Gear = 1;   //进入自动模式后，默认挂前进档
+						MotoSetControlMode(GEAR_DRIVE);   //进入自动模式后，默认挂前进档
 						carState = idle;
                     
                         MotoSetErrorCode(ERROR_NONE);
-                        g_carCtrlData.BrakeReady = 1;
-                        g_carCtrlData.ChangeRailReady = 1;
+                        BrakeSetReady(1);
+                        RailSetReady(1);
 						break;
                     case Setting:
                         MotoSetErrorCode(ERROR_NONE);
-                        g_carCtrlData.BrakeReady = 1;
-                        g_carCtrlData.ChangeRailReady = 1;
+                        BrakeSetReady(1);
+                        RailSetReady(1);
+
 						break;
                     case ForceBrake:
                         errorCode = (msg->data[2]-'0')*10 + (msg->data[3]-'0');
@@ -254,25 +238,25 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					switch(msg->data[0])
 					{
 						case 'm':    //motosel
-							g_carCtrlData.MotoSel = (uint8_t) tempint;
+							MotoSetMotoSel((enum motoSel) tempint);
 							break;
 						case 'c':    //controlmode
-							g_carCtrlData.ControlMode = (uint8_t) tempint;
+							MotoSetControlMode(tempint);
 							break;
 						case 'g':    //gear
-							g_carCtrlData.Gear = (uint8_t) tempint;
+							MotoSetControlMode(tempint);
 							break;
 						case 't':    //throttle
-							g_carCtrlData.Throttle = (uint8_t) tempint;
+							MotoSetThrottle((uint8_t) tempint);
 							break;
 						case 'r':    //rail
-							ServoChangeRailStart();
+							RailChangeStart();
 							break;
 						case 'R': //railstate
-							CtrlSetRailState((uint8_t) tempint);
+							RailSetRailState((uint8_t) tempint);
 							break;
 						case 'b':    //brake
-							g_carCtrlData.Brake = (uint8_t) tempint;
+							BrakeSetBrake((uint8_t) tempint);
 							break;
 						case 'h' :   //心跳包
 							break;
@@ -291,7 +275,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
                         */
                         case EPC_AUXILIARY_TRACK_START:
                         {
-                            if(RIGHTRAIL == CtrlGetRailState() && (REVERSE == g_carCtrlData.Gear))
+                            if(RIGHTRAIL == RailGetRailState() && (GEAR_REVERSE == MotoGetGear()))
                             {
                                 carMode = ForceBrake;
                                 MotoSetErrorCode(ERROR_OUT_SAFE_TRACK);
@@ -300,7 +284,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
                         }
                         case EPC_AUXILIARY_TRACK_END:
                         {
-                            if(RIGHTRAIL == CtrlGetRailState() && (DRIVE == g_carCtrlData.Gear || LOW == g_carCtrlData.Gear))
+                            if(RIGHTRAIL == RailGetRailState() && (GEAR_DRIVE == MotoGetGear() || GEAR_LOW == MotoGetGear()))
                             {
                                 carMode = ForceBrake;
                                 MotoSetErrorCode(ERROR_OUT_SAFE_TRACK);
@@ -336,17 +320,17 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						case 'k': //设置PID参数  1000000倍
 							switch(msg->data[1]){
 							case 'i':
-								g_carCtrlData.KI = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+								ParamInstance()->KI = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
 												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
 												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
 								break;
 							case 'p':
-								g_carCtrlData.KP = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+								ParamInstance()->KP = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
 												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
 												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
 								break;
 							case 'u':
-								g_carCtrlData.KU = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
+								ParamInstance()->KU = (msg->data[2]-'0')*1000000 + (msg->data[3]-'0')*100000\
 												+(msg->data[4]-'0')*10000 +(msg->data[5]-'0')*1000+(msg->data[6]-'0')*100\
 												+(msg->data[7]-'0')*10 + (msg->data[8]-'0');
 								break;
@@ -355,7 +339,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							break;
 
 						case 'c': // 是否允许变轨
-							g_carCtrlData.EnableChangeRail = msg->data[1]-'0';
+							ParamInstance()->EnableChangeRail = (msg->data[1]-'0');
 							break;
 
 					}
@@ -375,7 +359,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						if(msg->data[0] == 'S' )   //开始巡航
 						{
 							carState = cruising;
-							setCarRPM(RPMparam[carState]);
+							MotoSetGoalRPM(RPMparam[carState]);
 						}
 					}
 					break;
@@ -420,7 +404,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 									break;
 								case EPC_PRE_SEPERATE:
-									if(g_carCtrlData.EnableChangeRail == 1){  //在上位机设置了变轨才进入变轨流程
+									if(ParamInstance()->EnableChangeRail == 1){  //在上位机设置了变轨才进入变轨流程
 										carState = pre_seperate;
 									}
                                     break;
@@ -437,7 +421,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 									break;
 
 							}
-							setCarRPM(RPMparam[carState]);
+							MotoSetGoalRPM(RPMparam[carState]);
 							break;
 						}
 					}
@@ -462,7 +446,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 								seperateState = seperating;
 								//action
 								setTimeout(g_timeout[seperate_wait_changerail], seperate_wait_changerail);
-								ServoChangeRailStart();
+								RailChangeStart();
 								FSprintf("begin change rail \n");
 							}
 							break;
@@ -474,7 +458,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							if(msg->type == timer && msg->data[0] == seperate_wait_changerail)
 							{
 								FSprintf("seperate_wait_changerail timeout\n");
-								if(ServoChangeRailIsComplete())
+								if(RailIsChangeComplete())
 								{
 									seperateState = seperate_ok;
 									FSprintf("seperate OK\n");
@@ -508,7 +492,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							if(msg->type == rfid && msg->data[0] ==EPC_ENTER_STATION)
 							{
 								carState = enter_station;
-								setCarRPM(RPMparam[carState]);
+								MotoSetGoalRPM(RPMparam[carState]);
                                 /*
                                 *TODO:设置停站ID检测超时
                                 */
@@ -521,7 +505,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						{
                             /*分轨失败进入巡航*/
                             carState = cruising;
-                            setCarRPM(RPMparam[carState]);
+                            MotoSetGoalRPM(RPMparam[carState]);
 							break;
 						}
 					}
@@ -542,7 +526,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
                     
 					if(msg->type == rfid && msg->data[0] == EPC_STOP_STATION){
 						carState = stop_station;
-						setCarRPM(0);
+						MotoSetGoalRPM(0);
 						setTimeout(g_timeout[station_stop], station_stop);
 					}
 					break;
@@ -551,7 +535,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 				case stop_station:
 				{
 					if(msg->type==timer && msg->data[0] == station_stop){
-						setCarRPM(RPMparam[carState]);
+						MotoSetGoalRPM(RPMparam[carState]);
 						FSprintf("station_stop timeout\n");
                     
                         /*
@@ -572,7 +556,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					if(msg->type == rfid && msg->data[0] == EPC_LEAVE_STATION)
 					{
 						carState = leave_station;
-						setCarRPM(RPMparam[carState]);
+						MotoSetGoalRPM(RPMparam[carState]);
                         /*
                         *TODO:设置预并轨ID检测超时
                         */
@@ -595,7 +579,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					if(msg->type == rfid && msg->data[0] == EPC_PRE_MERGE)
 					{
 						carState = pre_merge;
-						setCarRPM(RPMparam[carState]);
+						MotoSetGoalRPM(RPMparam[carState]);
                         /*
                         *TODO:设置并轨ID检测超时
                         */
@@ -619,7 +603,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					{
 						carState = merge;
 						mergeState = m_wait_photon;
-						setCarRPM(RPMparam[carState]);
+						MotoSetGoalRPM(RPMparam[carState]);
 						setTimeout(g_timeout[merge_wait_photon],merge_wait_photon);
 					}
 					break;
@@ -642,7 +626,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 								mergeState = merging;
 								//action
 								setTimeout(g_timeout[merge_wait_changerail], merge_wait_changerail);
-								ServoChangeRailStart();
+								RailChangeStart();
 							}
 
 							break;
@@ -652,7 +636,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						{
 							if(msg->type==timer && msg->data[0] == merge_wait_changerail){
 								FSprintf("merge_wait_changerail timeout\n");
-								if(ServoChangeRailIsComplete()){
+								if(RailIsChangeComplete()){
 									mergeState = merge_ok;
 									FSprintf("merge ok\n");
 								}
@@ -670,7 +654,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 						{
                             /*并轨成功进入巡航*/
                             carState = cruising;
-                            setCarRPM(RPMparam[carState]);
+                            MotoSetGoalRPM(RPMparam[carState]);
 //							//FIXME: 特殊处理
 //							if(msg->type == rfid && msg->data[0] == EPC_PRE_CURVE){
 //								carState = pre_curve;
@@ -688,10 +672,10 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 		if(carMode == ForceBrake)
 		{
-			g_carCtrlData.AutoMode = carMode;
+			MotoSetAutoMode(carMode);
 			g_fbData.mode = (uint8_t) carMode;
-			setCarBrake(MAX_BRAKE_SIZE);
-			setCarThrottle(0);
+			BrakeSetBrake(MAX_BRAKE_SIZE);
+			MotoSetThrottle(0);
 			switch(msg->type){
 				case cell:
 				{
@@ -701,7 +685,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					{
 
 						case 'R': //railstate
-							CtrlSetRailState((uint8_t) tempint);
+							RailSetRailState((uint8_t) tempint);
 							break;
 					}
 				}

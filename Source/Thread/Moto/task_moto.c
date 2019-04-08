@@ -1,6 +1,5 @@
 #include "canModule.h"
 #include "task_moto.h"
-#include "task_ctrldata.h"
 #include "Sensor/CellCommunication/CellCommunication.h"
 
 /*SYSBIOS includes*/
@@ -15,6 +14,8 @@
 #include "stdio.h"
 #include <math.h>
 #include "common.h"
+#include "task_brake_servo.h"
+#include "Parameter.h"
 
 /* 宏定义 */
 #define RX_MBOX_DEPTH (32)
@@ -24,7 +25,6 @@
 /*          外部全局变量                                                              */
 /********************************************************************************/
 
-extern ctrlData_t g_carCtrlData;
 #if 1
 fbdata_t g_fbData;
 extern uint8_t g_connectStatus;
@@ -45,6 +45,16 @@ static Semaphore_Handle pidSem;
 static Mailbox_Handle rxDataMbox = NULL;
 
 static canDataObj_t canSendData;
+
+/*电机控制量*/
+static moto_ctrl_t m_motoCtrl = {
+		.MotoSel = FRONT_REAR,
+		.ControlMode = MODE_THROTTLE,
+		.Gear = GEAR_NONE,
+		.Throttle = 0,
+		.GoalRPM=0,
+		.AutoMode = 0
+};
 
 
 /********************************************************************************/
@@ -150,11 +160,11 @@ static void MotoSendTask(void)
 	{
         Semaphore_pend(pidSem, 100);        //100ms超时发送油门
 
-		canTx->Gear = g_carCtrlData.Gear;
+		canTx->Gear = MotoGetGear();
         
 		if (g_connectStatus)
 		{
-			canTx->ThrottleL = g_carCtrlData.Throttle;
+			canTx->ThrottleL = MotoGetThrottle();
 			canTx->ThrottleH = 0;
 		}
 		else
@@ -164,7 +174,7 @@ static void MotoSendTask(void)
 		}
 
 
-		if ((g_carCtrlData.MotoSel == FRONT_ONLY) || (g_carCtrlData.MotoSel == FRONT_REAR))
+		if ((MotoGetMotoSel() == FRONT_ONLY) || (MotoGetMotoSel() == FRONT_REAR))
 		{
 			canTx->Mode = 0x28;		                //前后电机方向相反
 			canSendData.ID = MOTO_F_CANID1;
@@ -173,7 +183,7 @@ static void MotoSendTask(void)
 			CanWrite(MOTO_CAN_DEVNUM, &canSendData);      
 		}
         
-		if ((g_carCtrlData.MotoSel == REAR_ONLY) || (g_carCtrlData.MotoSel == FRONT_REAR))
+		if ((MotoGetMotoSel() == REAR_ONLY) || (MotoGetMotoSel() == FRONT_REAR))
 		{
 			canTx->Mode = 0x20;		                //前后电机方向相反
 			canSendData.ID = MOTO_R_CANID1;
@@ -243,21 +253,21 @@ static void MotoRecvTask(void)
     				*(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x00;
     			}
 
-    			if(2 == g_carCtrlData.AutoMode && data_error == 0 )
+    			if(2 == MotoGetAutoMode() && data_error == 0 )
     			{
 					recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
 					recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
 
-					if ( abs((int)calcRpm - (int)(g_carCtrlData.RPM)) < DELTA_RPM ){
-						calcRpm = g_carCtrlData.RPM;
+					if ( abs((int)calcRpm - (int)(MotoGetGoalRPM())) < DELTA_RPM ){
+						calcRpm = MotoGetGoalRPM();
 					}
 					else{
-						if(calcRpm<g_carCtrlData.RPM )
+						if(calcRpm<MotoGetGoalRPM() )
 						{
 							calcRpm+=DELTA_RPM;
 						}
 
-						else if(calcRpm>g_carCtrlData.RPM )
+						else if(calcRpm>MotoGetGoalRPM() )
 						{
 							calcRpm-=DELTA_RPM;
 						}
@@ -265,8 +275,8 @@ static void MotoRecvTask(void)
 
 					calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
 
-					adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(g_carCtrlData.KP/1000000.0),
-											(float)(g_carCtrlData.KI/1000000.0),(float)(g_carCtrlData.KU/1000000.0), 0);
+					adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(ParamInstance()->KP/1000000.0),
+											(float)(ParamInstance()->KI /1000000.0),(float)(ParamInstance()->KU/1000000.0), 0);
 
 					if(hisThrottle < 0 && adjThrottle >0)
 					{
@@ -286,7 +296,7 @@ static void MotoRecvTask(void)
 					if(hisThrottle < 0)   //刹车状态
 					{
 
-						g_carCtrlData.Throttle = 0;
+						MotoSetThrottle(0);
 
 						if(hisThrottle < BREAK_THRESHOLD)
 							adjbrake = - BRAKE_THRO_RATIO* (hisThrottle - BREAK_THRESHOLD);
@@ -294,15 +304,15 @@ static void MotoRecvTask(void)
 							adjbrake = 0;
 
 						if(adjbrake > MAX_BRAKE_SIZE)
-							g_carCtrlData.Brake = MAX_BRAKE_SIZE;
+							BrakeSetBrake(MAX_BRAKE_SIZE);
 						else
-							g_carCtrlData.Brake = round(adjbrake);
+							BrakeSetBrake( round(adjbrake));
 
 					}
 					else  //油门
 					{
-						g_carCtrlData.Throttle = round(hisThrottle);
-						g_carCtrlData.Brake = 0;
+						MotoSetThrottle(round(hisThrottle));
+						BrakeSetBrake(0);
 					}
     			}
     			else
@@ -388,8 +398,8 @@ void MotoSendFdbkToCellTask()
 		fbData.motorDataF.ThrottleH++;
 		fbData.motorDataF.RPML++;
 		*/
-		g_fbData.brake = g_carCtrlData.Brake;
-		g_fbData.railstate = CtrlGetRailState();
+		g_fbData.brake = BrakeGetBrake();
+		g_fbData.railstate = RailGetRailState();
 		CellSendData((char*) &g_fbData, sizeof(g_fbData));
 
 		Task_sleep(100);
@@ -432,18 +442,18 @@ void MototaskInit()
 	}
 }
 
-uint16_t MotoGetRPM(void)
+uint16_t MotoGetRealRPM(void)
 {
 	uint16_t uCarRPM;
-	if (g_carCtrlData.MotoSel == FRONT_ONLY)
+	if (MotoGetMotoSel() == FRONT_ONLY)
 	{
 		uCarRPM = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
 	}
-	else if (g_carCtrlData.MotoSel == REAR_ONLY)
+	else if (MotoGetMotoSel() == REAR_ONLY)
 	{
 		uCarRPM = (g_fbData.motorDataR.RPMH << 8) + g_fbData.motorDataR.RPML;
 	}
-	else if (g_carCtrlData.MotoSel == FRONT_REAR)
+	else if (MotoGetMotoSel() == FRONT_REAR)
 	{
 		uCarRPM = ((g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML + (g_fbData.motorDataR.RPMH << 8) + g_fbData.motorDataR.RPML) / 2;
 	}
@@ -530,3 +540,53 @@ uint8_t MotoSetErrorCode(uint8_t code)
     g_fbData.ErrorCode = code;
 }
 
+void MotoSetMotoSel(enum motoSel sel)
+{
+	m_motoCtrl.MotoSel = sel;
+}
+enum motoSel MotoGetMotoSel()
+{
+	return m_motoCtrl.MotoSel;
+}
+void MotoSetControlMode(enum motoMode mode)
+{
+	m_motoCtrl.ControlMode = mode;
+}
+enum motoMode MotoGetControlMode()
+{
+	return m_motoCtrl.ControlMode;
+}
+void MotoSetGear(enum motoGear gear)
+{
+	m_motoCtrl.Gear = gear;
+}
+enum motoGear MotoGetGear()
+{
+	return m_motoCtrl.Gear;
+}
+void MotoSetThrottle(uint8_t thr)
+{
+	m_motoCtrl.Throttle = thr;
+}
+uint8_t MotoGetThrottle()
+{
+	return m_motoCtrl.Throttle;
+}
+void MotoSetGoalRPM(uint16_t rpm)
+{
+	m_motoCtrl.GoalRPM = rpm;
+}
+uint16_t MotoGetGoalRPM()
+{
+	return m_motoCtrl.GoalRPM;
+}
+
+void MotoSetAutoMode(uint8_t mode)
+{
+	m_motoCtrl.AutoMode = mode;
+}
+
+uint8_t MotoGetAutoMode()
+{
+	return m_motoCtrl.AutoMode;
+}

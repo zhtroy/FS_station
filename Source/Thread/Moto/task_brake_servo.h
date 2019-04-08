@@ -50,9 +50,38 @@ typedef struct{
     uint16_t    crc;
 } modbusCmd_t;
 
-void ServoChangeRailStart();
-void ChangeRailClear();
-uint8_t ServoChangeRailIsComplete(); //1 表示成功， 0表示失败
+/*
+ * 刹车控制量
+ */
+typedef struct brake_ctrl_tag{
+	uint8_t Brake;
+    uint8_t BrakeReady;
+}brake_ctrl_t;
+
+/*
+ * 变轨控制
+ */
+typedef struct rail_ctrl_tag{
+    uint8_t RailState;
+    uint8_t ChangeRailReady;
+}rail_ctrl_t;
+
+/*
+ * Rail 变轨
+ */
+extern void RailChangeStart();
+extern uint8_t RailIsChangeComplete(); //1 表示成功， 0表示失败
+extern void RailSetRailState(uint8_t state);
+extern uint8_t RailGetRailState();
+extern void RailSetReady(uint8_t value); /*1 准备好*/
+extern uint8_t RailGetReady();
+/*
+ * Brake 刹车
+ */
+extern void BrakeSetBrake(uint8_t value);
+extern uint8_t BrakeGetBrake();
+extern void BrakeSetReady(uint8_t value);
+extern uint8_t BrakeGetReady();
 
 
 #endif
