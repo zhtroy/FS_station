@@ -40,6 +40,9 @@
 #define BRAKE_STEP_PULSE (-7500)
 #endif
 
+#define RAIL_ENABLE (0)
+#define RAIL_DIRECT (1)
+
 typedef struct{
     uint8_t     id;
     uint8_t     cmd;

@@ -166,7 +166,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 	Clock_Params_init(&clockParams);
 	clockParams.period = 0;       // one shot
 	clockParams.startFlag = FALSE;
-	heartClock = Clock_create(connectionClosed, 3000, &clockParams, &eb); //1s 后没有收到包就停止
+	heartClock = Clock_create(connectionClosed, 20000, &clockParams, &eb); //1s 后没有收到包就停止
 	if ( heartClock == NULL )
 	{
 		System_abort("Clock create failed\n");
@@ -240,7 +240,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		g_fbData.mode = (uint8_t) carMode;
 		g_fbData.FSMstate = carState;
 
-		if(carMode == Manual){ //手动模式	
+		if(carMode == Manual){ //手动模式
 			switch(msg->type){
 				case cell:
 				{
@@ -269,7 +269,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							ChangeRailStart();
 							break;
 						case 'R': //railstate
-							setRailState((uint8_t) tempint);
+							/*setRailState((uint8_t) tempint);*/
 							break;
 						case 'b':    //brake
 							g_carCtrlData.Brake = (uint8_t) tempint;
@@ -701,7 +701,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					{
 
 						case 'R': //railstate
-							setRailState((uint8_t) tempint);
+							/*setRailState((uint8_t) tempint);*/
 							break;
 					}
 				}

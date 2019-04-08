@@ -70,4 +70,35 @@ void EMIFA_init()
 	EMIFASetup();
 }
 
+/*****************************************************************************
+ * 函数名称: emifaReadWord
+ * 函数说明: EMIFA读函数，每次读一个Word(2Bytes)
+ * 输入参数:
+ *           addr：基地址
+ *           offset：偏移量
+ * 输出参数: 无
+ * 返 回 值: EMIFA返回值
+ * 备注: emifaReadWord(0x00000000,0x4) -> 获取地址0x00000008（偏移4个Word）的
+ *       数据
+*****************************************************************************/
+uint16_t EMIFAReadWord(uint32_t addr, uint32_t offset)
+{
+    return *((volatile uint16_t *)addr + offset);
+}
 
+/*****************************************************************************
+ * 函数名称: emifaWriteWord
+ * 函数说明: EMIFA读函数，每次读一个Word（2Bytes）
+ * 输入参数:
+ *           addr：基地址
+ *           offset：偏移量
+ *           value：写入数据
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注: emifaWriteWord(0x00000000,0x4,0xAA) -> 将0xAA写入到地址0x00000008（偏
+ *       移4个Word）的数据
+*****************************************************************************/
+void EMIFAWriteWord(uint32_t addr, uint32_t offset, uint16_t value)
+{
+    *((volatile uint16_t *)addr + offset) = value;
+}

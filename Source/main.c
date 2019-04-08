@@ -22,6 +22,7 @@
 #include "canModule.h"
 
 #include "DSP_Uart/dsp_uart2.h"
+#include "fpga_ttl.h"
 
 #define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
 
@@ -29,6 +30,7 @@ void PeriphInit()
 {
 
     uint16_t udelay;
+    uint16_t regv;
 	//GPIO---------------------
 	gpio_init();       //初始化GPIO
 	gpio_fpga_rst();  //复位FPGA
@@ -75,6 +77,19 @@ void PeriphInit()
     canHardIntEnable ();
     
     canTableInit();
+
+    TTLInit();
+
+    /*
+    for(udelay = 0;udelay < 100;udelay++)
+    {
+    	TTLWrite(udelay);
+    	regv = EMIFAReadWord((SOC_EMIFA_CS2_ADDR + (0x10<<1)), 0);
+    	EMIFAWriteWord((SOC_EMIFA_CS2_ADDR + (0x0D<<1)), 0, 0);
+    	regv = EMIFAReadWord((SOC_EMIFA_CS2_ADDR + (0x0B<<1)), 0);
+    	regv = TTLRead();
+    }
+    */
 
 }
 
