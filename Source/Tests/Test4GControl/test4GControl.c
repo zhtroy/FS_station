@@ -194,7 +194,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
                         
                         break;
 					case Auto:
-						MotoSetControlMode(GEAR_DRIVE);   //进入自动模式后，默认挂前进档
+						MotoSetGear(GEAR_DRIVE);   //进入自动模式后，默认挂前进档
 						carState = idle;
                     
                         MotoSetErrorCode(ERROR_NONE);
@@ -244,7 +244,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 							MotoSetControlMode(tempint);
 							break;
 						case 'g':    //gear
-							MotoSetControlMode(tempint);
+							MotoSetGear(tempint);
 							break;
 						case 't':    //throttle
 							MotoSetThrottle((uint8_t) tempint);
