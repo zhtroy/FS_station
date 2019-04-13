@@ -476,6 +476,7 @@ static void vChangeRailTask(void)
 				{
 					complete = 1;					/* 设置完成标志 */
 					setRailState(regv & 0x03);		/* 更新轨道状态 */
+					changerail_timeout_cnt = 0;		/* 超时计数器清零 */
 					break;
 				}
 
