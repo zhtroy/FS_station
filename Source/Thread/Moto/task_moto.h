@@ -107,6 +107,7 @@ typedef struct{
 	uint8_t railstate;
 	uint8_t FSMstate;
     uint8_t ErrorCode;  //急停态错误状态
+    uint32_t circleNum;
 	uint32_t rfidReadTime;
 
 }fbdata_t;

@@ -28,6 +28,8 @@
 extern fbdata_t g_fbData;
 static Clock_Handle clock_rfid_heart;
 static uint8_t timeout_flag = 0;
+static uint32_t circleNum = 0;
+static uint8_t lastrfid;
 
 static xdc_Void RFIDConnectionClosed(xdc_UArg arg)
 {
@@ -62,7 +64,6 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 {
 	p_msg_t msg;
 
-
 	switch(type)
 	{
 		case 0x97:  //循环查询EPC的返回  回传EPC第一个byte
@@ -72,6 +73,13 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
 			g_fbData.rfid = data[2];
 			g_fbData.rfidReadTime = Timestamp_get32();
+			/*记录圈数*/
+			if(data[2] != lastrfid && data[2] == 0x06)
+			{
+				circleNum++;
+			}
+			lastrfid = data[2];
+			g_fbData.circleNum = circleNum;
 
 			msg = Message_getEmpty();
 			msg->type = rfid;
