@@ -166,7 +166,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 	Clock_Params_init(&clockParams);
 	clockParams.period = 0;       // one shot
 	clockParams.startFlag = FALSE;
-	heartClock = Clock_create(connectionClosed, 20000, &clockParams, &eb); //1s 后没有收到包就停止
+	heartClock = Clock_create(connectionClosed, 1000*60*3, &clockParams, &eb); //3min 后没有收到包就停止
 	if ( heartClock == NULL )
 	{
 		System_abort("Clock create failed\n");
