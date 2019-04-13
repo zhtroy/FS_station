@@ -466,7 +466,7 @@ static void vChangeRailTask(void)
 
 			while(changerail_timeout_cnt < CHANGERAIL_TIMEOUT)
 			{
-				Task_sleep(100);
+				Task_sleep(10);
 				changerail_timeout_cnt ++;
 
 				regv = TTLRead();

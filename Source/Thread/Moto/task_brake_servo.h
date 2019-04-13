@@ -29,7 +29,7 @@
 
 #define BRAKE_TIMEOUT (100)
 
-#define CHANGERAIL_TIMEOUT (100)
+#define CHANGERAIL_TIMEOUT (600)
 
 #if CAR_VERSION == 21
 /*机车2.1*/
