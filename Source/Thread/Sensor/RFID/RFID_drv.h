@@ -72,9 +72,7 @@ void RFIDDeviceOpen(uint16_t deviceNum);
 void RFIDRegisterReadCallBack(uint16_t deviceNum, RFIDcallback cb);
 //循环查询EPC
 int RFIDStartLoopCheckEpc(uint16_t deviceNum);
-int RFIDStartLoopCheckEpc(uint16_t deviceNum);
-
-//处理串口输入字符
+int RFIDStopLoopCheckEpc(uint16_t deviceNum);
 void RFIDProcess(uint16_t deviceNum);
 
 

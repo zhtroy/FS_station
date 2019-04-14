@@ -34,7 +34,7 @@ static xdc_Void RFIDConnectionClosed(xdc_UArg arg)
 {
     p_msg_t msg;  
     /*
-    *TODO:添加断连处理，发送急停消息，进入急停模式，并设置ErrorCode
+    * RFID设备连接超时，发送错误消息到主线程
     */
     msg = Message_getEmpty();
 	msg->type = error;
@@ -59,7 +59,7 @@ static void InitTimer()
 }
 
 
-void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
+static void RFIDcallBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
 {
 	p_msg_t msg;
 
@@ -105,7 +105,7 @@ Void taskRFID(UArg a0, UArg a1)
 {
 
 	RFIDDeviceOpen (RFID_DEVICENUM);
-	RFIDRegisterReadCallBack(RFID_DEVICENUM, rfid_callBack);   //回调函数会在RFIDProcess里面调用
+	RFIDRegisterReadCallBack(RFID_DEVICENUM, RFIDcallBack);   //回调函数会在RFIDProcess里面调用
 
 	RFIDStartLoopCheckEpc(RFID_DEVICENUM);
     InitTimer();

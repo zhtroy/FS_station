@@ -35,9 +35,9 @@ typedef struct net_packet{
 	char 		data[CELL_DATA_MAX_LEN];
 }net_packet_t;
 
-net_packet_t* net_packet_build_header_from_raw(net_packet_t* p, char* raw);
+net_packet_t* NetPacketBuildHeaderFromRaw(net_packet_t* p, char* raw);
 
-net_packet_t* net_packet_ctor(net_packet_t* p,
+net_packet_t* NetPacketCtor(net_packet_t* p,
 							  uint8_t flag,
 							  uint16_t cmd,
 							  uint32_t req,
@@ -46,6 +46,6 @@ net_packet_t* net_packet_ctor(net_packet_t* p,
 							  const char * p_data,
 							  uint16_t data_len);
 
-uint16_t net_packet_to_netorder(net_packet_t * p);
+uint16_t NetPacketToNetOrder(net_packet_t * p);
 
 #endif /* NETPACKET_H_ */

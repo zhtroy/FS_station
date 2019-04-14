@@ -42,7 +42,7 @@
 /*
  * 将32bytes的原始网络数据填充到net_packet_t结构体中,注意网络字节序和主机字节序的转化
  */
-net_packet_t* net_packet_build_header_from_raw(net_packet_t* p, char* raw)
+net_packet_t* NetPacketBuildHeaderFromRaw(net_packet_t* p, char* raw)
 {
 	memcpy((void *) p, (void*) raw, HDR_LEN);
 	p->cks = ntohs(p->cks);
@@ -59,7 +59,7 @@ net_packet_t* net_packet_build_header_from_raw(net_packet_t* p, char* raw)
  * 将主机字节序的net_packet_t转换成网络字节序
  * 返回总长度
  */
-uint16_t net_packet_to_netorder(net_packet_t * p)
+uint16_t NetPacketToNetOrder(net_packet_t * p)
 {
 	uint16_t len = p->len;
 
@@ -77,7 +77,7 @@ uint16_t net_packet_to_netorder(net_packet_t * p)
 /*
  * net_packet_t 构造器
  */
-net_packet_t* net_packet_ctor(net_packet_t* p,
+net_packet_t* NetPacketCtor(net_packet_t* p,
 							  uint8_t flag,
 							  uint16_t cmd,
 							  uint32_t req,

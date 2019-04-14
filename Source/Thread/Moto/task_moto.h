@@ -32,6 +32,7 @@ typedef struct _CAN_DATA
 }canData_t;
 
 
+
 enum motoSel
 {
 	FRONT_ONLY,
@@ -45,17 +46,31 @@ enum motoID
 };
 enum motoMode
 {
-	THROTTLE,
-	TORQUE,
-	SPEED,
+	MODE_THROTTLE,
+	MODE_TORQUE,
+	MODE_SPEED,
 };
 enum motoGear
 {
-	NONE,
-	DRIVE,
-	REVERSE,
-	LOW,
+	GEAR_NONE,
+	GEAR_DRIVE,
+	GEAR_REVERSE,
+	GEAR_LOW,
 };
+
+/*
+ * 电机控制量
+ */
+#pragma pack(1)
+typedef struct moto_ctrl_t_Tag
+{
+	enum motoSel MotoSel;
+	enum motoMode ControlMode;
+	enum motoGear Gear;
+	uint8_t Throttle;
+    uint16_t GoalRPM;
+    uint8_t AutoMode;
+}moto_ctrl_t;
 
 /*通讯反馈数据结构*/
 typedef struct
@@ -193,8 +208,19 @@ typedef struct{
 
 #define BRAKE_THRO_RATIO (1)
 
-uint16_t MotoGetRPM(void);
+uint16_t MotoGetRealRPM(void);
 uint8_t MotoSetErrorCode(uint8_t code);
-
+extern void MotoSetMotoSel(enum motoSel sel);
+extern enum motoSel MotoGetMotoSel();
+extern void MotoSetControlMode(enum motoMode mode);
+extern enum motoMode MotoGetControlMode();
+extern void MotoSetGear(enum motoGear gear);
+extern enum motoGear MotoGetGear();
+extern void MotoSetThrottle(uint8_t thr);
+extern uint8_t MotoGetThrottle();
+extern void MotoSetGoalRPM(uint16_t rpm);
+extern uint16_t MotoGetGoalRPM();
+extern void MotoSetAutoMode(uint8_t mode);
+extern uint8_t MotoGetAutoMode();
 
 #endif

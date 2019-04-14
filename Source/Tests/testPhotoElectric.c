@@ -25,11 +25,11 @@ static void testPhotoTask()
 	{
 		//跑马灯
 
-		PhotoEle_setLight(0x512, PHOTO_LIGHT_0_ON |PHOTO_LIGHT_1_ON );
+		PhotoEleSetLight(0x512, PHOTO_LIGHT_0_ON |PHOTO_LIGHT_1_ON );
 		Task_sleep(1000);
-		PhotoEle_setLight(0x512, PHOTO_LIGHT_1_ON |PHOTO_LIGHT_2_ON );
+		PhotoEleSetLight(0x512, PHOTO_LIGHT_1_ON |PHOTO_LIGHT_2_ON );
 		Task_sleep(1000);
-		PhotoEle_setLight(0x512, PHOTO_LIGHT_2_ON |PHOTO_LIGHT_0_ON );
+		PhotoEleSetLight(0x512, PHOTO_LIGHT_2_ON |PHOTO_LIGHT_0_ON );
 		Task_sleep(1000);
 	}
 }
@@ -44,7 +44,14 @@ void testPhotoElectric_init()
     Task_Params_init(&taskParams);
 
 
-    PhotoEle_init();
+	taskParams.priority = 3;
+	taskParams.stackSize = 2048;
+	taskParams.arg0 = 0;
+	task = Task_create(taskPhotoElectric, &taskParams, &eb);
+	if (task == NULL) {
+		System_printf("Task_create() failed!\n");
+		BIOS_exit(0);
+	}
 
 	taskParams.priority = 3;
 	taskParams.stackSize = 2048;

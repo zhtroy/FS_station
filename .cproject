@@ -59,6 +59,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph/sja1000t}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Moto}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Decision/hsm}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Decision}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Console}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph/emifa}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Tests}&quot;"/>
@@ -121,7 +122,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Source/Thread/Sensor/mpu9250/mpl|Source/Thread/Sensor/mpu9250/mllite|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Tests/testSja1000Task.c|platform|platform/tl/dsp/evm6748/package/build.cfg|out|out/c6748AISgen_456M_config.cfg|srcinst|Source/Thread/Decision/Decision.c|Source/Periph/DSP_Uart/uartStdio.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Source/Thread/Moto/task_ctrldata.c|Source/Thread/Decision/Decision.c|out|Source/Periph/DSP_Uart/uartStdio.c|platform|platform/tl/dsp/evm6748/package/build.cfg|srcinst|out/c6748AISgen_456M_config.cfg|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Thread/Sensor/mpu9250/mpl|Source/Tests/testSja1000Task.c|Source/Thread/Sensor/mpu9250/mllite" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -211,7 +212,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="platform/tl/dsp/evm6748/package/build.cfg|out/c6748AISgen_456M_config.cfg|Source/Thread/Decision/Decision.c|Source/Periph/DSP_Uart/uartStdio.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Source/Thread/Decision/Decision.c|Source/Periph/DSP_Uart/uartStdio.c|platform/tl/dsp/evm6748/package/build.cfg|out/c6748AISgen_456M_config.cfg" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
