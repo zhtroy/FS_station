@@ -5,6 +5,7 @@ typedef struct _MPU9250_DATA_OBJ{
 	float accelX; 		/*加速度*/
 	float accelY;
 	float accelZ;
+	float accelSpeed;
 	float pitch;		/*俯仰*/
 	float roll;			/*横滚*/
 	float yaw;			/*偏航*/

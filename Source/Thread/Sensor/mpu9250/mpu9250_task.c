@@ -14,12 +14,13 @@
 #include "mpu9250_task.h"
 
 /* 宏定义 */
-#define DEFAULT_MPU_HZ  (10)
+#define DEFAULT_MPU_HZ  (20)
 #define COMPASS_READ_MS (100)
 #define MPU_Q30  (1073741824.0f)
 #define PITCH_ERROR  (0)
 #define ROLL_ERROR   (0)
 #define YAW_ERROR    (0)
+#define ACCEL_G		 (9.8)
 
 /* 全局变量定义 */
 static signed char gyro_orientation[9] = {-1, 0, 0,
@@ -34,7 +35,7 @@ static mpu9250DataCorrect_t compassDataCor = {
 			.zMin = -1,
 };
 
-static uint8_t selfTestMode = 0;	/* 默认不进行自检 */
+static uint8_t selfTestMode = 1;	/* 默认不进行自检 */
 static uint8_t compassCorrect = 0;	/* 磁力计默认不校准 */
 static uint8_t correctTrigger = 0;	/* 磁力计校准触发 */
 
@@ -101,6 +102,7 @@ static void MPU9250RunSelfTest(void)
    unsigned short accel_sens;
 
    result = mpu_run_self_test(gyro, accel);
+
    if (result == 0x7)
    {
 	   /* 测试通过，将gyro和accel的偏移量放入DMP中 */
@@ -172,12 +174,15 @@ static int32_t MPU9250OpenDev()
 	}
 
 	/* 设置磁力计的采样速率 */
-	result = mpu_set_compass_sample_rate(1000 / COMPASS_READ_MS);
+	result = mpu_set_compass_sample_rate(DEFAULT_MPU_HZ);
 	if (result)
 	{
 		LogMsg("mpu_set_sample_rate Failed!!\r\n");
 		return -1;
 	}
+
+	/* 设置加速度计的测量范围-2~2g */
+	mpu_set_accel_fsr(2);
 
 	/*
 	mpu_get_compass_sample_rate(&compassRate);
@@ -341,9 +346,13 @@ static void MPU9250DataUpdate(mpu9250DataObj_t *dataObj)
 
 		/* 加速度归一化，单位g */
 		mpu_get_accel_fsr(&accelFsr);
-		dataObj->accelX = accel_short[0]/32768.0f*accelFsr;
-		dataObj->accelY = accel_short[1]/32768.0f*accelFsr;
-		dataObj->accelZ = accel_short[2]/32768.0f*accelFsr;
+		dataObj->accelX = accel_short[0]/32768.0f;//*ACCEL_G*accelFsr;
+		dataObj->accelY = accel_short[1]/32768.0f;//*ACCEL_G*accelFsr;
+		dataObj->accelZ = accel_short[2]/32768.0f;//*ACCEL_G*accelFsr;
+
+		dataObj->accelSpeed = sqrt(dataObj->accelX*dataObj->accelX +
+									dataObj->accelY*dataObj->accelY +
+									dataObj->accelZ*dataObj->accelZ);
 
 		/* 温度计算
 		 * TODO: 手册中的计算公式为21+xxx，而DMP中为35+xxx，需要在温度归一化之后-14.
@@ -374,6 +383,9 @@ static void MPU9250DataUpdate(mpu9250DataObj_t *dataObj)
 static void MPU9250Task(void)
 {
 	mpu9250DataObj_t dataObj;
+	float test = 0;
+	int16_t cnt = 0;
+
 	int32_t result;
 	/* 打开设备
 	 * 若设备初始化失败，每隔1S尝试1次；
@@ -391,7 +403,8 @@ static void MPU9250Task(void)
     while(1)
     {
     	MPU9250DataUpdate(&dataObj);
-    	LogMsg("加速度: %.3f,y-%.3f,z-%.3f\r\n",dataObj.accelX, dataObj.accelY, dataObj.accelZ);
+
+    	LogMsg("加速度: %.3f,y-%.3f,z-%.3f\r\n%.3fm/s2\r\n",dataObj.accelX, dataObj.accelY, dataObj.accelZ,dataObj.accelSpeed);
     	LogMsg("俯仰: %3.3f,横滚: %3.3f,偏航: %3.3f\r\n",dataObj.pitch, dataObj.roll, dataObj.yaw);
     	LogMsg("温度: %.1f\r\n",dataObj.temp);
     	LogMsg("方向: %.2f,水平: %.2f\r\n",dataObj.direct, dataObj.horizontal);
