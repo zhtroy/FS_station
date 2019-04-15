@@ -21,6 +21,7 @@
 #include <xdc/runtime/Timestamp.h>
 #include "task_moto.h"
 #include <ti/sysbios/knl/Clock.h>
+#include <xdc/runtime/Types.h>
 
 
 #define RFID_DEVICENUM  0  //TODO: 放入一个配置表中
@@ -59,6 +60,18 @@ static void InitTimer()
 	clock_rfid_heart = Clock_create(RFIDConnectionClosed, 10000, &clockParams, NULL);
 }
 
+int32_t GetMs()
+{
+	Types_FreqHz freq;
+	Types_Timestamp64 timestamp;
+	long long timecycle;
+	long long freqency;
+	Timestamp_getFreq(&freq);
+	Timestamp_get64(&timestamp);
+	timecycle = _itoll(timestamp.hi, timestamp.lo);
+	freqency  = _itoll(freq.hi, freq.lo);
+	return  timecycle/(freqency/1000);
+}
 
 void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t len )
 {
@@ -72,7 +85,7 @@ void rfid_callBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint32_t le
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
 			g_fbData.rfid = data[2];
-			g_fbData.rfidReadTime = Timestamp_get32();
+			g_fbData.rfidReadTime = GetMs();
 			/*记录圈数*/
 			if(data[2] != lastrfid && data[2] == 0x06)
 			{
