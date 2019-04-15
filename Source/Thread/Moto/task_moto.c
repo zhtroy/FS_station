@@ -12,6 +12,7 @@
 #include <ti/sysbios/BIOS.h>
 #include "stdio.h"
 #include <math.h>
+#include "Zigbee/Zigbee.h"
 
 
 
@@ -326,8 +327,20 @@ static void motoRecvTask(void)
 	}
 }
 //TODO: 发送机车状态到4G
+/*
+ * 反馈数据包格式为 包头(0xAA 0x42 0x55) + 长度 + 数据 + 包尾(0x0D)
+ */
+
 void taskMotoSendFdbkToCell()
 {
+	uint8_t  sendbuff[256];
+	int bufflen = sizeof(g_fbData)+5;
+
+	sendbuff[0] = 0xAA;
+	sendbuff[1] = 0x42;
+	sendbuff[2] = 0x55;
+	sendbuff[3] = sizeof(g_fbData);
+	sendbuff[bufflen-1] = 0x0D;
 
 	while(1){
 		/*
@@ -338,7 +351,10 @@ void taskMotoSendFdbkToCell()
 		*/
 		g_fbData.brake = g_carCtrlData.Brake;
 		g_fbData.railstate = getRailState();
-		CellSendData((char*) &g_fbData, sizeof(g_fbData));
+
+		memcpy(sendbuff+4,(char*) &g_fbData, sizeof(g_fbData) );
+
+		ZigbeeSend(sendbuff, bufflen);
 
 		Task_sleep(100);
 	}
@@ -371,6 +387,7 @@ void testMototaskInit()
 		BIOS_exit(0);
 	}
 
+	taskParams.priority = 2;
     task = Task_create(taskMotoSendFdbkToCell, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
