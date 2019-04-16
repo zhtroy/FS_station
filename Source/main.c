@@ -22,6 +22,7 @@
 #include "canModule.h"
 
 #include "DSP_Uart/dsp_uart2.h"
+#include "fpga_ttl.h"
 #include "common.h"
 #include "TL6748.h"
 
@@ -74,6 +75,8 @@ void PeriphInit()
     CanHardIntMaskAll();
     CanHardIntEnable ();
     CanTableInit();
+    TTLInit();
+
 }
 
 void ThreadInit()

@@ -29,7 +29,7 @@
 
 #define BRAKE_TIMEOUT (100)
 
-#define CHANGERAIL_TIMEOUT (100)
+#define CHANGERAIL_TIMEOUT (600)
 
 #if CAR_VERSION == 21
 /*机车2.1*/
@@ -37,8 +37,11 @@
 
 #elif CAR_VERSION == 20
 /*机车2.0*/
-#define BRAKE_STEP_PULSE (150)
+#define BRAKE_STEP_PULSE (-1500)
 #endif
+
+#define RAIL_ENABLE (0)
+#define RAIL_DIRECT (1)
 
 typedef struct{
     uint8_t     id;

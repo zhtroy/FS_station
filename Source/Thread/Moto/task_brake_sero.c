@@ -10,6 +10,8 @@
 #include <ti/sysbios/BIOS.h>
 #include "Message/Message.h"
 #include "common.h"
+#include "fpga_ttl.h"
+extern uint16_t getRPM(void);
 
 #define BRAKE_MBOX_DEPTH (16)
 
@@ -445,6 +447,94 @@ static void ServoChangeRailTask(void)
 	uint8_t state;
     uint16_t recvReg;
     p_msg_t sendmsg;
+	static uint8_t change_en=1;
+	uint8_t changerail_timeout_cnt = 0;
+
+
+	uint8_t regv;
+	/* 获取轨道状态 */
+	regv = TTLRead();
+
+	if((0x03 & regv) == LEFTRAIL)
+	    RailSetRailState(LEFTRAIL);
+	else if((0x03 & regv) == RIGHTRAIL)
+	    RailSetRailState(RIGHTRAIL);
+	else
+	{
+		/*
+		*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+		*/
+		sendmsg = Message_getEmpty();
+		sendmsg->type = error;
+		sendmsg->data[0] = ERROR_CHANGERAIL_TIMEOUT;
+		Message_post(sendmsg);
+	}
+
+
+	while(1)
+	{
+		Task_sleep(50);
+
+		if(RailGetReady() == 0)
+		{
+			changeRail = 0;
+			continue;
+		}
+
+		if(1 == changeRail)
+		{
+			changeRail = 0;
+			complete= 0;
+
+			/*
+			 * 1.设置电机方向
+			 * 2.使能电机
+			 * 3.等待超时
+			 * 4.判断电机是否到位
+			 */
+			if(RailGetRailState() == LEFTRAIL)
+				TTLWriteBit(RAIL_DIRECT,0);
+			else
+				TTLWriteBit(RAIL_DIRECT,1);
+
+			TTLWriteBit(RAIL_ENABLE, 0);
+
+			while(changerail_timeout_cnt < CHANGERAIL_TIMEOUT)
+			{
+				Task_sleep(10);
+				changerail_timeout_cnt ++;
+
+				regv = TTLRead();
+
+				if((RailGetRailState() == LEFTRAIL && (regv & 0x03) == RIGHTRAIL) ||
+					(RailGetRailState() == RIGHTRAIL && (regv & 0x03) == LEFTRAIL))
+				{
+					complete = 1;					/* 设置完成标志 */
+					RailSetRailState(regv & 0x03);		/* 更新轨道状态 */
+					changerail_timeout_cnt = 0;		/* 超时计数器清零 */
+					break;
+				}
+
+			}
+
+			TTLWriteBit(RAIL_ENABLE, 1);	/* 关闭电机使能 */
+
+			if(changerail_timeout_cnt >= CHANGERAIL_TIMEOUT)
+			{
+				RailSetReady(0);
+				changerail_timeout_cnt = 0;
+			}
+		}/*if(1 == changeRail)*/
+
+	}/*while(1)*/
+}
+
+#if 0
+static void vChangeRailTask(void)
+{
+	uint8_t state;
+    uint16_t recvReg;
+    p_msg_t sendmsg;
 	static uint8_t step=0;
 	static uint8_t preach=0;
 	static uint8_t change_en=1;
@@ -625,7 +715,7 @@ static void ServoChangeRailTask(void)
 
 	}
 }
-
+#endif
 
 void ServoTaskInit()
 {
