@@ -16,6 +16,7 @@
 #include "common.h"
 #include "task_brake_servo.h"
 #include "Parameter.h"
+#include "Zigbee/Zigbee.h"
 
 /* 宏定义 */
 #define RX_MBOX_DEPTH (32)
@@ -388,8 +389,20 @@ static void MotoRecvTask(void)
 	}
 }
 //TODO: 发送机车状态到4G
+
 void MotoSendFdbkToCellTask()
 {
+	/*
+	 * 反馈数据包格式为 包头(0xAA 0x42 0x55) + 长度 + 数据 + 包尾(0x0D)
+	 */
+	uint8_t  sendbuff[256];
+	int bufflen = sizeof(g_fbData)+5;
+
+	sendbuff[0] = 0xAA;
+	sendbuff[1] = 0x42;
+	sendbuff[2] = 0x55;
+	sendbuff[3] = sizeof(g_fbData);
+	sendbuff[bufflen-1] = 0x0D;
 
 	while(1){
 		/*
@@ -400,7 +413,8 @@ void MotoSendFdbkToCellTask()
 		*/
 		g_fbData.brake = BrakeGetBrake();
 		g_fbData.railstate = RailGetRailState();
-		CellSendData((char*) &g_fbData, sizeof(g_fbData));
+		memcpy(sendbuff+4,(char*) &g_fbData, sizeof(g_fbData) );
+		ZigbeeSend(sendbuff, bufflen);
 
 		Task_sleep(100);
 	}
@@ -435,6 +449,8 @@ void MototaskInit()
 		BIOS_exit(0);
 	}
 
+
+	taskParams.priority = 2;
     task = Task_create(MotoSendFdbkToCellTask, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
