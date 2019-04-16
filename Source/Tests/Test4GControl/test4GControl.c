@@ -23,6 +23,7 @@
 #include "Sensor/PhotoElectric/PhotoElectric.h"
 #include "task_brake_servo.h"
 #include "Parameter.h"
+#include "Zigbee/Zigbee.h"
 
 
 
@@ -162,7 +163,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		msg= Message_pend();
 
 
-		if(msg->type == cell)
+		if(msg->type == zigbee)
 		{
 			/*
 			 * 检测心跳包
@@ -226,7 +227,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 		if(carMode == Manual){ //手动模式
 			switch(msg->type){
-				case cell:
+				case zigbee:
 				{
 					/*
 					 *  TODO：简单的命令格式，后续需要改为和RFID协议类似的
@@ -263,7 +264,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 					}
 
 					break;
-				}   //case cell
+				}   //case zigbee
 				case rfid:
 				{
                     switch(msg->data[0])
@@ -305,7 +306,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 		else if(carMode == Setting)  //设置模式
 		{
 			switch(msg->type){
-				case cell:
+				case zigbee:
 				{
 					tempint = atoi(&(msg->data[1]));   //转换字符串为int
 					switch(msg->data[0])
@@ -344,7 +345,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 
 					}
 					break;
-				}  //case cell
+				}  //case zigbee
 			}
 		}
 
@@ -355,7 +356,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 			{
 				case idle:
 				{
-					if(msg->type == cell){
+					if(msg->type == zigbee){
 						if(msg->data[0] == 'S' )   //开始巡航
 						{
 							carState = cruising;
@@ -677,7 +678,7 @@ static Void task4GControlMain(UArg a0, UArg a1)
 			BrakeSetBrake(MAX_BRAKE_SIZE);
 			MotoSetThrottle(0);
 			switch(msg->type){
-				case cell:
+				case zigbee:
 				{
 					tempint = atoi(&(msg->data[1]));   //转换字符串为int
 
@@ -721,7 +722,7 @@ void test4GControl_init()
 	taskParams.priority = 3;
 	taskParams.stackSize = 2048;
 	taskParams.arg0 = 0;
-	task = Task_create(taskCellCommunication, &taskParams, &eb);
+	task = Task_create(taskZigbee, &taskParams, &eb);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
