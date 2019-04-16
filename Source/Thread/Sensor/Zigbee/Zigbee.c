@@ -8,15 +8,18 @@
 #include "Zigbee/Zigbee.h"
 #include "uartns550.h"
 #include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
 #include "stdint.h"
 #include "string.h"
 #include <ti/sysbios/hal/Hwi.h>
 #include <ti/sysbios/BIOS.h>
 #include "Message/Message.h"
 
+#define ZIGBEE_MBOX_DEPTH (32)
 
-static Semaphore_Handle m_sem_zigbee_recv;
 static Semaphore_Handle m_sem_zigbee_send;
+static Mailbox_Handle recvMbox;
+static uartDataObj_t recvDataObj;
 
 
 
@@ -26,7 +29,6 @@ static void UartZigbeeIntrHandler(void *CallBackRef, u32 Event, unsigned int Eve
 {
 	u8 Errors;
 	u16 UartDeviceNum = *((u16 *)CallBackRef);
-    u8 *NextBuffer;
 	/*
 	 * All of the data has been sent.
 	 */
@@ -43,9 +45,9 @@ static void UartZigbeeIntrHandler(void *CallBackRef, u32 Event, unsigned int Eve
 	 * timeout just indicates the data stopped for 4 character times.
 	 */
 	if (Event == XUN_EVENT_RECV_DATA || Event == XUN_EVENT_RECV_TIMEOUT) {
-		NextBuffer = UartNs550PushBuffer(UartDeviceNum,EventData);
-		UartNs550Recv(UartDeviceNum, NextBuffer, BUFFER_MAX_SIZE);
-		Semaphore_post(m_sem_zigbee_recv);
+	    recvDataObj.length = EventData;
+        Mailbox_post(recvMbox, (Ptr *)&recvDataObj, BIOS_NO_WAIT);
+        UartNs550Recv(UartDeviceNum, &recvDataObj.buffer, UART_REC_BUFFER_SIZE);
 	}
 
 	/*
@@ -62,15 +64,15 @@ static void UartZigbeeIntrHandler(void *CallBackRef, u32 Event, unsigned int Eve
 void ZigbeeInit()
 {
 	Semaphore_Params semParams;
-
+	Mailbox_Params mboxParams;
 
 	/*初始化FPGA串口*/
 	UartNs550Init(ZIGBEE_UART_NUM, UartZigbeeIntrHandler);
 
-	/* 创建信号量 */
-	Semaphore_Params_init(&semParams);
-	semParams.mode = Semaphore_Mode_COUNTING;
-	m_sem_zigbee_recv = Semaphore_create(0, &semParams, NULL);
+
+    /* 初始化接收邮箱 */
+    Mailbox_Params_init(&mboxParams);
+    recvMbox = Mailbox_create (sizeof (uartDataObj_t),ZIGBEE_MBOX_DEPTH, &mboxParams, NULL);
 
 	Semaphore_Params_init(&semParams);
 	semParams.mode = Semaphore_Mode_COUNTING;
@@ -85,24 +87,22 @@ void ZigbeeSend(void * pData, int len)
 
 Void taskZigbee(UArg a0, UArg a1)
 {
-	UART550_BUFFER * Buff;
 	int state = 0;
 	int i;
 	uint8_t c;
 	p_msg_t pMsg;
 	int commandLen = 0;
+	uartDataObj_t buffObj;
 
 	ZigbeeInit();
 
 	while(1)
 	{
-		Semaphore_pend(m_sem_zigbee_recv, BIOS_WAIT_FOREVER);
+		Mailbox_pend(recvMbox,(Ptr*) &buffObj, BIOS_WAIT_FOREVER);
 
-		Buff = UartNs550PopBuffer(ZIGBEE_UART_NUM);
-
-		for(i = 0;i<Buff->Length;i++)
+		for(i = 0;i<buffObj.length;i++)
 		{
-			c = Buff->Buffer[i];
+			c = buffObj.buffer[i];
 			switch(state)
 			{
 				case 0:  //等待包头 $
