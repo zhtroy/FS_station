@@ -262,6 +262,156 @@ uint8_t UartNs550GetLastErrors(uint16_t deviceNum)
     return XUartNs550_GetLastErrors(instancePtr);
 }
 
+/*****************************************************************************
+ * 函数名称: uint8_t UartNs550Getc(uint16_t deviceNum)
+ * 函数说明: 字节获取(阻塞式)
+ * 输入参数:
+ *        deviceNum:设备号
+ * 输出参数: 无
+ * 返 回 值: 获取的数据
+ * 备注：
+*****************************************************************************/
+uint8_t UartNs550Getc(uint16_t deviceNum)
+{
+
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
+
+    return XUartNs550_RecvByte(instancePtr->BaseAddress);
+}
+
+/*****************************************************************************
+ * 函数名称: void UartNs550Putc(uint16_t deviceNum, uint8_t data)
+ * 函数说明: 发送字节(阻塞式)
+ * 输入参数:
+ *        deviceNum:设备号
+ *        data:发送字节数据
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注：
+*****************************************************************************/
+void UartNs550Putc(uint16_t deviceNum, uint8_t data)
+{
+
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
+
+    XUartNs550_SendByte(instancePtr->BaseAddress, data);
+}
+
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550Puts(uint16_t deviceNum, int8_t *pTxBuffer, int32_t numBytesToWrite)
+ * 函数说明: 发送字符串(阻塞式)
+ * 输入参数:
+ *        deviceNum:设备号
+ *        pTxBuffer:发送字符串指针
+ *        numBytesToWrite:发送数据长度
+ * 输出参数: 无
+ * 返 回 值: 实际发送的数据长度
+ * 备注：
+ *     发送结束的条件：
+ *     a)numBytesToWrite为正数，发送计数count等于numBytesToWrite
+ *     b)numBytesToWrite为正数，发送过程中检测到字符'\0'
+ *     c)numBytesToWrite为负数时，依赖字符串结束符'\0'
+*****************************************************************************/
+uint32_t UartNs550Puts(uint16_t deviceNum,int8_t *pTxBuffer, int32_t numBytesToWrite)
+{
+     uint32_t count = 0;
+     uint32_t flag = 0;
+
+     if(numBytesToWrite < 0)
+     {
+          flag = 1;
+     }
+
+     while('\0' != *pTxBuffer)
+     {
+          /* Checks if data is a newline character. */
+          if('\n' == *pTxBuffer)
+          {
+               /* Ensuring applicability to serial console.*/
+              UartNs550Putc(deviceNum, '\r');
+              UartNs550Putc(deviceNum, '\n');
+          }
+          else
+          {
+              UartNs550Putc(deviceNum, (uint8_t)*pTxBuffer);
+          }
+          pTxBuffer++;
+          count++;
+
+          if((0 == flag) && (count == numBytesToWrite))
+          {
+               break;
+          }
+
+     }
+   /* Returns the number of bytes written onto the transmitter FIFO. */
+   return count;
+}
+
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550SendBlock(uint16_t deviceNum,const int8_t *pcBuf, uint32_t numBytesToWrite)
+ * 函数说明: 发送数据(阻塞式)
+ * 输入参数:
+ *        deviceNum:设备号
+ *        pcBuf:发送缓冲指针
+ *        numBytesToWrite:发送数据长度
+ * 输出参数: 无
+ * 返 回 值: 发送数据长度
+ * 备注：
+*****************************************************************************/
+uint32_t UartNs550SendBlock(uint16_t deviceNum,int8_t *pcBuf, uint32_t numBytesToWrite)
+{
+    uint32_t uIdx;
+
+    for(uIdx = 0; uIdx < numBytesToWrite; uIdx++)
+    {
+        UartNs550Putc(deviceNum,pcBuf[uIdx]);
+    }
+
+    return(uIdx);
+}
+
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550RecvBlock(uint16_t deviceNum,int8_t *recvBuf,uint32_t numBytesToRecv)
+ * 函数说明: 接收指定长度数据(阻塞式)
+ * 输入参数:
+ *        deviceNum:设备号
+ *        recvBuf:接收缓冲指针
+ *        numBytesToWrite:发送数据长度
+ * 输出参数: 无
+ * 返 回 值: 接收数据长度
+ * 备注：
+*****************************************************************************/
+uint32_t UartNs550RecvBlock(uint16_t deviceNum,int8_t *recvBuf, uint32_t numBytesToRecv)
+{
+    uint32_t uIdx;
+
+    for(uIdx = 0; uIdx < numBytesToRecv; uIdx++)
+    {
+        recvBuf[uIdx] = UartNs550Getc(deviceNum);
+    }
+
+    return(uIdx);
+}
+
+/*****************************************************************************
+ * 函数名称: uint32_t UartNs550DeviceIsExist(uint16_t deviceNum)
+ * 函数说明: 判断设备是否被初始化
+ * 输入参数:
+ *        deviceNum:设备号
+ * 输出参数: 无
+ * 返 回 值: 0(设备不存在)/1(设备存在)
+ * 备注：
+*****************************************************************************/
+uint32_t UartNs550DeviceIsExist(uint16_t deviceNum)
+{
+    XUartNs550 * instancePtr = &(uartCfgTable[deviceNum].instance);
+    if(instancePtr == NULL)
+        return 0;
+    else
+        return 1;
+}
+
 void UartNs550SetMode(uint16_t deviceNum,uint8_t mode)
 {
     uint8_t Reg;

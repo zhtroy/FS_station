@@ -81,7 +81,12 @@ uint8_t UartNs550GetLastErrors(uint16_t deviceNum);
 void UartNs550SetMode(uint16_t deviceNum,uint8_t mode);
 void UartNs550RS485TxEnable(uint16_t deviceNum);
 void UartNs550RS485TxDisable(uint16_t deviceNum);
-
+uint8_t UartNs550Getc(uint16_t deviceNum);
+void UartNs550Putc(uint16_t deviceNum, uint8_t data);
+uint32_t UartNs550Puts(uint16_t deviceNum,int8_t *pTxBuffer, int32_t numBytesToWrite);
+uint32_t UartNs550SendBlock(uint16_t deviceNum,int8_t *pcBuf, uint32_t numBytesToWrite);
+uint32_t UartNs550RecvBlock(uint16_t deviceNum,int8_t *recvBuf, uint32_t numBytesToRecv);
+uint32_t UartNs550DeviceIsExist(uint16_t deviceNum);
 #endif
 
 
