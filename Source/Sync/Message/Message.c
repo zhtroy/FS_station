@@ -1,14 +1,5 @@
 /*
- * Message.c
- *
- * 提供一个带优先级的消息队列，使用信号量和SYS/BIOS自带的Queue实现
- *
- * 使用方式:
- *     发布者:	1.msg = Message_new() 获取一个空的消息,并填充内容
- *     		 	2.Message_post(msg)	   发送消息到队列中
- *
- *     接收者:	1.msg = Message_pend()    阻塞等待一个消息
- *     		 	2.Message_recycle(msg)	  回收消息内存到freeQueue中
+ * testqueue.c
  *
  *  Created on: 2018-12-1
  *      Author: zhtro
@@ -20,7 +11,6 @@
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Queue.h>
-#include <ti/sysbios/hal/Hwi.h>
 #include <xdc/runtime/System.h>
 
 #include "stdint.h"
@@ -87,26 +77,6 @@ p_msg_t Message_getEmpty()
 	return msg;
 }
 
-/*
- * 创建一个消息
- */
-p_msg_t Message_new(uint8_t	   pri,  /* 消息优先级，共256级*/
-					msg_type_t type,  /*msg type */
-					uint8_t data[], /* message value */
-					uint32_t dataLen      //数据长度
-					)
-{
-	p_msg_t msg;
-
-	msg = Message_getEmpty();
-	memset(msg,0, sizeof(msg_t));
-	msg->pri = pri;
-	msg->type = type;
-	msg->dataLen = dataLen;
-	memcpy(msg->data, data, dataLen);
-
-	return msg;
-}
 void Message_recycle(p_msg_t msg)
 {
 	/* put message */
@@ -125,40 +95,13 @@ p_msg_t Message_pend()
 	return msg;
 }
 
-
-/*发送一条消息*/
-void Message_post_pri(p_msg_t msg, uint8_t pri)
-{
-	UInt key;
-	p_msg_t pInsert;
-
-	/* 将消息按照优先级升序的方式插入到队列中
-	 *
-	 * 关闭中断，保证原子操作
-	 */
-	key = Hwi_disable();
-
-	pInsert = (p_msg_t) Queue_head(msgQueue);
-	while(pInsert->pri >= pri &&
-			&(pInsert->elem) != (Queue_Elem *)msgQueue )
-	{
-		pInsert= (p_msg_t) Queue_next(&(pInsert->elem));
-	}
-
-	Queue_insert(&(pInsert->elem), &(msg->elem));
-
-	Hwi_restore(key);
-
-	/* post semaphore */
-	Semaphore_post(sem_msg);
-}
-
-/*
- *无优先级默认为 MSG_PRI_MID
- */
+//post 一条消息
 void Message_post(p_msg_t msg)
 {
-	Message_post_pri(msg, MSG_PRI_MID);
+	/* put message */
+	Queue_put(msgQueue, (Queue_Elem *) msg);
+	/* post semaphore */
+	Semaphore_post(sem_msg);
 }
 
 //输入 msg_type_t 返回消息类型字符串
