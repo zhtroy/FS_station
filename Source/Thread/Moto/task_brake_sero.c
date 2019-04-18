@@ -722,14 +722,16 @@ void ServoTaskInit()
     Task_Handle task;
 	Task_Params taskParams;
 	
+	//初始化信号量
+	ServoInitSem();
+
 	//初始化串口
 	UartNs550SetMode(SERVOR_MOTOR_UART, UART_RS485_MODE);
 	UartNs550Init(SERVOR_MOTOR_UART,ServorUartIntrHandler);
 	UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
 
     UartNs550Recv(SERVOR_MOTOR_UART, &brakeUartDataObj.buffer, UART_REC_BUFFER_SIZE);
-	//初始化信号量
-	ServoInitSem();
+
 
 	Task_Params_init(&taskParams);
 	taskParams.priority = 5;

@@ -66,9 +66,7 @@ void ZigbeeInit()
 	Semaphore_Params semParams;
 	Mailbox_Params mboxParams;
 
-	/*初始化FPGA串口*/
-	UartNs550Init(ZIGBEE_UART_NUM, UartZigbeeIntrHandler);
-	UartNs550Recv(ZIGBEE_UART_NUM, recvDataObj.buffer, UART_REC_BUFFER_SIZE);
+
 
 
     /* 初始化接收邮箱 */
@@ -78,6 +76,10 @@ void ZigbeeInit()
 	Semaphore_Params_init(&semParams);
 	semParams.mode = Semaphore_Mode_COUNTING;
 	m_sem_zigbee_send = Semaphore_create(1, &semParams, NULL);
+
+	/*初始化FPGA串口*/
+	UartNs550Init(ZIGBEE_UART_NUM, UartZigbeeIntrHandler);
+	UartNs550Recv(ZIGBEE_UART_NUM, recvDataObj.buffer, UART_REC_BUFFER_SIZE);
 
 }
 void ZigbeeSend(void * pData, int len)

@@ -163,8 +163,7 @@ void RFIDDeviceOpen(uint16_t deviceNum)
 	Mailbox_Params mboxParams; 
 
 	pinst = getInstanceByDeviceNum(deviceNum);
-	//连接串口
-	UartNs550Init(pinst->uartDeviceNum,uartRFIDIntrHandler);
+
 
     /* 初始化接收邮箱 */
     Mailbox_Params_init(&mboxParams);
@@ -172,6 +171,8 @@ void RFIDDeviceOpen(uint16_t deviceNum)
 
 	RFIDstateMachineReset(&(pinst->sminst));
     
+	//连接串口
+	UartNs550Init(pinst->uartDeviceNum,uartRFIDIntrHandler);
     UartNs550Recv(deviceNum, &rfidUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 }
 
