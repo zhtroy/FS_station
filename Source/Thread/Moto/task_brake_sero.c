@@ -448,7 +448,7 @@ static void ServoChangeRailTask(void)
     uint16_t recvReg;
     p_msg_t sendmsg;
 	static uint8_t change_en=1;
-	uint8_t changerail_timeout_cnt = 0;
+	uint16_t changerail_timeout_cnt = 0;
 
 
 	uint8_t regv;
