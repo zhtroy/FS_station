@@ -9,7 +9,6 @@
 #include <xdc/std.h>
 #include "DSP_Uart/dsp_uart2.h"
 #include "soc_C6748.h"
-#include "uart.h"
 #include "stdio.h"
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/hal/Hwi.h>
@@ -26,7 +25,7 @@
 
 
 
-static Semaphore_Handle sem_cell_data_received;
+static Semaphore_Handle sem_cell_data_received = 0;
 static int8_t cell_data_buffer[CELL_BUFF_SIZE];
 static uint16_t buff_head = 0;
 static uint16_t buff_tail = 0;
@@ -36,52 +35,16 @@ char cell_packet_divider[] = "SOCKA:";
 
 
 
-/****************************************************************************/
-/*                                                                          */
-/*              硬件中断线程                                                */
-/*                                                                          */
-/****************************************************************************/
 
-//在cfg 文件中静态配置
-void DSPUART2Isr(void)
+static void CellUartHandler(uint32_t event, unsigned char data)
 {
-    unsigned char rxData = 0;
-    unsigned int int_id = 0;
-	// 使能中断
-	unsigned int intFlags = 0;
-    intFlags |= (UART_INT_LINE_STAT  |  \
-                 UART_INT_RXDATA_CTI);
-
-    // 确定中断源
-    int_id = UARTIntStatus(SOC_UART_2_REGS);
-    UARTIntDisable(SOC_UART_2_REGS, intFlags);
-    IntEventClear(SYS_INT_UART2_INT);
-
-
-
-    // 接收中断
-    if(UART_INTID_RX_DATA == int_id)
-    {
-        cell_data_buffer[buff_tail] = UARTCharGetNonBlocking(SOC_UART_2_REGS);
-        buff_tail = (buff_tail+1) % CELL_BUFF_SIZE;
-        Semaphore_post(sem_cell_data_received);
-//        rxData = UARTCharGetNonBlocking(SOC_UART_2_REGS);
-//        UARTCharPutNonBlocking(SOC_UART_2_REGS, rxData);
-    }
-
-    // 接收错误
-    if(UART_INTID_RX_LINE_STAT == int_id)
-    {
-        while(UARTRxErrorGet(SOC_UART_2_REGS))
-        {
-            // 从 RBR 读一个字节
-            UARTCharGetNonBlocking(SOC_UART_2_REGS);
-        }
-    }
-
-    UARTIntEnable(SOC_UART_2_REGS, intFlags);
+	 if(UART_INTID_RX_DATA == event)
+	{
+		cell_data_buffer[buff_tail] = data;
+		buff_tail = (buff_tail+1) % CELL_BUFF_SIZE;
+		Semaphore_post(sem_cell_data_received);
+	}
 }
-
 
 static void SemInit()
 {
@@ -142,6 +105,8 @@ Void taskServerCommunication(UArg a0, UArg a1)
 
 	SemInit();
 
+	/* 注册UART2 中断回调函数 */
+	UART2RegisterHandler(CellUartHandler);
 
 	Task_Params_init(&taskParams);
 	taskParams.priority = 5;
@@ -225,8 +190,11 @@ Void taskCellCommunication(UArg a0, UArg a1)
 	cell_state_t state = cell_wait;
 
 
+	/*先初始化信号量*/
 	SemInit();
 
+	/* 注册UART2 中断回调函数 */
+	UART2RegisterHandler(CellUartHandler);
 
 	while(1)
 	{

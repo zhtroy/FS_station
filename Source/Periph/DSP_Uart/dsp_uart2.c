@@ -10,12 +10,16 @@
 #include "uart.h"
 #include <xdc/std.h>
 #include "soc_C6748.h"               // DSP C6748 外设寄存器
+#include "DSP_Uart/dsp_uart2.h"
+#include "interrupt.h"
 
 
 // 时钟
 #define SYSCLK_1_FREQ     (456000000)
 #define SYSCLK_2_FREQ     (SYSCLK_1_FREQ/2)
 #define UART_2_FREQ       (SYSCLK_2_FREQ)
+
+static DSPUART2_Handler m_intHandler = 0;
 
 /****************************************************************************/
 /*                                                                          */
@@ -146,5 +150,53 @@ unsigned int UART2Send(const char *pcBuf, unsigned int len)
 unsigned char UART2Getc(void)
 {
     return ((unsigned char)UARTCharGet(SOC_UART_2_REGS));
+}
+
+void UART2RegisterHandler(DSPUART2_Handler hdl)
+{
+	m_intHandler = hdl;
+}
+
+//在cfg 文件中静态配置
+void DSPUART2Isr(void)
+{
+    unsigned char rxData = 0;
+    unsigned int int_id = 0;
+	// 使能中断
+	unsigned int intFlags = 0;
+    intFlags |= (UART_INT_LINE_STAT  |  \
+                 UART_INT_RXDATA_CTI);
+
+    // 确定中断源
+    int_id = UARTIntStatus(SOC_UART_2_REGS);
+    UARTIntDisable(SOC_UART_2_REGS, intFlags);
+    IntEventClear(SYS_INT_UART2_INT);
+
+
+
+    // 接收中断
+    if(UART_INTID_RX_DATA == int_id)
+    {
+
+    	rxData = UARTCharGetNonBlocking(SOC_UART_2_REGS);
+
+    }
+
+    // 接收错误
+    if(UART_INTID_RX_LINE_STAT == int_id)
+    {
+        while(UARTRxErrorGet(SOC_UART_2_REGS))
+        {
+            // 从 RBR 读一个字节
+            UARTCharGetNonBlocking(SOC_UART_2_REGS);
+        }
+    }
+
+    if(m_intHandler != 0)
+    {
+    	m_intHandler(int_id, rxData);
+    }
+
+    UARTIntEnable(SOC_UART_2_REGS, intFlags);
 }
 
