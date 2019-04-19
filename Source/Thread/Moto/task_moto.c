@@ -20,7 +20,7 @@
 
 /* 宏定义 */
 #define RX_MBOX_DEPTH (32)
-#define MOTO_CONNECT_TIMEOUT (3000)
+#define MOTO_CONNECT_TIMEOUT (300)
 
 /********************************************************************************/
 /*          外部全局变量                                                              */
@@ -38,6 +38,8 @@ static Clock_Handle clockMotoFrontHeart;
 
 static float MotoPidCalc(int16_t expRpm,int16_t realRpm,float kp,float ki, float ku,uint8_t clear);
 
+static uint8_t frontValid = 0;
+static uint8_t rearValid = 0;
 /********************************************************************************/
 /*          静态全局变量                                                              */
 /********************************************************************************/
@@ -106,7 +108,8 @@ static xdc_Void MotoRearConnectClosed(xdc_UArg arg)
 	msg->data[0] = ERROR_MOTOR_TIMEOUT;
 	msg->dataLen = 1;
 	Message_post(msg);
-	LogMsg("Moto Rear Connect Failed!!\r\n");
+	//LogMsg("Moto Rear Connect Failed!!\r\n");
+	rearValid = 0;
 }
 
 static xdc_Void MotoFrontConnectClosed(xdc_UArg arg)
@@ -120,7 +123,8 @@ static xdc_Void MotoFrontConnectClosed(xdc_UArg arg)
 	msg->data[0] = ERROR_MOTOF_TIMEOUT;
 	msg->dataLen = 1;
 	Message_post(msg);
-	LogMsg("Moto Front Connect Failed!!\r\n");
+	frontValid = 0;
+	//LogMsg("Moto Front Connect Failed!!\r\n");
 }
 
 
@@ -130,8 +134,8 @@ static void MotoInitTimer()
 	Clock_Params_init(&clockParams);
 	clockParams.period = 0;       // one shot
 	clockParams.startFlag = FALSE;
-	clockMotoRearHeart = Clock_create(MotoRearConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
-	clockMotoFrontHeart = Clock_create(MotoFrontConnectClosed, MOTO_CONNECT_TIMEOUT, &clockParams, NULL);
+	clockMotoRearHeart = Clock_create(MotoRearConnectClosed, 3000, &clockParams, NULL);
+	clockMotoFrontHeart = Clock_create(MotoFrontConnectClosed, 3000, &clockParams, NULL);
 	Clock_start(clockMotoRearHeart);
 	Clock_start(clockMotoFrontHeart);
 }
@@ -211,6 +215,8 @@ static void MotoRecvTask(void)
     uint8_t lastL;
     uint8_t data_error = 0;
     uint16_t calcRpm = 0;
+    uint32_t canID;
+    uint32_t maxThrottle = 0;
 
     canDataObj_t canRecvData;
 	g_fbData.motorDataF.MotoId = MOTO_FRONT;
@@ -220,7 +226,8 @@ static void MotoRecvTask(void)
 	{
         Mailbox_pend(rxDataMbox, (Ptr *)&canRecvData, BIOS_WAIT_FOREVER);
         
-		switch ((canRecvData.ID) & 0x1fffffff)
+        canID = (canRecvData.ID) & 0x1fffffff;
+		switch (canID)
 		{
     		//Front电机反馈信息打包
     		case MOTO_F_CANID2:
@@ -233,101 +240,13 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData.Data[6] - 40;
     			g_fbData.motorDataF.DriverTemp = (uint8_t)canRecvData.Data[7] - 40;
 
-    			//printf("m %d\n", carCtrlData.AutoMode);
-    			//mode = carCtrlData.AutoMode;
-
-    			recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
-    			if(abs(lastRpm-recvRpm) >= FILTER_RPM)
-    			{
-    				data_error = 1;
-    			}
-    			else{
-    				data_error  = 0;
-    			}
-    			lastRpm = recvRpm;
-
-
-
-    			if(g_fbData.motorDataF.RPML != 0 || g_fbData.motorDataF.RPMH != 0)
-    			{
-    				*(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x5A;
-    				*(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x00;
-    			}
-
-    			if(2 == MotoGetAutoMode() && data_error == 0 )
-    			{
-					recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
-					recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
-
-					if ( abs((int)calcRpm - (int)(MotoGetGoalRPM())) < DELTA_RPM ){
-						calcRpm = MotoGetGoalRPM();
-					}
-					else{
-						if(calcRpm<MotoGetGoalRPM() )
-						{
-							calcRpm+=DELTA_RPM;
-						}
-
-						else if(calcRpm>MotoGetGoalRPM() )
-						{
-							calcRpm-=DELTA_RPM;
-						}
-					}
-
-					calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
-
-					adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(ParamInstance()->KP/1000000.0),
-											(float)(ParamInstance()->KI /1000000.0),(float)(ParamInstance()->KU/1000000.0), 0);
-
-					if(hisThrottle < 0 && adjThrottle >0)
-					{
-						hisThrottle += 5.0*adjThrottle;
-					}
-					else
-					{
-						hisThrottle += adjThrottle;
-					}
-
-					if(hisThrottle > MAX_THROTTLE_SIZE)
-						hisThrottle = MAX_THROTTLE_SIZE;
-					else if(hisThrottle < MIN_THROTTLE_SIZE)
-						hisThrottle = MIN_THROTTLE_SIZE;
-					else;
-
-					if(hisThrottle < 0)   //刹车状态
-					{
-
-						MotoSetThrottle(0);
-
-						if(hisThrottle < BREAK_THRESHOLD)
-							adjbrake = - BRAKE_THRO_RATIO* (hisThrottle - BREAK_THRESHOLD);
-						else
-							adjbrake = 0;
-
-						if(adjbrake > MAX_BRAKE_SIZE)
-							BrakeSetBrake(MAX_BRAKE_SIZE);
-						else
-							BrakeSetBrake( round(adjbrake));
-
-					}
-					else  //油门
-					{
-						MotoSetThrottle(round(hisThrottle));
-						BrakeSetBrake(0);
-					}
-    			}
-    			else
-    			{
-    				calcRpm=0;
-    				hisThrottle = 0;
-    				MotoPidCalc(0,0,0,0,0,1);
-    			}
-
-    			Semaphore_post(pidSem);
     			/* 收到心跳，重启定时器 */
-    			Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
-    			Clock_start(clockMotoFrontHeart);
-
+                Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
+                Clock_start(clockMotoFrontHeart);
+                if((g_fbData.motorDataF.MotoMode & 0x80) == 0)
+                    frontValid = 1;
+                else
+                    frontValid = 0;
     			break;
     		case MOTO_F_CANID3:
     			g_fbData.motorDataF.VoltL      = (uint8_t)canRecvData.Data[0];
@@ -362,6 +281,10 @@ static void MotoRecvTask(void)
     			/* 收到心跳，重启定时器 */
     			Clock_setTimeout(clockMotoRearHeart,MOTO_CONNECT_TIMEOUT);
     			Clock_start(clockMotoRearHeart);
+    			if((g_fbData.motorDataR.MotoMode & 0x80) == 0)
+    			    rearValid = 1;
+                else
+                    rearValid = 0;
     			break;
     		case MOTO_R_CANID3:
     			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData.Data[0];
@@ -385,7 +308,119 @@ static void MotoRecvTask(void)
     			break;
     		default:
     			break;
-		}
+		}/* switch */
+
+		if((frontValid == 1 && canID == MOTO_F_CANID2) ||
+		        (frontValid == 0 && rearValid == 1 && canID == MOTO_R_CANID2))
+		{
+		    if(frontValid == 1 && rearValid == 1)
+		    {
+		        recvRpm = ((g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML
+		                   + (g_fbData.motorDataR.RPMH << 8) + g_fbData.motorDataR.RPML)/2;
+		        maxThrottle = MAX_THROTTLE_SIZE/2;
+		    }
+		    else if(frontValid == 1)
+		    {
+		        recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
+		        maxThrottle = MAX_THROTTLE_SIZE;
+		    }
+		    else if(rearValid == 1)
+		    {
+		        recvRpm = (g_fbData.motorDataR.RPMH << 8) + g_fbData.motorDataR.RPML;
+		        maxThrottle = MAX_THROTTLE_SIZE;
+		    }
+		    else;
+
+            if(abs(lastRpm-recvRpm) >= FILTER_RPM)
+            {
+                data_error = 1;
+            }
+            else{
+                data_error  = 0;
+            }
+            lastRpm = recvRpm;
+
+
+            /*
+            if(g_fbData.motorDataF.RPML != 0 || g_fbData.motorDataF.RPMH != 0)
+            {
+                *(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x5A;
+                *(volatile uint16_t *)(SOC_EMIFA_CS2_ADDR + (0x5<<1)) = 0x00;
+            }
+            */
+
+            if(2 == MotoGetAutoMode() && data_error == 0 )
+            {
+                //recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
+                //recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
+
+                if ( abs((int)calcRpm - (int)(MotoGetGoalRPM())) < DELTA_RPM ){
+                    calcRpm = MotoGetGoalRPM();
+                }
+                else{
+                    if(calcRpm<MotoGetGoalRPM() )
+                    {
+                        calcRpm+=DELTA_RPM;
+                    }
+
+                    else if(calcRpm>MotoGetGoalRPM() )
+                    {
+                        calcRpm-=DELTA_RPM;
+                    }
+                }
+
+                calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
+
+                adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(ParamInstance()->KP/1000000.0),
+                                        (float)(ParamInstance()->KI /1000000.0),(float)(ParamInstance()->KU/1000000.0), 0);
+
+                if(hisThrottle < 0 && adjThrottle >0)
+                {
+                    hisThrottle += 5.0*adjThrottle;
+                }
+                else
+                {
+                    hisThrottle += adjThrottle;
+                }
+
+                if(hisThrottle > maxThrottle)
+                    hisThrottle = maxThrottle;
+                else if(hisThrottle < MIN_THROTTLE_SIZE)
+                    hisThrottle = MIN_THROTTLE_SIZE;
+                else;
+
+                if(hisThrottle < 0)   //刹车状态
+                {
+
+                    MotoSetThrottle(0);
+
+                    if(hisThrottle < BREAK_THRESHOLD)
+                        adjbrake = - BRAKE_THRO_RATIO* (hisThrottle - BREAK_THRESHOLD);
+                    else
+                        adjbrake = 0;
+
+                    if(adjbrake > MAX_BRAKE_SIZE)
+                        BrakeSetBrake(MAX_BRAKE_SIZE);
+                    else
+                        BrakeSetBrake( round(adjbrake));
+
+                }
+                else  //油门
+                {
+                    MotoSetThrottle(round(hisThrottle));
+                    BrakeSetBrake(0);
+                }
+            }
+            else
+            {
+                calcRpm=0;
+                hisThrottle = 0;
+                MotoPidCalc(0,0,0,0,0,1);
+            }
+
+            Semaphore_post(pidSem);
+		}/*if(canID == ....)*/
+
 	}
 }
 //TODO: 发送机车状态到4G

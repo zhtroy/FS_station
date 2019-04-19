@@ -187,7 +187,8 @@ typedef struct{
 #define ADJ_THROTTLE_DWSCALE (-20)
 
 #if CAR_VERSION == 20
-#define MAX_THROTTLE_SIZE (55)
+//#define MAX_THROTTLE_SIZE (55)
+#define MAX_THROTTLE_SIZE (110)
 #elif CAR_VERSION == 21
 #define MAX_THROTTLE_SIZE (100)
 #endif
