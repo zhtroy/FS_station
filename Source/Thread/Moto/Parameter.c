@@ -11,7 +11,8 @@ static parameter_t m_param = {
 		.KI = 0,
 		.KP = 0,
 		.KU = 0,
-		.EnableChangeRail = 0
+		.EnableChangeRail = 0,
+		.StateRPM = {0}
 };
 
 parameter_t * ParamInstance()

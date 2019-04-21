@@ -29,7 +29,7 @@ BaseType_t prvMessageSend( char *pcWriteBuffer, size_t xWriteBufferLen, const ch
     BaseType_t xParameterStringLength, xReturn;
     static UBaseType_t uxParameterNumber = 0;
     p_msg_t sendmsg;
-    uint8_t dataType;
+    static uint8_t dataType;
     char strArray[64];
 	/* Remove compile time warnings about unused parameters, and check the
 	write buffer is not NULL.  NOTE - for simplicity, this example assumes the

@@ -69,7 +69,7 @@ typedef struct moto_ctrl_t_Tag
 	enum motoGear Gear;
 	uint8_t Throttle;
     uint16_t GoalRPM;
-    uint8_t AutoMode;
+    uint8_t PidOn;
 }moto_ctrl_t;
 
 /*通讯反馈数据结构*/
@@ -178,6 +178,9 @@ typedef struct{
 /*MOTO后轮通信异常*/
 #define ERROR_MOTOF_TIMEOUT    (16)
 
+/*刹车控制器异常*/
+#define ERROR_BRAKE_ERROR	(17)
+
 
 
 #define DIFF_RPM_UPSCALE (4000)
@@ -222,7 +225,7 @@ extern void MotoSetThrottle(uint8_t thr);
 extern uint8_t MotoGetThrottle();
 extern void MotoSetGoalRPM(uint16_t rpm);
 extern uint16_t MotoGetGoalRPM();
-extern void MotoSetAutoMode(uint8_t mode);
-extern uint8_t MotoGetAutoMode();
+extern void MotoSetPidOn(uint8_t mode);
+extern uint8_t MotoGetPidOn();
 
 #endif

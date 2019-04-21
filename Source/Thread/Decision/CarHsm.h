@@ -10,12 +10,37 @@
 
 #include "hsm.h"
 #include "stdint.h"
+#include "utils/Timeout.h"
 
 typedef struct {
 	Hsm super;
 	State manual;
 	State setting;
 	State automode;
+		State automode_idle;
+		/*interjump的子状态根据RFID跳转*/
+		State automode_interjump;
+			State cruising;
+			State straight;
+			State pre_curve;
+			State curving;
+			State uphill;
+			State downhill;
+			State pre_downhill;
+			State pre_seperate;
+		State automode_seperate;
+			State seperate_waitphoton;
+			State seperate_seperating;
+			State seperate_seperateok;
+
+		State automode_enterstation;
+		State automode_stopstation;
+		State autemode_stopstationleave;
+		State automode_leavestation;
+		State automode_premerge;
+		State automode_merge;
+			State merge_waitphoton;
+			State merge_merging;
 	State forcebrake;
 }car_hsm_t;
 
@@ -23,15 +48,32 @@ enum CarEvents
 {
 	/*遥控事件 开始*/
 	REMOTE_CHMODE_EVT,
-	REMOTE_SET_MOTOR_EVT,
-	REMOTE_SET_GEAR_EVT,
+	REMOTE_SELECT_MOTOR_EVT,
+	REMOTE_SELECT_GEAR_EVT,
 	REMOTE_SET_THROTTLE_EVT,
 	REMOTE_CH_RAIL_EVT,
 	REMOTE_SET_RAILSTATE_EVT,
 	REMOTE_SET_BRAKE_EVT,
+	REMOTE_SET_RPM_EVT,
+	REMOTE_SET_KP_EVT,
+	REMOTE_SET_KI_EVT,
+	REMOTE_SET_KU_EVT,
+	REMOTE_SET_ENABLE_CHANGERAIL_EVT,
+	REMOTE_AUTO_START_EVT,
+	REMOTE_HEARTBEAT_EVT,
 
 	/*RFID 开始*/
-	RFID_EVT
+	RFID_EVT,
+
+	/*timer 开始*/
+	TIMER_EVT,
+
+	/*光电对管开始*/
+	PHOTON_EVT,
+
+	/*错误事件*/
+	ERROR_EVT
+
 
 };
 
@@ -66,6 +108,7 @@ typedef struct {
 	 * 3 紧急制动模式
 	 */
 	uint8_t mode;
+	uint8_t errorcode;
 }evt_remote_chmode_t;
 
 /*
@@ -129,5 +172,76 @@ typedef struct {
 	Msg super;
 	uint8_t brake;
 }evt_remote_set_brake_t;
+
+/*
+ * 遥控 (remote)
+ *
+ *	设置RPM
+ */
+typedef struct {
+	Msg super;
+	uint16_t statecode;
+	uint16_t rpm;
+}evt_remote_set_rpm_t;
+
+/*
+ * 遥控 (remote)
+ *
+ *	设置float类型的参数
+ */
+typedef struct {
+	Msg super;
+	float value;
+}evt_remote_set_float_param_t;
+
+/*
+ * 遥控 (remote)
+ *
+ *	设置u8类型的参数
+ */
+typedef struct {
+	Msg super;
+	uint8_t value;
+}evt_remote_set_u8_param_t;
+
+/*
+ * rfid 读取到标签
+ */
+typedef struct{
+	Msg super;
+	/*
+	 * 读到的EPC ID 暂时只用1个字节
+	 */
+	uint8_t epc;
+}evt_rfid_t;
+
+/*
+ * timer
+ */
+typedef struct{
+	Msg super;
+	timeout_type_t type;
+}evt_timeout_t;
+
+/*
+ * error
+ */
+typedef struct{
+	Msg super;
+	uint8_t code;
+}evt_error_t;
+
+
+/*
+ *
+ */
+
+
+/*
+ * API
+ */
+
+extern void CarHsmCtor(car_hsm_t * me);
+
 
 #endif /* CARHSM_H_ */

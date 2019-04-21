@@ -44,14 +44,12 @@ static uartDataObj_t recvUartDataObj;
 static uint8_t ackStatus = MODBUS_ACK_OK;
 
 static uint8_t changeRail = 0;
-static uint8_t complete = 0;
 
 static brake_ctrl_t m_brakeCtrl = {
 		.Brake = 0,
 		.BrakeReady = 1
 };
 static rail_ctrl_t m_railCtrl = {
-		.ChangeRailReady = 1,
 		.RailState = LEFTRAIL
 };
 
@@ -279,7 +277,6 @@ void ServoBrakeTask(void *param)
     uint8_t brakeTimeoutCnt = 0;
     uint16_t recvReg;
     uint8_t motoEnableFlag = 0;
-    uint8_t idleCnt = 0;
 
     /*Pn070 Son使能驱动器*/
     ServoModbusWriteReg(0x01,0x0046,0x7FFE);
@@ -310,13 +307,14 @@ void ServoBrakeTask(void *param)
             brakeTimeoutCnt = 0;
             servoStep = 0;    
             BrakeSetReady(0);
-            LogMsg("Brake Servo Connect Timeout !!!\r\n");
             continue;
         }
+
 
         if(BrakeGetReady() == 0)
         	continue;
         
+
 		uBrake = BrakeGetBrake();
 		/*	总行程45000个脉冲
 			每步450脉冲
@@ -326,9 +324,33 @@ void ServoBrakeTask(void *param)
 			pulseCount=BRAKE_STEP_PULSE*(uBrake-servoStep);
 			pulseE4=pulseCount/10000;				//万位
 			pulseE0=pulseCount-10000*pulseE4;		//个位
-			idleCnt = 0;
 			while(1)
 			{
+				state = ServoModbusReadReg(0x01,0x0182,&recvReg);
+				if(state == MODBUS_ACK_OK)
+				{
+					if((recvReg & 0x03) != 0)
+					{
+							/*
+							*TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+							*/
+							sendmsg = Message_getEmpty();
+							sendmsg->type = error;
+							sendmsg->data[0] = ERROR_BRAKE_ERROR;
+							Message_post(sendmsg);
+							servoStep = 0;
+							BrakeSetReady(0);
+							break;
+					}
+				}
+				else if(state == MODBUS_ACK_TIMEOUT)
+				{
+					brakeTimeoutCnt ++;
+					break;
+				}
+				else
+					brakeTimeoutCnt = 0;
+
 
 				state = ServoModbusReadReg(0x01,0x0046,&recvReg);
 				if(state == MODBUS_ACK_OK)
@@ -413,20 +435,7 @@ void ServoBrakeTask(void *param)
 		}/* end of if(servo_step!=uBrake)*/
 		else
 		{
-			/* 每5个刹车控制空闲周期之后，执行一次读取ModBus的读取操作，判定是否在线 */
-			if(idleCnt < 5)
-				idleCnt++;
-			else
-			{
-				state = ServoModbusReadReg(0x01,0x0046,&recvReg);
 
-				if(state == MODBUS_ACK_TIMEOUT)
-					brakeTimeoutCnt ++;
-				else
-					brakeTimeoutCnt = 0;
-
-				idleCnt = 0;
-			}
 
 		}
 
@@ -438,10 +447,6 @@ void RailChangeStart()
 }
 
 
-uint8_t RailIsChangeComplete()
-{
-	return complete;
-}
 static void ServoChangeRailTask(void)
 {
 	uint8_t state;
@@ -475,16 +480,14 @@ static void ServoChangeRailTask(void)
 	{
 		Task_sleep(50);
 
-		if(RailGetReady() == 0)
-		{
-			changeRail = 0;
-			continue;
-		}
+		/* 更新轨道状态 */
+		regv = TTLRead();
+		RailSetRailState(regv & 0x03);
+
 
 		if(1 == changeRail)
 		{
 			changeRail = 0;
-			complete= 0;
 
 			/*
 			 * 1.设置电机方向
@@ -499,6 +502,7 @@ static void ServoChangeRailTask(void)
 
 			TTLWriteBit(RAIL_ENABLE, 0);
 
+			changerail_timeout_cnt = 0;
 			while(changerail_timeout_cnt < CHANGERAIL_TIMEOUT)
 			{
 				Task_sleep(10);
@@ -509,7 +513,6 @@ static void ServoChangeRailTask(void)
 				if((RailGetRailState() == LEFTRAIL && (regv & 0x03) == RIGHTRAIL) ||
 					(RailGetRailState() == RIGHTRAIL && (regv & 0x03) == LEFTRAIL))
 				{
-					complete = 1;					/* 设置完成标志 */
 					RailSetRailState(regv & 0x03);		/* 更新轨道状态 */
 					changerail_timeout_cnt = 0;		/* 超时计数器清零 */
 					break;
@@ -519,11 +522,6 @@ static void ServoChangeRailTask(void)
 
 			TTLWriteBit(RAIL_ENABLE, 1);	/* 关闭电机使能 */
 
-			if(changerail_timeout_cnt >= CHANGERAIL_TIMEOUT)
-			{
-				RailSetReady(0);
-				changerail_timeout_cnt = 0;
-			}
 		}/*if(1 == changeRail)*/
 
 	}/*while(1)*/
@@ -765,15 +763,6 @@ void RailSetRailState(uint8_t state)
 uint8_t RailGetRailState()
 {
 	return m_railCtrl.RailState;
-}
-
-void RailSetReady(uint8_t value) /*1 准备好*/
-{
-	m_railCtrl.ChangeRailReady = value;
-}
-uint8_t RailGetReady()
-{
-	return m_railCtrl.ChangeRailReady;
 }
 
 void BrakeSetBrake(uint8_t value)

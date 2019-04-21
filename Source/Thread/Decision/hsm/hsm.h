@@ -3,6 +3,8 @@
 #ifndef hsm_h
 #define hsm_h
 
+#include "assert.h"
+
 typedef int Event;
 typedef struct {
     Event evt;

@@ -9,21 +9,17 @@
 #define PARAMETER_H_
 
 #include "stdint.h"
-
-/*
- * FIXME: 因为网络传输的原因， pid 的参数现在还是 放大了 1000000倍的
- */
-typedef struct pid_parameter_tag{
-
-}pid_parameter_t;
+#include "Decision/CarState.h"
 
 typedef struct parameter_tag{
-	uint32_t KI;
-	uint32_t KP;
-	uint32_t KU;
+	float KI;
+	float KP;
+	float KU;
 
 	/*是否允许变轨*/
     uint8_t EnableChangeRail;
+    uint16_t StateRPM[car_state_None];
+
 
 }parameter_t;
 

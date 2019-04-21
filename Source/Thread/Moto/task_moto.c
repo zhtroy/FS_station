@@ -56,7 +56,7 @@ static moto_ctrl_t m_motoCtrl = {
 		.Gear = GEAR_NONE,
 		.Throttle = 0,
 		.GoalRPM=0,
-		.AutoMode = 0
+		.PidOn = 0
 };
 
 
@@ -349,7 +349,7 @@ static void MotoRecvTask(void)
             }
             */
 
-            if(2 == MotoGetAutoMode() && data_error == 0 )
+            if( MotoGetPidOn() && data_error == 0 )
             {
                 //recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
                 //recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
@@ -371,8 +371,8 @@ static void MotoRecvTask(void)
 
                 calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
 
-                adjThrottle = MotoPidCalc(calcRpm,recvRpm,(float)(ParamInstance()->KP/1000000.0),
-                                        (float)(ParamInstance()->KI /1000000.0),(float)(ParamInstance()->KU/1000000.0), 0);
+                adjThrottle = MotoPidCalc(calcRpm,recvRpm,ParamInstance()->KP,
+                                        ParamInstance()->KI,ParamInstance()->KU, 0);
 
                 if(hisThrottle < 0 && adjThrottle >0)
                 {
@@ -635,12 +635,14 @@ uint16_t MotoGetGoalRPM()
 	return m_motoCtrl.GoalRPM;
 }
 
-void MotoSetAutoMode(uint8_t mode)
+void MotoSetPidOn(uint8_t on)
 {
-	m_motoCtrl.AutoMode = mode;
+	m_motoCtrl.PidOn = on;
 }
 
-uint8_t MotoGetAutoMode()
+uint8_t MotoGetPidOn()
 {
-	return m_motoCtrl.AutoMode;
+	return m_motoCtrl.PidOn;
 }
+
+

@@ -80,4 +80,8 @@ testBrakeServoInit();
 #ifdef TEST_4G_CONTROL
     test4GControl_init();
 #endif
+
+#ifdef TEST_ZIGBEE_CONTROL_HSM
+    testZigbeeControlHSM_init();
+#endif
 }

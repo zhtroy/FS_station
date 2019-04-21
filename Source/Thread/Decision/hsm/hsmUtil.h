@@ -23,11 +23,11 @@
  * event 设置事件类型
  *
  * pEvt 指向Msg及其子类的指针
- * msg 想要切换的事件
+ * msg 想要切换的事件类型
  *
  * 返回 ：无
  */
-#define EVT_SETMSG(pEvt, msg) EVT_CAST(pEvt, Msg)->evt = (int) msg
+#define EVT_SETTYPE(pEvt, msg) EVT_CAST(pEvt, Msg)->evt = (int) msg
 
 
 #endif /* HSMUTIL_H_ */

@@ -34,7 +34,9 @@
 //#define TEST_MPU9250
 
 //#define TEST_SPEED_CONTROL
-#define TEST_4G_CONTROL
+//#define TEST_4G_CONTROL
+
+#define TEST_ZIGBEE_CONTROL_HSM
 
 
 #endif /* TEST_CONFIG_H_ */

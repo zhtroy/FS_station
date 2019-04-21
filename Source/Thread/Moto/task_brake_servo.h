@@ -66,18 +66,16 @@ typedef struct brake_ctrl_tag{
  */
 typedef struct rail_ctrl_tag{
     uint8_t RailState;
-    uint8_t ChangeRailReady;
 }rail_ctrl_t;
 
 /*
  * Rail 变轨
  */
 extern void RailChangeStart();
-extern uint8_t RailIsChangeComplete(); //1 表示成功， 0表示失败
+
 extern void RailSetRailState(uint8_t state);
 extern uint8_t RailGetRailState();
-extern void RailSetReady(uint8_t value); /*1 准备好*/
-extern uint8_t RailGetReady();
+
 /*
  * Brake 刹车
  */
