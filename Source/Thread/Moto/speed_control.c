@@ -1,5 +1,4 @@
 #include "speed_control.h"
-#include "common.h"
 
 #define TYPE_ACCEL_SLOW     (0)
 #define TYPE_ACCEL_MEDIUM   (1)
@@ -38,9 +37,9 @@ int32_t SpeedGenerate(int32_t vc, int32_t ve, int32_t te)
     static int32_t a1 = 0;
     static int32_t aMax = 0;
     static int32_t vi = 0;
+    static int32_t deltaSpeed = 0;
 
     int32_t curTimeMs = 0;
-    int32_t deltaSpeed = 0;
     int32_t vg = 0;
     int32_t temp = 0;
     int32_t td = 0;
@@ -72,11 +71,20 @@ int32_t SpeedGenerate(int32_t vc, int32_t ve, int32_t te)
                 aMax = -ACCEL_MAX_RPM;
 
             if(abs(a0) <= ACCEL_MAX_RPM)
+            {
                 type = TYPE_ACCEL_SLOW;
+                LogMsg("slow\r\n");
+            }
             else if(abs(a1) <= ACCEL_MAX_RPM)
+            {
                 type = TYPE_ACCEL_MEDIUM;
+                LogMsg("medium\r\n");
+            }
             else
+            {
                 type = TYPE_ACCEL_FAST;
+                LogMsg("fast\r\n");
+            }
 
         }/*if(expDeltaTime == 0)->else*/
 
@@ -84,6 +92,7 @@ int32_t SpeedGenerate(int32_t vc, int32_t ve, int32_t te)
         lastExpDeltaTime = te;
         vi = vc;
         userGetMS(&timeMs);
+        vg = vc;
     }/*if((expSpeed !=....*/
     else
     {
@@ -149,7 +158,7 @@ int32_t SpeedGenerate(int32_t vc, int32_t ve, int32_t te)
             }
             else
             {
-                vg = ve + a1*td/1000;
+                vg = vi + a1*td/1000;
             }
         }/*else if(type == TYPE_ACCEL_FAST)*/
         else

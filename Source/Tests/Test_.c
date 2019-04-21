@@ -35,6 +35,9 @@ void TestEntry()
     testUARTCommandLineInit();
 #endif 
 
+#ifdef TEST_SPEED_CONTROL
+    testSpeedControlTask();
+#endif
 
 #ifdef TEST_WATCHDOG
     testWatchDogTaskInit();

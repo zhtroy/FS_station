@@ -431,6 +431,7 @@ void MotoSendFdbkToCellTask()
 	 * 反馈数据包格式为 包头(0xAA 0x42 0x55) + 长度 + 数据 + 包尾(0x0D)
 	 */
 	uint8_t  sendbuff[256];
+	int32_t tms;
 	int bufflen = sizeof(g_fbData)+5;
 
 	sendbuff[0] = 0xAA;
@@ -448,6 +449,8 @@ void MotoSendFdbkToCellTask()
 		*/
 		g_fbData.brake = BrakeGetBrake();
 		g_fbData.railstate = RailGetRailState();
+		userGetMS(&tms);
+		g_fbData.rfidReadTime = tms;
 		memcpy(sendbuff+4,(char*) &g_fbData, sizeof(g_fbData) );
 		ZigbeeSend(sendbuff, bufflen);
 

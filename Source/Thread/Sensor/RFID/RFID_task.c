@@ -33,6 +33,7 @@ static Clock_Handle clock_rfid_heart;
 static uint8_t timeout_flag = 0;
 static uint32_t circleNum = 0;
 static uint8_t lastrfid;
+static uint8_t rfidOnline = 0;
 
 static xdc_Void RFIDConnectionClosed(xdc_UArg arg)
 {
@@ -82,13 +83,13 @@ static void RFIDcallBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint3
 	switch(type)
 	{
 		case 0x97:  //循环查询EPC的返回  回传EPC第一个byte
-			Log_info2("RFID[%d] EPC:\t%2X ", deviceNum,data[2]);
+			//Log_info2("RFID[%d] EPC:\t%2X ", deviceNum,data[2]);
 			//填充回传数据
 			//logMsg("RFID[%d] EPC:\t%2X\r\n", deviceNum,data[2],0,0,0,0);
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
 			g_fbData.rfid = data[2];
-			g_fbData.rfidReadTime = GetMs();
+			//g_fbData.rfidReadTime = GetMs();
 			/*记录圈数*/
 			if(data[2] != lastrfid && data[2] == 0x06)
 			{
@@ -108,9 +109,10 @@ static void RFIDcallBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint3
        case 0x40:
             Clock_setTimeout(clock_rfid_heart,3000);
             Clock_start(clock_rfid_heart);
-            if(timeout_flag == 1)
+            if(timeout_flag == 1 || rfidOnline == 0)
             {
             	timeout_flag = 0;
+            	rfidOnline = 1;
             	RFIDStartLoopCheckEpc(RFID_DEVICENUM);
             }
             break;
