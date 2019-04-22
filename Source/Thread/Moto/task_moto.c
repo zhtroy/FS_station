@@ -239,14 +239,6 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataF.RPMH       = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataF.MotoTemp   = (uint8_t)canRecvData.Data[6] - 40;
     			g_fbData.motorDataF.DriverTemp = (uint8_t)canRecvData.Data[7] - 40;
-
-    			/* 收到心跳，重启定时器 */
-                Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
-                Clock_start(clockMotoFrontHeart);
-                if((g_fbData.motorDataF.MotoMode & 0x80) == 0)
-                    frontValid = 1;
-                else
-                    frontValid = 0;
     			break;
     		case MOTO_F_CANID3:
     			g_fbData.motorDataF.VoltL      = (uint8_t)canRecvData.Data[0];
@@ -257,6 +249,14 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataF.DistanceH  = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataF.ErrCodeL   = (uint8_t)canRecvData.Data[6];
     			g_fbData.motorDataF.ErrCodeH   = (uint8_t)canRecvData.Data[7];
+    			/* 收到心跳，重启定时器 */
+				Clock_setTimeout(clockMotoFrontHeart,MOTO_CONNECT_TIMEOUT);
+				Clock_start(clockMotoFrontHeart);
+
+				if(g_fbData.motorDataF.ErrCodeL == 0 && g_fbData.motorDataF.ErrCodeH == 0)
+					frontValid = 1;
+				else
+					frontValid = 0;
     			break;
     		case MOTO_F_CANID4:
     			g_fbData.motorDataF.TorqueCtrlL    = (uint8_t)canRecvData.Data[0];
@@ -278,13 +278,7 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataR.RPMH           = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataR.MotoTemp       = (uint8_t)canRecvData.Data[6] - 40;
     			g_fbData.motorDataR.DriverTemp     = (uint8_t)canRecvData.Data[7] - 40;
-    			/* 收到心跳，重启定时器 */
-    			Clock_setTimeout(clockMotoRearHeart,MOTO_CONNECT_TIMEOUT);
-    			Clock_start(clockMotoRearHeart);
-    			if((g_fbData.motorDataR.MotoMode & 0x80) == 0)
-    			    rearValid = 1;
-                else
-                    rearValid = 0;
+
     			break;
     		case MOTO_R_CANID3:
     			g_fbData.motorDataR.VoltL          = (uint8_t)canRecvData.Data[0];
@@ -295,6 +289,15 @@ static void MotoRecvTask(void)
     			g_fbData.motorDataR.DistanceH      = (uint8_t)canRecvData.Data[5];
     			g_fbData.motorDataR.ErrCodeL       = (uint8_t)canRecvData.Data[6];
     			g_fbData.motorDataR.ErrCodeH       = (uint8_t)canRecvData.Data[7];
+
+    			/* 收到心跳，重启定时器 */
+    			Clock_setTimeout(clockMotoRearHeart,MOTO_CONNECT_TIMEOUT);
+    			Clock_start(clockMotoRearHeart);
+    			if(g_fbData.motorDataR.ErrCodeL == 0 && g_fbData.motorDataR.ErrCodeH == 0)
+					rearValid = 1;
+				else
+					rearValid = 0;
+
     			break;
     		case MOTO_R_CANID4:
     			g_fbData.motorDataR.TorqueCtrlL    = (uint8_t)canRecvData.Data[0];
