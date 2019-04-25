@@ -38,6 +38,10 @@
 #elif CAR_VERSION == 20
 /*机车2.0*/
 #define BRAKE_STEP_PULSE (-1500)
+
+#elif CAR_VERSION == 22
+/*机车22*/
+#define BRAKE_STEP_PULSE (1500)
 #endif
 
 #define RAIL_ENABLE (0)

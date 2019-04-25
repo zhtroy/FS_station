@@ -194,6 +194,10 @@ typedef struct{
 #define MAX_THROTTLE_SIZE (110)
 #elif CAR_VERSION == 21
 #define MAX_THROTTLE_SIZE (100)
+
+#elif CAR_VERSION == 22
+#define MAX_THROTTLE_SIZE (110)
+
 #endif
 
 #define MIN_THROTTLE_SIZE (-355)
@@ -204,6 +208,8 @@ typedef struct{
 #define MAX_BRAKE_SIZE (200)
 #elif CAR_VERSION == 21
 #define MAX_BRAKE_SIZE (250)
+#elif CAR_VERSION == 22
+#define MAX_BRAKE_SIZE (200)
 #endif
 
 
