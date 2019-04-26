@@ -124,6 +124,8 @@ typedef struct{
     uint8_t ErrorCode;  //急停态错误状态
     uint32_t circleNum;
 	uint32_t rfidReadTime;
+	uint32_t calcRPM;
+ 	uint32_t recvRPM;
 
 }fbdata_t;
 

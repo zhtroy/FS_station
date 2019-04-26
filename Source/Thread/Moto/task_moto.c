@@ -334,14 +334,8 @@ static void MotoRecvTask(void)
 		    }
 		    else;
 
-            if(abs(lastRpm-recvRpm) >= FILTER_RPM)
-            {
-                data_error = 1;
-            }
-            else{
-                data_error  = 0;
-            }
-            lastRpm = recvRpm;
+		    g_fbData.recvRPM = recvRpm;
+            g_fbData.calcRPM = calcRpm;
 
 
             /*
@@ -352,7 +346,7 @@ static void MotoRecvTask(void)
             }
             */
 
-            if( MotoGetPidOn() && data_error == 0 )
+            if( MotoGetPidOn()  )
             {
                 //recvRpm = (g_fbData.motorDataF.RPMH << 8) + g_fbData.motorDataF.RPML;
                 //recvThrottle = (g_fbData.motorDataF.ThrottleH << 8) + g_fbData.motorDataF.ThrottleL;
@@ -373,6 +367,8 @@ static void MotoRecvTask(void)
                 }
 
                 calcRpm = calcRpm > RPM_LIMIT ? RPM_LIMIT : calcRpm;
+
+
 
                 adjThrottle = MotoPidCalc(calcRpm,recvRpm,ParamInstance()->KP,
                                         ParamInstance()->KI,ParamInstance()->KU, 0);
