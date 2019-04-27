@@ -124,6 +124,8 @@ typedef struct{
     uint8_t ErrorCode;  //急停态错误状态
     uint32_t circleNum;
 	uint32_t rfidReadTime;
+	uint32_t calcRPM;
+ 	uint32_t recvRPM;
 
 }fbdata_t;
 
@@ -194,6 +196,10 @@ typedef struct{
 #define MAX_THROTTLE_SIZE (110)
 #elif CAR_VERSION == 21
 #define MAX_THROTTLE_SIZE (100)
+
+#elif CAR_VERSION == 22
+#define MAX_THROTTLE_SIZE (110)
+
 #endif
 
 #define MIN_THROTTLE_SIZE (-355)
@@ -204,12 +210,14 @@ typedef struct{
 #define MAX_BRAKE_SIZE (200)
 #elif CAR_VERSION == 21
 #define MAX_BRAKE_SIZE (250)
+#elif CAR_VERSION == 22
+#define MAX_BRAKE_SIZE (200)
 #endif
 
 
 #define FILTER_RPM (200)
-#define DELTA_RPM (6)
-#define RPM_LIMIT (1200)
+#define DELTA_RPM (12)
+#define RPM_LIMIT (2400)
 
 #define BRAKE_THRO_RATIO (1)
 
