@@ -269,7 +269,7 @@ static void ServoRecvDataTask(void)
 }
 
 
-
+#if 0
 void ServoBrakeTask(void *param)
 {
 	uint8_t state;
@@ -441,6 +441,100 @@ void ServoBrakeTask(void *param)
 
 	}
 }
+#else
+void ServoBrakeTask(void *param)
+{
+    uint8_t state;
+    p_msg_t sendmsg;
+    uint8_t brakeTimeoutCnt = 0;
+    uint16_t recvReg;
+
+    /*设置转矩来源：内部转矩*/
+    ServoModbusWriteReg(0x01,0x00cc,1);
+
+    while (1)
+    {
+        Task_sleep(BRAKETIME);
+
+        if(brakeTimeoutCnt > BRAKE_TIMEOUT)
+        {
+            /*
+            *TODO:添加通信超时，发送急停消息，进入急停模式，并设置ErrorCode
+            */
+            sendmsg = Message_getEmpty();
+            sendmsg->type = error;
+            sendmsg->data[0] = ERROR_BRAKE_TIMEOUT;
+            Message_post(sendmsg);
+            brakeTimeoutCnt = 0;
+            BrakeSetReady(0);
+            continue;
+        }
+
+        if(BrakeGetReady() == 0)
+            continue;
+
+        while(1)
+        {
+
+            /*获取刹车驱动器故障代码*/
+            state = ServoModbusReadReg(0x01,0x0182,&recvReg);
+            if(state == MODBUS_ACK_OK)
+            {
+                if((recvReg & 0x03) != 0)
+                {
+                        /*
+                        *TODO:刹车故障，上报错误
+                        */
+                        sendmsg = Message_getEmpty();
+                        sendmsg->type = error;
+                        sendmsg->data[0] = ERROR_BRAKE_ERROR;
+                        Message_post(sendmsg);
+                        servoStep = 0;
+                        BrakeSetReady(0);
+                        break;
+                }
+            }
+            else if(state == MODBUS_ACK_TIMEOUT)
+            {
+                brakeTimeoutCnt ++;
+                break;
+            }
+            else
+                brakeTimeoutCnt = 0;
+
+            /*设置转矩大小0~100*/
+            Task_sleep(SLEEPTIME);
+            if(BrakeGetBrake() < 100)
+                state = ServoModbusWriteReg(0x01,0x00c8,BrakeGetBrake());
+            else
+                state = ServoModbusWriteReg(0x01,0x00c8,100);
+
+            if(state != MODBUS_ACK_OK)
+            {
+                brakeTimeoutCnt ++;
+                break;
+            }
+            else
+                brakeTimeoutCnt = 0;
+
+            Task_sleep(SLEEPTIME);
+            state = ServoModbusWriteReg(0x01,0x0046,0x7FB2);    //使能
+            if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
+            {
+                brakeTimeoutCnt = 0;
+                break;
+            }
+            else
+            {
+                brakeTimeoutCnt ++;
+                break;
+            }
+
+        }/*end of while(1)*/
+
+    }
+}
+#endif
 void RailChangeStart()
 {
 	changeRail = 1;
