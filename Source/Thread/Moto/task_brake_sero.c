@@ -496,11 +496,11 @@ static void ServoChangeRailTask(void)
 			 * 4.判断电机是否到位
 			 */
 			if(RailGetRailState() == LEFTRAIL)
-				TTLWriteBit(RAIL_DIRECT,1);
-			else
 				TTLWriteBit(RAIL_DIRECT,0);
+			else
+				TTLWriteBit(RAIL_DIRECT,1);
 
-			TTLWriteBit(RAIL_ENABLE, 1);
+			TTLWriteBit(RAIL_ENABLE, 0);
 
 			changerail_timeout_cnt = 0;
 			while(changerail_timeout_cnt < CHANGERAIL_TIMEOUT)
@@ -520,7 +520,7 @@ static void ServoChangeRailTask(void)
 
 			}
 
-			TTLWriteBit(RAIL_ENABLE, 0);	/* 关闭电机使能 */
+			TTLWriteBit(RAIL_ENABLE, 1);	/* 关闭电机使能 */
 
 		}/*if(1 == changeRail)*/
 

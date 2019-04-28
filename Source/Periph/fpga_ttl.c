@@ -12,14 +12,14 @@ void TTLInit()
 {
 	/*
 	 * 1.关闭控制器使能;
-	 * 2.设置默认输出，默认全部拉低;
+	 * 2.设置默认输出，默认全部拉高;
 	 * 3.配置TTL[7:0]和TTL[15:8]的方向
 	 * 	 DIR[0]=1: TTL[7:0]为输出
 	 * 	 DIR[1]=0: TTL[15:8]为输入
 	 * 4.使能控制器
 	 */
 	EMIFAWriteWord(FPGA_TTL_EN, 0, 0x01);
-	TTLWrite(0x0);
+	TTLWrite(0xff);
 	EMIFAWriteWord(FPGA_TTL_DIR, 0, 0x01);
 	EMIFAWriteWord(FPGA_TTL_EN, 0, 0x00);
 	EMIFAWriteWord(FPGA_RELAY_EN, 0, 0x00);
