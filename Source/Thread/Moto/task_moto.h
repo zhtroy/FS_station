@@ -204,7 +204,7 @@ typedef struct{
 
 #define MIN_THROTTLE_SIZE (-355)
 
-#define BREAK_THRESHOLD (-100)
+#define BREAK_THRESHOLD (0)
 
 #if CAR_VERSION == 20
 #define MAX_BRAKE_SIZE (200)

@@ -372,7 +372,7 @@ static void MotoRecvTask(void)
 
                 adjThrottle = MotoPidCalc(calcRpm,recvRpm,ParamInstance()->KP,
                                         ParamInstance()->KI,ParamInstance()->KU, 0);
-
+#if 0
                 if(hisThrottle < 0 && adjThrottle >0)
                 {
                     hisThrottle += 5.0*adjThrottle;
@@ -381,6 +381,8 @@ static void MotoRecvTask(void)
                 {
                     hisThrottle += adjThrottle;
                 }
+#endif
+                hisThrottle += adjThrottle;
 
                 if(hisThrottle > maxThrottle)
                     hisThrottle = maxThrottle;
@@ -402,6 +404,7 @@ static void MotoRecvTask(void)
                         BrakeSetBrake(MAX_BRAKE_SIZE);
                     else
                         BrakeSetBrake( round(adjbrake));
+
 
                 }
                 else  //油门

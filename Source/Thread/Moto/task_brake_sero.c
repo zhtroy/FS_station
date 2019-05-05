@@ -163,14 +163,32 @@ static uint8_t ServoModbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
 
     
     /*等待发送完成*/
-    Semaphore_pend(sem_txData,BIOS_WAIT_FOREVER);
+    if(FALSE == Semaphore_pend(sem_txData,10))
+    {
+        /*
+         * 10ms发送超时
+         */
+        ackStatus = MODBUS_ACK_SENDERR;
+        UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
+        Semaphore_post(sem_modbus);
+        return ackStatus;
+    }
 
     /*关闭RS485发送*/
     for(udelay = 3000;udelay>0;udelay--);           //延时等待最后一个串口数据被驱动到总线上
     UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
 
     /*等待电机响应*/
-    Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);   //丢弃MAX3160发送时，回传的数据
+    if(FALSE == Semaphore_pend(sem_rxData,10))   //丢弃MAX3160发送时，回传的数据
+    {
+        /*
+         * 环回数据超时
+         *
+         */
+        ackStatus = MODBUS_ACK_LOOPERR;
+        Semaphore_post(sem_modbus);
+        return ackStatus;
+    }
 
     
     if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：100ms
@@ -180,7 +198,6 @@ static uint8_t ServoModbusWriteReg(uint8_t id,uint16_t addr,uint16_t data)
 
 
     Semaphore_post(sem_modbus);
-    
     return ackStatus;
 }
 
@@ -215,14 +232,32 @@ static uint8_t ServoModbusReadReg(uint8_t id,uint16_t addr,uint16_t *data)
 
     
     /*等待发送完成*/
-    Semaphore_pend(sem_txData,BIOS_WAIT_FOREVER);
+    if(FALSE == Semaphore_pend(sem_txData,10))
+    {
+        /*
+         * 10ms发送超时
+         */
+        ackStatus = MODBUS_ACK_SENDERR;
+        UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
+        Semaphore_post(sem_modbus);
+        return ackStatus;
+    }
 
     /*关闭RS485发送*/
     for(udelay = 3000;udelay>0;udelay--);           //延时等待最后一个串口数据被驱动到总线上
     UartNs550RS485TxDisable(SERVOR_MOTOR_UART);
 
     /*等待电机响应*/
-    Semaphore_pend(sem_rxData,BIOS_WAIT_FOREVER);   //丢弃MAX3160发送时，回传的数据
+    if(FALSE == Semaphore_pend(sem_rxData,10))   //丢弃MAX3160发送时，回传的数据
+    {
+        /*
+         * 环回数据超时
+         *
+         */
+        ackStatus = MODBUS_ACK_LOOPERR;
+        Semaphore_post(sem_modbus);
+        return ackStatus;
+    }
 
     
     if(FALSE  == Semaphore_pend(sem_rxData,10))    //电机ACK超时时间：10ms
@@ -268,8 +303,15 @@ static void ServoRecvDataTask(void)
     }
 }
 
+/*
+ * 刹车模式定义(预编译)
+ * 0:伺服位置模式
+ * 1:伺服转矩模式
+ * 2:直流电机模式
+ */
+#define SERVO_MODE (1)
 
-#if 0
+#if SERVO_MODE == 0
 void ServoBrakeTask(void *param)
 {
 	uint8_t state;
@@ -441,13 +483,16 @@ void ServoBrakeTask(void *param)
 
 	}
 }
-#else
+
+#elif SERVO_MODE == 1
 void ServoBrakeTask(void *param)
 {
     uint8_t state;
     p_msg_t sendmsg;
     uint8_t brakeTimeoutCnt = 0;
     uint16_t recvReg;
+    int16_t ubrakeOld = -6;
+    int16_t ubrake;
 
     /*设置转矩来源：内部转矩*/
     ServoModbusWriteReg(0x01,0x00cc,1);
@@ -455,6 +500,7 @@ void ServoBrakeTask(void *param)
     while (1)
     {
         Task_sleep(BRAKETIME);
+        ubrake = (int16_t)BrakeGetBrake() - 6;
 
         if(brakeTimeoutCnt > BRAKE_TIMEOUT)
         {
@@ -466,72 +512,148 @@ void ServoBrakeTask(void *param)
             sendmsg->data[0] = ERROR_BRAKE_TIMEOUT;
             Message_post(sendmsg);
             brakeTimeoutCnt = 0;
+            ubrakeOld = -6;
             BrakeSetReady(0);
             continue;
         }
 
+
         if(BrakeGetReady() == 0)
             continue;
 
-        while(1)
+        /*获取刹车驱动器故障代码*/
+        state = ServoModbusReadReg(0x01,0x0182,&recvReg);
+        if(state == MODBUS_ACK_OK)
         {
-
-            /*获取刹车驱动器故障代码*/
-            state = ServoModbusReadReg(0x01,0x0182,&recvReg);
-            if(state == MODBUS_ACK_OK)
+            if((recvReg & 0x03) != 0)
             {
-                if((recvReg & 0x03) != 0)
+                    /*
+                    *TODO:刹车故障，上报错误
+                    */
+                    sendmsg = Message_getEmpty();
+                    sendmsg->type = error;
+                    sendmsg->data[0] = ERROR_BRAKE_ERROR;
+                    Message_post(sendmsg);
+                    ubrakeOld = -6;
+                    BrakeSetReady(0);
+                    break;
+            }
+            brakeTimeoutCnt = 0;
+        }
+        else
+        {
+            brakeTimeoutCnt ++;
+        }
+
+        if(ubrake != ubrakeOld)
+        {
+            while(1)
+            {
+
+
+                /*设置转矩大小0~100*/
+                Task_sleep(SLEEPTIME);
+                if(ubrake < 100)
+                    state = ServoModbusWriteReg(0x01,0x00c8,ubrake);
+                else
+                    state = ServoModbusWriteReg(0x01,0x00c8,100);
+
+                if(state != MODBUS_ACK_OK)
                 {
-                        /*
-                        *TODO:刹车故障，上报错误
-                        */
-                        sendmsg = Message_getEmpty();
-                        sendmsg->type = error;
-                        sendmsg->data[0] = ERROR_BRAKE_ERROR;
-                        Message_post(sendmsg);
-                        servoStep = 0;
-                        BrakeSetReady(0);
-                        break;
+                    brakeTimeoutCnt ++;
+                    break;
                 }
-            }
-            else if(state == MODBUS_ACK_TIMEOUT)
-            {
-                brakeTimeoutCnt ++;
-                break;
-            }
-            else
-                brakeTimeoutCnt = 0;
+                else
+                    brakeTimeoutCnt = 0;
 
-            /*设置转矩大小0~100*/
-            Task_sleep(SLEEPTIME);
-            if(BrakeGetBrake() < 100)
-                state = ServoModbusWriteReg(0x01,0x00c8,BrakeGetBrake());
-            else
-                state = ServoModbusWriteReg(0x01,0x00c8,100);
+                Task_sleep(SLEEPTIME);
+    #if 0
+                if(ubrake != 0)
+                {
+                    state = ServoModbusWriteReg(0x01,0x0046,0x7FB2);    //使能
+                }
+                else
+                {
+                    state = ServoModbusWriteReg(0x01,0x0046,0x7FB3);    //失能
+                }
+    #endif
+                state = ServoModbusWriteReg(0x01,0x0046,0x7FB2);    //使能
+                if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
+                {
+                    if(state == MODBUS_ACK_OK)
+                        brakeTimeoutCnt = 0;
 
-            if(state != MODBUS_ACK_OK)
-            {
-                brakeTimeoutCnt ++;
-                break;
-            }
-            else
-                brakeTimeoutCnt = 0;
+                    ubrakeOld = ubrake;
+                    break;
+                }
+                else
+                {
+                    brakeTimeoutCnt ++;
+                    break;
+                }
 
-            Task_sleep(SLEEPTIME);
-            state = ServoModbusWriteReg(0x01,0x0046,0x7FB2);    //使能
-            if(state != MODBUS_ACK_TIMEOUT)   //只要不是超时，都认为是电机响应了
-            {
-                brakeTimeoutCnt = 0;
-                break;
-            }
-            else
-            {
-                brakeTimeoutCnt ++;
-                break;
-            }
+            }/*end of while(1)*/
+        }/*if(ubrake != ubrakeOld)*/
 
-        }/*end of while(1)*/
 
+    }
+}
+#else
+#define PWM_MAIN_CLK (80000000)
+#define PWM_DUTY_BASE (255)
+#define FPGA_PWM_FTW (SOC_EMIFA_CS2_ADDR + (0x30<<1))
+#define FPGA_PWM_DUTY (SOC_EMIFA_CS2_ADDR + (0x34<<1))
+#define FPGA_PWM_LOAD (SOC_EMIFA_CS2_ADDR + (0x38<<1))
+#define FPGA_PWM_DIR (SOC_EMIFA_CS2_ADDR + (0x0A<<1))
+
+static void ServoPWMSet(uint32_t freq,uint16_t duty)
+{
+    uint32_t ftw;
+    uint32_t dutyCnt;
+    ftw = PWM_MAIN_CLK/freq;
+
+    //dutyCnt = (duty*ftw/PWM_DUTY_BASE);
+    /*限定范围为0~20%*/
+    dutyCnt = (duty*ftw/PWM_DUTY_BASE/5);
+
+    EMIFAWriteWord(FPGA_PWM_FTW, 0, ftw & 0xff);
+    EMIFAWriteWord(FPGA_PWM_FTW, 1, (ftw >> 8) & 0xff);
+    EMIFAWriteWord(FPGA_PWM_FTW, 2, (ftw >> 16) & 0xff);
+    EMIFAWriteWord(FPGA_PWM_FTW, 3, (ftw >> 24) & 0xff);
+    /*
+     * 设置占空比
+     */
+    EMIFAWriteWord(FPGA_PWM_DUTY, 0, dutyCnt & 0xff);
+    EMIFAWriteWord(FPGA_PWM_DUTY, 1, (dutyCnt >> 8) & 0xff);
+    EMIFAWriteWord(FPGA_PWM_DUTY, 2, (dutyCnt >> 16) & 0xff);
+    EMIFAWriteWord(FPGA_PWM_DUTY, 3, (dutyCnt >> 24) & 0xff);
+    /*
+     * 载入设置数据
+     */
+    EMIFAWriteWord(FPGA_PWM_LOAD, 0, 1);
+    EMIFAWriteWord(FPGA_PWM_LOAD, 0, 0);
+}
+
+void ServoBrakeTask(void *param)
+{
+    int16_t ubrake;
+
+    while (1)
+    {
+        Task_sleep(BRAKETIME);
+        ubrake = (int16_t)BrakeGetBrake();
+        if(ubrake > 0)
+        {
+            /*正转*/
+            EMIFAWriteWord(FPGA_PWM_DIR, 0, 0x40);
+            ServoPWMSet(1000,ubrake);
+        }
+        else
+        {
+            /*反转*/
+            EMIFAWriteWord(FPGA_PWM_DIR, 0, 0x00);
+            ServoPWMSet(1000,20);
+        }
     }
 }
 #endif
@@ -590,11 +712,11 @@ static void ServoChangeRailTask(void)
 			 * 4.判断电机是否到位
 			 */
 			if(RailGetRailState() == LEFTRAIL)
-				TTLWriteBit(RAIL_DIRECT,1);
-			else
 				TTLWriteBit(RAIL_DIRECT,0);
+			else
+				TTLWriteBit(RAIL_DIRECT,1);
 
-			TTLWriteBit(RAIL_ENABLE, 1);
+			TTLWriteBit(RAIL_ENABLE, 0);
 
 			changerail_timeout_cnt = 0;
 			while(changerail_timeout_cnt < CHANGERAIL_TIMEOUT)
@@ -614,7 +736,7 @@ static void ServoChangeRailTask(void)
 
 			}
 
-			TTLWriteBit(RAIL_ENABLE, 0);	/* 关闭电机使能 */
+			TTLWriteBit(RAIL_ENABLE, 1);	/* 关闭电机使能 */
 
 		}/*if(1 == changeRail)*/
 

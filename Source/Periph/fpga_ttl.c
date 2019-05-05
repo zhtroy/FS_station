@@ -2,7 +2,9 @@
 #include "fpga_ttl.h"
 #include "soc_C6748.h"
 
-#define FPGA_RELAY_IN  (SOC_EMIFA_CS2_ADDR + (0x0B<<1))
+//#define FPGA_RELAY_IN  (SOC_EMIFA_CS2_ADDR + (0x0B<<1))
+//管脚损坏-替换到f_relay_det[15:8]
+#define FPGA_RELAY_IN  (SOC_EMIFA_CS2_ADDR + (0x0C<<1))
 #define FPGA_TTL_OUT (SOC_EMIFA_CS2_ADDR + (0x12<<1))
 #define FPGA_TTL_DIR (SOC_EMIFA_CS2_ADDR + (0x14<<1))
 #define FPGA_TTL_EN	 (SOC_EMIFA_CS2_ADDR + (0x15<<1))
@@ -19,7 +21,7 @@ void TTLInit()
 	 * 4.使能控制器
 	 */
 	EMIFAWriteWord(FPGA_TTL_EN, 0, 0x01);
-	TTLWrite(0x0);
+	TTLWrite(0xFF);
 	EMIFAWriteWord(FPGA_TTL_DIR, 0, 0x01);
 	EMIFAWriteWord(FPGA_TTL_EN, 0, 0x00);
 	EMIFAWriteWord(FPGA_RELAY_EN, 0, 0x00);
