@@ -381,9 +381,9 @@ static void MotoRecvTask(void)
                 {
                     hisThrottle += adjThrottle;
                 }
-#endif
+#else
                 hisThrottle += adjThrottle;
-
+#endif
                 if(hisThrottle > maxThrottle)
                     hisThrottle = maxThrottle;
                 else if(hisThrottle < MIN_THROTTLE_SIZE)
@@ -395,10 +395,15 @@ static void MotoRecvTask(void)
 
                     MotoSetThrottle(0);
 
+#if 0
                     if(hisThrottle < BREAK_THRESHOLD)
                         adjbrake = - BRAKE_THRO_RATIO* (hisThrottle - BREAK_THRESHOLD);
                     else
                         adjbrake = 0;
+#else
+                    adjbrake = 100.0 - hisThrottle;
+#endif
+
 
                     if(adjbrake > MAX_BRAKE_SIZE)
                         BrakeSetBrake(MAX_BRAKE_SIZE);

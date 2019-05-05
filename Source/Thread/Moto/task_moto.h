@@ -211,7 +211,7 @@ typedef struct{
 #elif CAR_VERSION == 21
 #define MAX_BRAKE_SIZE (250)
 #elif CAR_VERSION == 22
-#define MAX_BRAKE_SIZE (200)
+#define MAX_BRAKE_SIZE (255)
 #endif
 
 

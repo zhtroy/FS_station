@@ -666,14 +666,14 @@ void ServoBrakeTask(void *param)
 
 #define BRAKE_MAX (255)
 #define BRAKE_SLOTS (1000)
-#define REVERSE_FORCE (40)
+#define REVERSE_FORCE (45)
 static void BrakeCanIntrHandler(int32_t devsNum,int32_t event)
 {
     canDataObj_t rxData;
 
 	if (event == 1)         /* 收到一帧数据 */
     {
-//        CanRead(devsNum, &rxData);
+        CanRead(devsNum, &rxData);
 //        Mailbox_post(rxDataMbox, (Ptr *)&rxData, BIOS_NO_WAIT);
 	}
     else if (event == 2)    /* 一帧数据发送完成 */
@@ -720,8 +720,8 @@ void ServoBrakeTask(void *param)
     	{
     		brakeforce = REVERSE_FORCE;
     	}
-    	canData.Data[5] = brakeforce && 0xFF;
-    	canData.Data[6] = (brakeforce>>8) && 0xFF;
+    	canData.Data[5] = brakeforce & 0xFF;
+    	canData.Data[6] = (brakeforce>>8) & 0xFF;
     	canData.Data[7] = 2;
 
     	CanWrite(CAN_DEV_BRAKE, &canData);
