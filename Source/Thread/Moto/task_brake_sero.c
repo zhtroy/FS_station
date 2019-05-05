@@ -11,9 +11,12 @@
 #include "Message/Message.h"
 #include "common.h"
 #include "fpga_ttl.h"
+#include "canModule.h"
+
 extern uint16_t getRPM(void);
 
 #define BRAKE_MBOX_DEPTH (16)
+#define CAN_DEV_BRAKE (4)
 
 extern uint16_t MotoGetRPM(void);
 
@@ -21,6 +24,7 @@ extern uint16_t MotoGetRPM(void);
 /********************************************************************************/
 /*          静态全局变量                                                              */
 /********************************************************************************/
+static Semaphore_Handle txReadySem;
 static uint8_t uBrake,uLastBrake;	//刹车信号
 static int8_t  deltaBrake;
 static int16_t sDeltaRPM,sBrake;
@@ -85,6 +89,7 @@ static void ServorUartIntrHandler(void *callBackRef, u32 event, unsigned int eve
 		Errors = UartNs550GetLastErrors(UartDeviceNum);
 	}
 }
+
 
 
 static void ServoInitSem(void)
@@ -308,8 +313,9 @@ static void ServoRecvDataTask(void)
  * 0:伺服位置模式
  * 1:伺服转矩模式
  * 2:直流电机模式
+ * 3:直流电机(CAN)
  */
-#define SERVO_MODE (1)
+#define SERVO_MODE (3)
 
 #if SERVO_MODE == 0
 void ServoBrakeTask(void *param)
@@ -598,7 +604,7 @@ void ServoBrakeTask(void *param)
 
     }
 }
-#else
+#elif SERVO_MODE == 2
 #define PWM_MAIN_CLK (80000000)
 #define PWM_DUTY_BASE (255)
 #define FPGA_PWM_FTW (SOC_EMIFA_CS2_ADDR + (0x30<<1))
@@ -656,6 +662,72 @@ void ServoBrakeTask(void *param)
         }
     }
 }
+#elif SERVO_MODE == 3
+
+#define BRAKE_MAX (255)
+#define BRAKE_SLOTS (1000)
+#define REVERSE_FORCE (40)
+static void BrakeCanIntrHandler(int32_t devsNum,int32_t event)
+{
+    canDataObj_t rxData;
+
+	if (event == 1)         /* 收到一帧数据 */
+    {
+//        CanRead(devsNum, &rxData);
+//        Mailbox_post(rxDataMbox, (Ptr *)&rxData, BIOS_NO_WAIT);
+	}
+    else if (event == 2)    /* 一帧数据发送完成 */
+    {
+        /* 发送中断 */
+        Semaphore_post(txReadySem);
+    }
+
+}
+
+void ServoBrakeTask(void *param)
+{
+	canDataObj_t canData;
+	int16_t brakeforce;
+	Semaphore_Params semParams;
+
+	/*初始化can帧*/
+	memset(&canData, 0, sizeof(canData));
+	canData.ID = 1;
+	canData.SendType = 0;
+	canData.RemoteFlag = 0;
+	canData.ExternFlag = 0;
+	canData.DataLen = 8;
+
+
+    /* 初始化发送信用量 */
+	Semaphore_Params_init(&semParams);
+	semParams.mode = Semaphore_Mode_COUNTING;
+    txReadySem = Semaphore_create(1, &semParams, NULL);
+
+    /*初始化CAN设备*/
+    CanOpen(CAN_DEV_BRAKE, BrakeCanIntrHandler, CAN_DEV_BRAKE);
+
+    while(1)
+    {
+    	Task_sleep(BRAKETIME);
+
+    	Semaphore_pend(txReadySem, BIOS_WAIT_FOREVER);
+
+    	/*计算力矩*/
+    	brakeforce =  -BrakeGetBrake() * BRAKE_SLOTS/BRAKE_MAX;
+
+    	if(brakeforce>=0)
+    	{
+    		brakeforce = REVERSE_FORCE;
+    	}
+    	canData.Data[5] = brakeforce && 0xFF;
+    	canData.Data[6] = (brakeforce>>8) && 0xFF;
+    	canData.Data[7] = 2;
+
+    	CanWrite(CAN_DEV_BRAKE, &canData);
+    }
+}
+
 #endif
 void RailChangeStart()
 {
