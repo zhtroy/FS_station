@@ -14,31 +14,76 @@
 #define CAR_ZCP_DEV_NUM (0)
 
 ZCPInstance_t carInst;
-Semaphore_Handle carSem;
 
-void testZCPSendTask(UArg arg0, UArg arg1)
+
+uint32_t ssCnt = 0;
+uint32_t sseCnt = 0;
+uint32_t sCnt = 0;
+uint32_t seCnt = 0;
+uint32_t rCnt = 0;
+void testZCPStationSendTask(UArg arg0, UArg arg1)
 {
     ZCPUserPacket_t sendPacket;
+    Semaphore_Handle stationSem;
+    Semaphore_Params semParams;
 
-    sendPacket.addrH = 0x80;
-    sendPacket.addrL = 0x01;
-    sendPacket.len = 0x06;
-    sendPacket.type = 0x40;
-    sendPacket.data[0] = 0x01;
-    sendPacket.data[1] = 0x02;
-    sendPacket.data[2] = 0x03;
-    sendPacket.data[3] = 0x04;
-    sendPacket.extSec = 0x01;
+    Semaphore_Params_init(&semParams);
+    semParams.mode = Semaphore_Mode_BINARY;
+    stationSem = Semaphore_create(0, &semParams, NULL);
+
+    sendPacket.addr = 0x8002;
+    sendPacket.type = 0x80;
 
     while(1)
     {
-        Task_sleep(100);
-        if(FALSE == Mailbox_post(carInst.userSendMbox, (Ptr *)&sendPacket, BIOS_NO_WAIT))
+        Task_sleep(200);
+
+        memcpy(sendPacket.data,&sCnt,sizeof(ssCnt));
+        sendPacket.len = sizeof(ssCnt);
+
+        if(FALSE == ZCPSendPacket(&carInst, &sendPacket, stationSem,BIOS_NO_WAIT))
         {
             LogMsg("Send Failed!\r\n");
         }
 
-        Semaphore_pend(carSem,BIOS_WAIT_FOREVER);
+        ssCnt++;
+        if(FALSE == Semaphore_pend(stationSem,50))
+        {
+            sseCnt++;
+        }
+    }
+}
+
+void testZCPSendTask(UArg arg0, UArg arg1)
+{
+    ZCPUserPacket_t sendPacket;
+    Semaphore_Handle carSem;
+    Semaphore_Params semParams;
+    Semaphore_Params_init(&semParams);
+    semParams.mode = Semaphore_Mode_BINARY;
+    carSem = Semaphore_create(0, &semParams, NULL);
+
+    sendPacket.addr = 0x8002;
+
+    sendPacket.type = 0x40;
+
+    while(1)
+    {
+        Task_sleep(100);
+
+        memcpy(sendPacket.data,&sCnt,sizeof(sCnt));
+        sendPacket.len = sizeof(sCnt);
+
+        if(FALSE == ZCPSendPacket(&carInst, &sendPacket, carSem,BIOS_NO_WAIT))
+        {
+            LogMsg("Send Failed!\r\n");
+        }
+
+        sCnt++;
+        if(FALSE == Semaphore_pend(carSem,50))
+        {
+            seCnt++;
+        }
     }
 }
 
@@ -46,42 +91,41 @@ void testZCPSendTask(UArg arg0, UArg arg1)
 void testZCPRecvTask(UArg arg0, UArg arg1)
 {
     ZCPUserPacket_t recvPacket;
+    int32_t timestamp;
     while(1)
     {
-        Mailbox_pend(carInst.userRecvMbox, (Ptr *)&recvPacket, BIOS_WAIT_FOREVER);
-        if(recvPacket.type == ZCP_TYPE_ERROR || recvPacket.type == ZCP_TYPE_ACK)
-        {
-            if(recvPacket.extSec == 0x01)
-            {
-                Semaphore_post(carSem);
-            }
-        }
-        else
-        {
-            LogMsg("Addr:%x%x,len:%d,type:%d\r\n",
-                    recvPacket.addrH,
-                    recvPacket.addrL,
-                    recvPacket.len,
-                    recvPacket.type);
-        }
+        ZCPRecvPacket(&carInst, &recvPacket, &timestamp, BIOS_WAIT_FOREVER);
+        rCnt++;
+#if 0
+        LogMsg("Addr:%x%x,len:%d,type:%d\r\n",
+                recvPacket.addrH,
+                recvPacket.addrL,
+                recvPacket.len,
+                recvPacket.type);
+#endif
+        LogMsg("%d\r\n",timestamp);
     }
 }
 
 void testZCPInit()
 {
-    Semaphore_Params semParams;
+
     Task_Handle task;
     Task_Params taskParams;
 
     ZCPInit(&carInst,CAR_ZCP_DEV_NUM,CAR_ZCP_UART_DEV_NUM);
 
-    Semaphore_Params_init(&semParams);
-    semParams.mode = Semaphore_Mode_BINARY;
-    carSem = Semaphore_create(0, &semParams, NULL);
+
 
     Task_Params_init(&taskParams);
     taskParams.priority = 5;
     taskParams.stackSize = 2048;
+
+    task = Task_create((Task_FuncPtr)testZCPStationSendTask, &taskParams, NULL);
+   if (task == NULL) {
+       System_printf("Task_create() failed!\n");
+       BIOS_exit(0);
+   }
 
     task = Task_create((Task_FuncPtr)testZCPSendTask, &taskParams, NULL);
     if (task == NULL) {

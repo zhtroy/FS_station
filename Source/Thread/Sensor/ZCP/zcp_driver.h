@@ -14,7 +14,7 @@
 #include "common.h"
 
 #define MAX_ZCP_DEVIVE_NUMS (2)
-#define MAX_USER_PACKET_SIZE (24)
+#define MAX_ZCP_PACKET_SIZE (24)
 
 /*
  * ZIGBEE报文字段定义
@@ -28,7 +28,7 @@
 /*
  * 超时定义
  */
-#define ZCP_ACK_TIMEOUT     (100)
+#define ZCP_ACK_TIMEOUT     (50)
 #define ZCP_UART_SEND_TIMEOUT   (50)
 
 /*
@@ -67,11 +67,14 @@ typedef struct
     uint8_t addrL; /*地址低字节*/
     uint8_t len;
     uint8_t type;
-    uint8_t data[MAX_USER_PACKET_SIZE];
+    uint8_t data[MAX_ZCP_PACKET_SIZE];
     uint8_t extSec; /*扩展字段*/
-}ZCPUserPacket_t;
+    Semaphore_Handle ackSem;
+}ZCPPacket_t;
 
 typedef struct _zcp_errors_{
+    uint32_t sendCnt;
+    uint32_t recvCnt;
     uint32_t ackTimeout;
     uint32_t ackErr;
     uint32_t sendErr;
@@ -79,7 +82,7 @@ typedef struct _zcp_errors_{
     uint32_t userPacketCrcErr;
     uint32_t zigbeePacketErr;
     uint32_t stateErr;
-}ZCPErrors_t;
+}ZCPStatistic_t;
 
 typedef struct _zcp_instance_{
     uint8_t uartDevNum;
@@ -90,8 +93,16 @@ typedef struct _zcp_instance_{
     Mailbox_Handle userRecvMbox;
     Mailbox_Handle userSendMbox;
     uint8_t ackSts;
-    ZCPErrors_t err;
+    ZCPStatistic_t stat;
 }ZCPInstance_t;
+
+typedef struct
+{
+    uint16_t addr;
+    uint8_t type;
+    uint8_t data[MAX_ZCP_PACKET_SIZE-4];
+    uint8_t len;
+}ZCPUserPacket_t;
 
 typedef struct{
     uint8_t isUsed;
@@ -99,4 +110,15 @@ typedef struct{
 }ZCPCfgTable_t;
 
 uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum);
+Bool ZCPPend(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout);
+Bool ZCPPost(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout);
+Bool ZCPRecvPacket(ZCPInstance_t *pInst,
+        ZCPUserPacket_t *userPacket,
+        int32_t *timestamp,
+        UInt timeout);
+Bool ZCPSendPacket(ZCPInstance_t *pInst,
+        ZCPUserPacket_t *userPacket,
+        Semaphore_Handle ackSem,
+        UInt timeout
+        );
 #endif /* ZCP_DRIVER_H_ */

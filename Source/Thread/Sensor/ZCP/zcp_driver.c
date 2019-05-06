@@ -149,13 +149,13 @@ static uint8_t ZCPCrcCalc(uint8_t *pData, uint8_t len)
  * 输出参数: 无
  * 返 回 值: 无
 *****************************************************************************/
-static void ZCPPack(ZCPUserPacket_t *pPacket, uartDataObj_t *pBuf)
+static void ZCPPack(ZCPPacket_t *pPacket, uartDataObj_t *pBuf)
 {
     pBuf->buffer[0] = ZIGBEE_HEAD;
     pBuf->buffer[1] = ZIGBEE_TYPE_MASTER;
     memcpy(&pBuf->buffer[2],pPacket,pPacket->len+2);
-    pBuf->buffer[pPacket->len+5] = ZCPCrcCalc(&pPacket->len,pPacket->len);
-    pBuf->buffer[pPacket->len+6] = ZIGBEE_TAIL;
+    pBuf->buffer[pPacket->len+4] = ZCPCrcCalc(&pPacket->len,pPacket->len);
+    pBuf->buffer[pPacket->len+5] = ZIGBEE_TAIL;
     pBuf->length = pPacket->len+6;
 }
 
@@ -163,16 +163,17 @@ static void ZCPPack(ZCPUserPacket_t *pPacket, uartDataObj_t *pBuf)
  * 函数名称: void ZCPReciveTask(void *param)
  * 函数说明: ZCP的接收任务
  * 输入参数:
- *          param:任务参数，传入设备号
+ *          arg0: 任务参数，传入设备号
+ *          arg1: 任务参数，保留
  * 输出参数: 无
  * 返 回 值: 无
  * 备注: 需保证任务不使用任何非实例的全局变量。
 *****************************************************************************/
-void ZCPReciveTask(UArg arg0, UArg arg1)
+static void ZCPReciveTask(UArg arg0, UArg arg1)
 {
     ZCPInstance_t * pInst;
     uartDataObj_t recvBuf;
-    ZCPUserPacket_t recvPacket;
+    ZCPPacket_t recvPacket;
     uint8_t *pc;
     uint8_t zType;
     uint8_t cnt;
@@ -237,20 +238,21 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
                     break;
                 case STS_USR_LEN:
                     recvPacket.len = *pc;
-                    if(recvPacket.len < MAX_USER_PACKET_SIZE &&
-                            recvPacket.len >= 2)
+                    if(recvPacket.len < MAX_ZCP_PACKET_SIZE &&
+                            recvPacket.len >= 6)
                     {
                         state = STS_USR_TYPE;
                     }
                     else
                     {
                         state = STS_HEAD;
-                        pInst->err.userPacketErr++;
+                        pInst->stat.userPacketErr++;
                     }
 
                     break;
                 case STS_USR_TYPE:
                     recvPacket.type = *pc;
+                    cnt = 0;
                     state = STS_DATA;
                     break;
                 case STS_DATA:
@@ -261,11 +263,13 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
                     }
                     else
                     {
-                        for(cnt=0;cnt<(recvPacket.len-2);cnt++)
+                        recvPacket.data[cnt] = *pc;
+                        cnt++;
+
+                        if(cnt >= (recvPacket.len-2))
                         {
-                            recvPacket.data[cnt-1] = *pc;
+                            state = STS_USR_CRC;
                         }
-                        state = STS_USR_CRC;
                     }
                     break;
                 case STS_USR_CRC:
@@ -283,7 +287,7 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
                         /*
                          * 统计CRC错误，重新检测报文
                          */
-                        pInst->err.userPacketCrcErr++;
+                        pInst->stat.userPacketCrcErr++;
                         state = STS_HEAD;
                     }
                     break;
@@ -303,12 +307,13 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
                              * 用户报文：Post用户报文数据到userRecvMbox；
                              * 备注：若应用处理不及时，会导致数据丢失
                              */
+                            pInst->stat.recvCnt++;
                             Mailbox_post(pInst->userRecvMbox,(Ptr*)&recvPacket,BIOS_NO_WAIT);
                         }
                     }
                     else
                     {
-                        pInst->err.zigbeePacketErr++;
+                        pInst->stat.zigbeePacketErr++;
                     }
                     state = STS_HEAD;
                     break;
@@ -316,7 +321,7 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
                     /*
                      * 状态跳转异常
                      */
-                    pInst->err.stateErr++;
+                    pInst->stat.stateErr++;
                     state = STS_HEAD;
                     break;
 
@@ -337,23 +342,26 @@ void ZCPReciveTask(UArg arg0, UArg arg1)
  * 函数名称: void ZCPSendTask(void *param)
  * 函数说明: ZCP的发送任务
  * 输入参数:
- *          param:任务参数，传入设备号
+ *          arg0: 任务参数，传入设备号
+ *          arg1: 任务参数，保留
  * 输出参数: 无
  * 返 回 值: 无
  * 备注: 需保证任务不使用任何非实例的全局变量。
 *****************************************************************************/
-void ZCPSendTask(UArg arg0, UArg arg1)
+static void ZCPSendTask(UArg arg0, UArg arg1)
 {
     ZCPInstance_t * pInst;
-    ZCPUserPacket_t sendPacket;
+    ZCPPacket_t sendPacket;
     uartDataObj_t sendBuf;
-    ZCPUserPacket_t userPacket;
+    //ZCPPacket_t userPacket;
+    Semaphore_Handle tmpSem;
     uint8_t devNum = (uint8_t)arg0;
 
     pInst = ZCPGetInstance(devNum);
     while(1)
     {
         Mailbox_pend(pInst->userSendMbox, (Ptr *)&sendPacket, BIOS_WAIT_FOREVER);
+        tmpSem = sendPacket.ackSem;
 
         ZCPPack(&sendPacket,&sendBuf);
 
@@ -363,22 +371,26 @@ void ZCPSendTask(UArg arg0, UArg arg1)
         Semaphore_pend(pInst->ackSem,BIOS_NO_WAIT);
 
         UartNs550Send(pInst->uartDevNum,sendBuf.buffer,sendBuf.length);
+        pInst->stat.sendCnt++;
 
         if(FALSE == Semaphore_pend(pInst->uartSendSem,ZCP_UART_SEND_TIMEOUT))
         {
             /*
              * 串口发送超时，反馈错误到应用层
              */
+#if 0
             userPacket.type = ZCP_TYPE_ERROR;
             userPacket.data[0] = ZCP_ERR_SEND_TIMEOUT;
             userPacket.len = 3;
             userPacket.extSec = sendPacket.extSec;
-            pInst->err.sendErr++;
+            pInst->stat.sendErr++;
             Mailbox_post(pInst->userRecvMbox,(Ptr*)&userPacket,BIOS_NO_WAIT);
+#endif
+            pInst->stat.sendErr++;
             continue;
         }
 
-
+#if 0
         if(FALSE == Semaphore_pend(pInst->ackSem,ZCP_ACK_TIMEOUT))
         {
             /*
@@ -386,7 +398,7 @@ void ZCPSendTask(UArg arg0, UArg arg1)
              */
             userPacket.type = ZCP_TYPE_ERROR;
             userPacket.data[0] = ZCP_ERR_ACK_TIMEOUT;
-            pInst->err.ackTimeout++;
+            pInst->stat.ackTimeout++;
 
         }
         else
@@ -398,7 +410,7 @@ void ZCPSendTask(UArg arg0, UArg arg1)
             userPacket.data[0] = pInst->ackSts;
             if(pInst->ackSts != ZIGBEE_ACK_OK)
             {
-                pInst->err.ackErr++;
+                pInst->stat.ackErr++;
 
             }
 
@@ -407,9 +419,52 @@ void ZCPSendTask(UArg arg0, UArg arg1)
         userPacket.len = 3;
         userPacket.extSec = sendPacket.extSec;
         Mailbox_post(pInst->userRecvMbox,(Ptr*)&userPacket,BIOS_NO_WAIT);
+#endif
+        if(FALSE == Semaphore_pend(pInst->ackSem,ZCP_ACK_TIMEOUT))
+        {
+            /*
+             * 收到ACK超时
+             */
+            pInst->stat.ackTimeout++;
+
+        }
+        else
+        {
+            /*
+             * 收到ACK，返回ack数据
+             */
+            if(pInst->ackSts != ZIGBEE_ACK_OK)
+            {
+                pInst->stat.ackErr++;
+            }
+            else
+            {
+                if(tmpSem != NULL)
+                {
+                    /*
+                     * ACK成功，且任务注册了Semaphore
+                     * Post信用量
+                     */
+                    Semaphore_post(tmpSem);
+                }
+            }
+
+        }
+
     }/*while(1)*/
 }
 
+/*****************************************************************************
+ * 函数名称: uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
+ * 函数说明: ZCP初始化（初始化信用量、发送任务、接收任务以及统计计数器）
+ * 输入参数:
+ *          pInst: 实例指针
+ *          devNum: ZCP的设备号
+ *          uartDevNum: ZCP设备使用的串口号
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
 uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
 {
     Semaphore_Params semParams;
@@ -445,8 +500,8 @@ uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
      */
     Mailbox_Params_init(&mboxParams);
     pInst->uartRecvMbox = Mailbox_create (sizeof (uartDataObj_t),ZCP_MBOX_DEPTH, &mboxParams, NULL);
-    pInst->userRecvMbox = Mailbox_create (sizeof (ZCPUserPacket_t),ZCP_MBOX_DEPTH, &mboxParams, NULL);
-    pInst->userSendMbox = Mailbox_create (sizeof (ZCPUserPacket_t),ZCP_MBOX_DEPTH, &mboxParams, NULL);
+    pInst->userRecvMbox = Mailbox_create (sizeof (ZCPPacket_t),ZCP_MBOX_DEPTH, &mboxParams, NULL);
+    pInst->userSendMbox = Mailbox_create (sizeof (ZCPPacket_t),ZCP_MBOX_DEPTH, &mboxParams, NULL);
 
     Semaphore_Params_init(&semParams);
     semParams.mode = Semaphore_Mode_BINARY;
@@ -454,15 +509,17 @@ uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
     pInst->ackSem = Semaphore_create(0, &semParams, NULL);
 
     /*
-     * 错误统计计数器清零
+     * 统计计数器清零
      */
-    pInst->err.ackErr = 0;
-    pInst->err.ackTimeout = 0;
-    pInst->err.sendErr = 0;
-    pInst->err.stateErr = 0;
-    pInst->err.userPacketErr = 0;
-    pInst->err.userPacketCrcErr = 0;
-    pInst->err.zigbeePacketErr = 0;
+    pInst->stat.sendCnt = 0;
+    pInst->stat.recvCnt = 0;
+    pInst->stat.ackErr = 0;
+    pInst->stat.ackTimeout = 0;
+    pInst->stat.sendErr = 0;
+    pInst->stat.stateErr = 0;
+    pInst->stat.userPacketErr = 0;
+    pInst->stat.userPacketCrcErr = 0;
+    pInst->stat.zigbeePacketErr = 0;
 
     /*
      * 初始化串口，并启动接收
@@ -471,7 +528,7 @@ uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
     UartNs550Recv(uartDevNum, pInst->uartRxData.buffer, UART_REC_BUFFER_SIZE);
 
     /*
-     * 新建任务
+     * 新建任务，将设备号传递给对应接收、发送任务
      */
     Task_Params_init(&taskParams);
     taskParams.priority = 5;
@@ -491,4 +548,108 @@ uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum)
     }
 
     return ZCP_INIT_OK;
+}
+
+
+Bool ZCPPend(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout)
+{
+    return Mailbox_pend(pInst->userRecvMbox, (Ptr *)pUserPacket, timeout);
+}
+
+
+Bool ZCPPost(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout)
+{
+    return Mailbox_post(pInst->userSendMbox, (Ptr *)pUserPacket, timeout);
+}
+
+/*****************************************************************************
+ * 函数名称: Bool ZCPSendPacket(ZCPInstance_t *pInst,
+                                ZCPUserPacket_t *userPacket,
+                                Semaphore_Handle ackSem,
+                                UInt timeout
+                                )
+ * 函数说明: ZCP报文发送函数，
+ * 输入参数:
+ *          pInst: 实例指针
+ *          userPacket: 用户发送报文指针
+ *          ackSem: ACK的返回信用量
+ *          timeout: Mailbox_post的超时时间
+ * 输出参数: 无
+ * 返 回 值: FALSE(邮箱发送失败)/TRUE(邮箱发送成功)
+ * 备注:
+*****************************************************************************/
+Bool ZCPSendPacket(ZCPInstance_t *pInst,
+        ZCPUserPacket_t *userPacket,
+        Semaphore_Handle ackSem,
+        UInt timeout
+        )
+{
+    ZCPPacket_t sendPacket;
+    int32_t timeMs;
+
+    sendPacket.addrL = userPacket->addr & 0xff;
+    sendPacket.addrH = (userPacket->addr >> 8) & 0xff;
+    sendPacket.type = userPacket->type;
+    sendPacket.ackSem = ackSem;
+
+    /*
+     * 拷贝用户数据
+     */
+    memcpy(sendPacket.data,userPacket->data,userPacket->len);
+
+    /*
+     * 添加时间戳
+     */
+    userGetMS(&timeMs);
+    memcpy(&(sendPacket.data[userPacket->len]),&timeMs,sizeof(timeMs));
+
+    /*
+     * 修正长度
+     */
+    sendPacket.len = userPacket->len + 2 + sizeof(timeMs);
+    return Mailbox_post(pInst->userSendMbox, (Ptr *)&sendPacket, timeout);
+}
+
+/*****************************************************************************
+ * 函数名称: Bool ZCPRecvPacket(ZCPInstance_t *pInst,
+                                ZCPUserPacket_t *userPacket,
+                                int32_t *timestamp,
+                                UInt timeout)
+ * 函数说明: ZCP报文接收函数
+ * 输入参数:
+ *          pInst: 实例指针
+ *          userPacket: 用户接收报文指针
+ *          timestamp: 时间戳指针
+ *          timeout: Mailbox_pend的超时时间
+ * 输出参数: 无
+ * 返 回 值: FALSE(邮箱发送失败)/TRUE(邮箱发送成功)
+ * 备注:
+*****************************************************************************/
+Bool ZCPRecvPacket(ZCPInstance_t *pInst,
+        ZCPUserPacket_t *userPacket,
+        int32_t *timestamp,
+        UInt timeout)
+{
+    ZCPPacket_t recvPacket;
+    Bool state;
+    state = Mailbox_pend(pInst->userRecvMbox, (Ptr *)&recvPacket, timeout);
+
+    userPacket->addr = (recvPacket.addrH<<8) + recvPacket.addrL;
+    userPacket->type = recvPacket.type;
+
+    /*
+     * 拷贝用户数据
+     */
+    memcpy(userPacket->data, recvPacket.data, recvPacket.len-6);
+    userPacket->len = recvPacket.len - 6;
+
+    /*
+     * 获取时间戳
+     */
+    if(timestamp != NULL)
+    {
+        memcpy(timestamp, &(recvPacket.data[recvPacket.len-6]), 4);
+    }
+
+    return state;
 }
