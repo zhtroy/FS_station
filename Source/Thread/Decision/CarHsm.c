@@ -706,19 +706,9 @@ Msg const * AutomodeStopStation(car_hsm_t * me, Msg * msg)
 		{
 			g_fbData.FSMstate =stop_station;
 
-			MotoSetGoalRPM(0);
-			TimeoutSet(station_stop);
+			/*进入开始离站状态*/
+			STATE_TRAN(me, &me->autemode_stopstationleave);
 			return 0;
-		}
-		case TIMER_EVT:
-		{
-			if(station_stop == EVT_CAST(msg, evt_timeout_t)->type)
-			{
-				/*进入开始离站状态*/
-				STATE_TRAN(me, &me->autemode_stopstationleave);
-				return 0;
-			}
-			break;
 		}
 	}
 

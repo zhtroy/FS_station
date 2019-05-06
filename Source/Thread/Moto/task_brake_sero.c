@@ -666,7 +666,7 @@ void ServoBrakeTask(void *param)
 
 #define BRAKE_MAX (255)
 #define BRAKE_SLOTS (1000)
-#define REVERSE_FORCE (45)
+#define REVERSE_FORCE (100)
 static void BrakeCanIntrHandler(int32_t devsNum,int32_t event)
 {
     canDataObj_t rxData;
@@ -787,6 +787,8 @@ static void ServoChangeRailTask(void)
 				TTLWriteBit(RAIL_DIRECT,0);
 			else
 				TTLWriteBit(RAIL_DIRECT,1);
+
+			Task_sleep(10);
 
 			TTLWriteBit(RAIL_ENABLE, 0);
 
