@@ -88,6 +88,10 @@ static void RFIDcallBack(uint16_t deviceNum, uint8_t type, uint8_t data[], uint3
 			//logMsg("RFID[%d] EPC:\t%2X\r\n", deviceNum,data[2],0,0,0,0);
 
 			//memcpy(fbData.rfid, &(data[2]),12);  //epc 从第2字节开始，长度12字节
+			if(0x00 == data[2])  //排除新的RFID
+			{
+				break;
+			}
 			g_fbData.rfid = data[2];
 			//g_fbData.rfidReadTime = GetMs();
 			/*记录圈数*/
