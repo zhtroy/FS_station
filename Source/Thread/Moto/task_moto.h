@@ -198,7 +198,7 @@ typedef struct{
 #define MAX_THROTTLE_SIZE (100)
 
 #elif CAR_VERSION == 22
-#define MAX_THROTTLE_SIZE (110)
+#define MAX_THROTTLE_SIZE (160)
 
 #endif
 
