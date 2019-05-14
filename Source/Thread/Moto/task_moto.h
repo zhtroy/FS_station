@@ -216,8 +216,8 @@ typedef struct{
 
 
 #define FILTER_RPM (200)
-#define DELTA_RPM (12)
-#define RPM_LIMIT (2400)
+#define DELTA_RPM (18)
+#define RPM_LIMIT (4000)
 
 #define BRAKE_THRO_RATIO (1)
 
