@@ -192,13 +192,16 @@ typedef struct{
 #define ADJ_THROTTLE_DWSCALE (-20)
 
 #if CAR_VERSION == 20
-//#define MAX_THROTTLE_SIZE (55)
 #define MAX_THROTTLE_SIZE (110)
+
 #elif CAR_VERSION == 21
-#define MAX_THROTTLE_SIZE (100)
+#define MAX_THROTTLE_SIZE (160)
 
 #elif CAR_VERSION == 22
 #define MAX_THROTTLE_SIZE (160)
+
+#elif CAR_VERSION == 23
+#define MAX_THROTTLE_SIZE (180)
 
 #endif
 
@@ -206,13 +209,8 @@ typedef struct{
 
 #define BREAK_THRESHOLD (0)
 
-#if CAR_VERSION == 20
-#define MAX_BRAKE_SIZE (200)
-#elif CAR_VERSION == 21
-#define MAX_BRAKE_SIZE (250)
-#elif CAR_VERSION == 22
+
 #define MAX_BRAKE_SIZE (255)
-#endif
 
 
 #define FILTER_RPM (200)
