@@ -48,7 +48,17 @@
 
 //#define RAIL_ENABLE (0)
 #define RAIL_ENABLE (4)
+
+/*
+ * 2.1车变轨方向脚TTL1坏掉，换到TTL7
+ */
+#if CAR_VERSION == 21
+#define RAIL_DIRECT (7)
+
+#elif CAR_VERSION == 23
 #define RAIL_DIRECT (1)
+
+#endif
 
 typedef struct{
     uint8_t     id;
