@@ -44,6 +44,7 @@ static Semaphore_Handle sem_modbus;
 static Mailbox_Handle recvMbox;
 static uartDataObj_t brakeUartDataObj;
 static uartDataObj_t recvUartDataObj;
+static Mailbox_Handle rxDataMbox = NULL;
 
 static uint8_t ackStatus = MODBUS_ACK_OK;
 
@@ -685,13 +686,61 @@ static void BrakeCanIntrHandler(int32_t devsNum,int32_t event)
 	if (event == 1)         /* 收到一帧数据 */
     {
         CanRead(devsNum, &rxData);
-//        Mailbox_post(rxDataMbox, (Ptr *)&rxData, BIOS_NO_WAIT);
+        Mailbox_post(rxDataMbox, (Ptr *)&rxData, BIOS_NO_WAIT);
 	}
     else if (event == 2)    /* 一帧数据发送完成 */
     {
         /* 发送中断 */
         Semaphore_post(txReadySem);
     }
+
+}
+
+void ServoBrakeRecvTask()
+{
+	canDataObj_t canRecvData;
+	const int SERVO_BRAKE_TIMEOUT = 2000;
+	Bool result;
+	uint8_t errorNums[] = {3, 4, 5, 6, 11, 12, 15, 16, 17, 18, 20 ,21, 22, 31, 32, 33, 36, 38, 45, 46};
+	uint8_t errorCode = 0;
+	int errorLength = sizeof(errorNums)/sizeof(errorNums[0]);
+	int i;
+
+	while(1)
+	{
+	    result = Mailbox_pend(rxDataMbox, (Ptr *)&canRecvData, SERVO_BRAKE_TIMEOUT);
+
+	    if(!result)
+	    {
+	        p_msg_t msg;
+	        msg = Message_getEmpty();
+	    	msg->type = error;
+	    	msg->data[0] = ERROR_BRAKE_TIMEOUT;
+	    	msg->dataLen = 1;
+	    	Message_post(msg);
+	    	continue;
+	    }
+
+	    errorCode = 0x3F & (canRecvData.Data[1]);  //第2字节低6位
+	    for(i = 0; i < errorLength ; i++)
+	    {
+	    	if(errorNums[i] == errorCode)
+	    	{
+	    		break;
+	    	}
+	    }
+
+	    if(i<errorLength)
+	    {
+	    	p_msg_t msg;
+			msg = Message_getEmpty();
+			msg->type = error;
+			msg->data[0] = ERROR_BRAKE_ERROR;
+			msg->dataLen = 1;
+			Message_post(msg);
+	    }
+
+	}
 
 }
 
@@ -1036,6 +1085,9 @@ void ServoTaskInit()
     UartNs550Recv(SERVOR_MOTOR_UART, &brakeUartDataObj.buffer, UART_REC_BUFFER_SIZE);
 
 
+    /* 初始化接收邮箱 */
+    rxDataMbox = Mailbox_create (sizeof (canDataObj_t),4, NULL, NULL);
+
 	Task_Params_init(&taskParams);
 	taskParams.priority = 5;
 	taskParams.stackSize = 2048;
@@ -1047,6 +1099,12 @@ void ServoTaskInit()
 	}
 
     task = Task_create(ServoBrakeTask, &taskParams, NULL);
+	if (task == NULL) {
+		System_printf("Task_create() failed!\n");
+		BIOS_exit(0);
+	}
+
+    task = Task_create(ServoBrakeRecvTask, &taskParams, NULL);
 	if (task == NULL) {
 		System_printf("Task_create() failed!\n");
 		BIOS_exit(0);
