@@ -14,7 +14,6 @@
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Task.h>
 #include "uartStdio.h"
-#include "watch.h"
 #include "uart.h"
 #include "soc_C6748.h"
 #include "Sensor/PhotoElectric/PhotoElectric.h"

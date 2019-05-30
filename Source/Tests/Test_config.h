@@ -20,7 +20,7 @@
 //#define TEST_SONIC_RADAR
 //#define TEST_UART_COMMAND_LINE
 //#define TEST_WATCHDOG
-#define TEST_UART_COMMAND_LINE
+//#define TEST_UART_COMMAND_LINE
 //#define TEST_NDK
 //#define TEST_CELL_COM
 //#define TEST_SERVER_COM
@@ -36,8 +36,8 @@
 //#define TEST_SPEED_CONTROL
 //#define TEST_4G_CONTROL
 
-#define TEST_ZIGBEE_CONTROL_HSM
+//#define TEST_ZIGBEE_CONTROL_HSM
 
-#define TEST_ZCP
+//#define TEST_ZCP
 
 #endif /* TEST_CONFIG_H_ */

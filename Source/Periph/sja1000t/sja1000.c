@@ -556,6 +556,7 @@ int32_t sja1000State(sja1000Obj_t * sja1000Obj)
 			return DEV_EXIT_RESET_FAIL;
 		}	
 	}	
+	return DEV_OK;
 }
 
 /*****************************************************************************
