@@ -61,6 +61,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${NDK_INSTALL_DIR}/packages/ti/ndk/inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Station}&quot;"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_7.4.compilerID.DISPLAY_ERROR_NUMBER.138974289" name="Emit diagnostic identifier numbers (--display_error_number, -pden)" superClass="com.ti.ccstudio.buildDefinitions.C6000_7.4.compilerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_7.4.compilerID.DIAG_WARNING.399335177" name="Treat diagnostic &lt;id&gt; as warning (--diag_warning, -pdsw)" superClass="com.ti.ccstudio.buildDefinitions.C6000_7.4.compilerID.DIAG_WARNING" valueType="stringList">
@@ -116,7 +117,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Source/Tests/Test4GControl/test4GControl.c|Source/Thread/Moto/task_ctrldata.c|Source/Thread/Decision/Decision.c|out|Source/Periph/DSP_Uart/uartStdio.c|platform|platform/tl/dsp/evm6748/package/build.cfg|srcinst|out/c6748AISgen_456M_config.cfg|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Thread/Sensor/mpu9250/mpl|Source/Tests/testSja1000Task.c|Source/Thread/Sensor/mpu9250/mllite" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Source/Thread/Moto/task_ctrldata.c|platform/tl/dsp/evm6748/package/build.cfg|Source/Thread/Sensor/mpu9250/mpl|Source/Thread/Sensor/mpu9250/mllite|Source/Thread/Decision/Decision.c|out|Source/Periph/DSP_Uart/uartStdio.c|platform|srcinst|Source/Tests/Test4GControl/test4GControl.c|out/c6748AISgen_456M_config.cfg|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Tests/testSja1000Task.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
