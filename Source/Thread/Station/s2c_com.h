@@ -18,34 +18,52 @@
 #define CAR_MODE_PARK (1)
 #define CAR_MODE_ERROR (2)
 
+/*
+ * 1.站台路线
+ * 2.调整点数量
+ * 3.分离点数量（1个分离区有两个分离点）
+ */
+#define S2C_ROUTE_NUMS  (2)
+#define S2C_ADJ_NUMS    (3)
+#define S2C_SEQ_NUMS    (6)
+
+#define S2C_INTO_STATION_CMD    (0x01)
+#define S2C_REQUEST_ID_CMD      (0x02)
+#define S2C_DOOR_CONTROL_CMD    (0x03)
+#define S2C_LEAVE_STATION_CMD   (0x04)
+#define S2C_CAR_STATUS_CMD      (0x40)
+#define S2C_ALLOT_PARK_ACK      (0X41)
+
+#define S2C_ALLOT_PARK_CMD      (0x20)
+#define S2C_INTO_STATION_ACK    (0x61)
+#define S2C_REQUEST_ID_ACK      (0x02)
+#define S2C_DOOR_CONTROL_ACK    (0x63)
+#define S2C_LEAVE_STATION_ACK   (0x64)
+
+
+#define S2C_RAIL_LENGTH         (2570)
+
+#define S2C_MBOX_DEPTH          (16)
+
+#define EREA_ADJUST             (0x01)
+
+#define S2C_CLOSE_DOOR          (0x01)
+#define S2C_OPEN_DOOR           (0x00)
+
+#define S2C_INTO_STATION        (0x01)
+#define S2C_LEAVE_STATION       (0x02)
+
+#define STATION_NOT_READY       (0x00)
+#define STATION_IS_READY        (0x01)
+#define STATION_INIT_DONE       (0x02)
 typedef struct
 {
-    uint8_t reserved;
-    //干道编号
-    uint8_t mainNo;
-    //1级支道编号
-    uint16_t firstNo;
-    //2级支道编号
-    uint8_t secondNo;
-    //3级支道编号
-    uint8_t thirdNo;
-    //4级支道编号
-    uint8_t fourthNo;
-    //区域类型
-    uint8_t areaType;
-    //区域编号
-    uint16_t areaNo;
-    //子区域类型
-    uint8_t subareaType;
-    //道路特性
-    uint8_t roadFeature;
-    //距起始位置距离
-    uint32_t distance;
+    uint8_t byte[12];
 }rfid_t;
 
 typedef struct{
-    rfid_t  rfid;
     uint16_t id;
+    rfid_t  rfid;
     uint16_t rpm;
     uint8_t  mode;
     uint32_t timeStamp;
@@ -125,6 +143,11 @@ typedef struct{
     uint16_t carId;
     uint8_t type;
 }doorCtrl_t;
+
+
+void S2CTaskInit();
+void S2CSetStationStatus(uint8_t state);
+void S2CSetCarNums(uint8_t nums);
 #endif /* S2C_COM_H_ */
 
 
