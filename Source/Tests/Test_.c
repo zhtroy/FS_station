@@ -6,6 +6,7 @@
  */
 #include "Test_.h"
 #include "Test_config.h"
+#include "Station/s2c_com.h"
 
 
 void TestEntry()
@@ -15,6 +16,7 @@ void TestEntry()
     testUARTCommandLineInit();
 #endif 
 
+    S2CTaskInit();
 
 #ifdef TEST_WATCHDOG
     testWatchDogTaskInit();

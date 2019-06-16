@@ -8,6 +8,8 @@
 #ifndef S2C_COM_H_
 #define S2C_COM_H_
 
+#include "common.h"
+
 #define T1_PLATFORM_NUMS (3)
 #define T2_PLATFORM_NUMS (5)
 
@@ -36,16 +38,18 @@
 
 #define S2C_ALLOT_PARK_CMD      (0x20)
 #define S2C_INTO_STATION_ACK    (0x61)
-#define S2C_REQUEST_ID_ACK      (0x02)
+#define S2C_REQUEST_ID_ACK      (0x62)
 #define S2C_DOOR_CONTROL_ACK    (0x63)
 #define S2C_LEAVE_STATION_ACK   (0x64)
 
 
-#define S2C_RAIL_LENGTH         (2570)
+#define S2C_RAIL_LENGTH         (2770)
 
 #define S2C_MBOX_DEPTH          (16)
 
-#define EREA_ADJUST             (0x01)
+#define EREA_ADJUST_LEFT             (0x02)
+#define EREA_ADJUST_RIGHT            (0x03)
+#define EREA_SEPERATE                (0x01)
 
 #define S2C_CLOSE_DOOR          (0x01)
 #define S2C_OPEN_DOOR           (0x00)
@@ -56,10 +60,21 @@
 #define STATION_NOT_READY       (0x00)
 #define STATION_IS_READY        (0x01)
 #define STATION_INIT_DONE       (0x02)
+
+#define ALLOT_NULL              (0x00)
+#define ALLOT_PARK              (0x01)
+#define ALLOT_PLAT              (0x02)
+
+#pragma pack(1)
 typedef struct
 {
     uint8_t byte[12];
 }rfid_t;
+
+typedef struct
+{
+    uint8_t byte[5];
+}routeId_t;
 
 typedef struct{
     uint16_t id;
@@ -121,7 +136,8 @@ typedef struct{
 typedef struct{
     uint16_t carId;
     uint8_t type;
-    uint8_t tId;
+    //uint8_t tId;
+    routeId_t routeId;
     /*
     uint8_t carMode;
     uint32_t carPos;
