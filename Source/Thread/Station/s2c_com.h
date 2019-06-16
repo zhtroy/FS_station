@@ -160,6 +160,12 @@ typedef struct{
     uint8_t type;
 }doorCtrl_t;
 
+typedef struct{
+    uint16_t carId;
+    uint8_t type;
+    uint8_t tid;
+    uint8_t pid;
+}doorStatus_t;
 
 void S2CTaskInit();
 void S2CSetStationStatus(uint8_t state);

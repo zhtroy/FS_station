@@ -19,6 +19,7 @@
 #include "Message/Message.h"
 #include <string.h>
 #include <stdlib.h>
+#include "vector.h"
 
 #define S2C_ZCP_UART_DEV_NUM    (0)
 #define S2C_ZCP_DEV_NUM         (0)
@@ -761,9 +762,9 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             {
                 if(stationTable[i].carId == parkReq.carId)
                 {
-                    if(stationTable[cfgData->parkNums].isUsed == 1)
+                    if(stationTable[cfgData->parkNums-1].isUsed == 1)
                     {
-                        memcpy(&stationTable[i],&stationTable[cfgData->parkNums],sizeof(stationTable_t));
+                        memcpy(&stationTable[i],&stationTable[cfgData->parkNums-1],sizeof(stationTable_t));
                         for(j=cfgData->parkNums+1;j<cfgData->platNums;j++)
                         {
                             memcpy(&stationTable[j-1],&stationTable[j],sizeof(stationTable_t));
@@ -956,68 +957,100 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
     stationTable_t *stationTable;
     ZCPUserPacket_t sendPacket;
     uint8_t carIsFound;
-    uint8_t tId,pId;
+    doorStatus_t dSts;
+    doorStatus_t * doorNode = 0;
+    uint8_t state;
     while(1)
     {
-        Mailbox_pend(doorMbox,&door,BIOS_WAIT_FOREVER);
-        /*
-         * 找到车辆所属站台
-         */
-        carIsFound = 0;
-        for(i=0;i<routeNums;i++)
+        state = Mailbox_pend(doorMbox,&door,100);
+
+        if(TRUE == state)
         {
-            cfgData = cfgTablePtr[i];
-            stationTable = stationTablePtr[i];
-            for(j=0;j<cfgData->parkNums;j++)
+            /*
+             * 找到车辆所属站台
+             */
+            carIsFound = 0;
+            for(i=0;i<routeNums;i++)
             {
-                if(door.carId == stationTable[j].carId)
+                cfgData = cfgTablePtr[i];
+                stationTable = stationTablePtr[i];
+                for(j=0;j<cfgData->parkNums;j++)
                 {
-                    tId = i;
-                    pId = j;
-                    carIsFound = 1;
-                    break;
+                    if(door.carId == stationTable[j].carId)
+                    {
+                        /*
+                         * 收集门的位置和动作信息，并将其推入队列
+                         */
+                        dSts.tid = i;
+                        dSts.pid = j;
+                        dSts.carId = door.carId;
+                        dSts.type = door.type;
+                        vector_push_back(doorNode, dSts);
+                        carIsFound = 1;
+                        break;
+                    }
                 }
+
+                if(carIsFound == 1)
+                    break;
             }
 
             if(carIsFound == 1)
-                break;
-        }
+            {
+                if(door.type == S2C_OPEN_DOOR)
+                {
+                    /*
+                     *  1.开门
+                     *  2.等待开门结束
+                     *  3.发送开门状态
+                     */
 
-        if(carIsFound == 1)
+                    LogMsg("Open door of station-T%d-P%d\r\n",dSts.tid,dSts.pid);
+                }
+                else if(door.type == S2C_CLOSE_DOOR)
+                {
+                    /*
+                     *  1.关门
+                     *  2.等待关门结束
+                     *  3.发送关门状态
+                     */
+                    LogMsg("Close door of station-T%d-P%d\r\n",dSts.tid,dSts.pid);
+                }
+
+            }
+            else
+            {
+                LogMsg("Error:Car is not in Station Park!!\r\n");
+            }
+        }/*if(TRUE...*/
+
+
+        /*
+         * 遍历doorNode,并根据门的状态发送响应报文
+         * 周期：100ms
+         */
+#if 1
+        if(0 == vector_empty(doorNode))
         {
-            if(door.type == S2C_OPEN_DOOR)
+            for(i=0;i<vector_size(doorNode);i++)
             {
                 /*
-                 *  1.开门
-                 *  2.等待开门结束
-                 *  3.发送开门状态
-                 */
+                if(doorNode[i].type == S2C_OPEN_DOOR)
+                {
+                    sendPacket.data[1] = 1;
+                }
+                */
                 sendPacket.data[1] = 1;
-                LogMsg("Open door of station-T%d-P%d\r\n",tId,pId);
-            }
-            else if(door.type == S2C_CLOSE_DOOR)
-            {
-                /*
-                 *  1.关门
-                 *  2.等待开门结束
-                 *  3.发送开门状态
-                 */
-                sendPacket.data[1] = 1;
-                LogMsg("Open door of station-T%d-P%d\r\n",tId,pId);
-            }
-            sendPacket.addr = door.carId;
-            sendPacket.type = S2C_DOOR_CONTROL_ACK;
-            sendPacket.len = 2;
-            sendPacket.data[0] = door.type;
-            if(FALSE == ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT))
-            {
-                LogMsg("Send Failed!\r\n");
+                sendPacket.addr = doorNode[i].carId;
+                sendPacket.type = S2C_DOOR_CONTROL_ACK;
+                sendPacket.len = 2;
+                sendPacket.data[0] = doorNode[i].carId;
+                vector_erase(doorNode,i);
+                ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT);
             }
         }
-        else
-        {
-            LogMsg("Error:Car is not in Station Park!!\r\n");
-        }
+#endif
+
 
     }
 }
