@@ -181,6 +181,23 @@ do {                                              \
 	vector_set_size((vec), vector_size(vec) + 1); \
 } while(0)
 
+
+#define vector_insert(vec, i, value) \
+do {                                              \
+    size_t __sz=vector_size(vec);                   \
+    if ((i) < (__sz+1)) {                          \
+        size_t __cap = vector_capacity(vec);       \
+        if(__cap <= vector_size(vec)) {            \
+            vector_grow((vec), __cap + 1);         \
+        }                                          \
+        vector_set_size((vec), __sz + 1);          \
+        size_t __x;                                \
+        for (__x = (__sz); __x > (i); __x--) {     \
+            (vec)[__x] = (vec)[__x - 1];           \
+        }                                          \
+        (vec)[i] = value;                          \
+    }                                              \
+} while(0)
 #endif
 
 

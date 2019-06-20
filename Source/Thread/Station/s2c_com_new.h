@@ -5,8 +5,8 @@
  *      Author: DELL
  */
 
-#ifndef S2C_COM_H_
-#define S2C_COM_H_
+#ifndef S2C_COM_NEW_H_
+#define S2C_COM_NEW_H_
 
 #include "common.h"
 
@@ -51,6 +51,8 @@
 #define EREA_ADJUST_RIGHT            (0x03)
 #define EREA_SEPERATE                (0x01)
 
+
+
 #define S2C_CLOSE_DOOR          (0x01)
 #define S2C_OPEN_DOOR           (0x00)
 
@@ -65,17 +67,16 @@
 #define ALLOT_PARK              (0x01)
 #define ALLOT_PLAT              (0x02)
 
+#define RIGHT_RAIL              (0x02)
+
 #pragma pack(1)
 typedef struct
 {
     uint8_t byte[12];
 }rfid_t;
-
-typedef struct
-{
+typedef struct{
     uint8_t byte[5];
-}routeId_t;
-
+}roadID_t;
 typedef struct{
     uint16_t id;
     rfid_t  rfid;
@@ -85,70 +86,11 @@ typedef struct{
     uint32_t timeStamp;
 }carStatus_t;
 
-
-typedef struct{
-    uint8_t isUsed;
-    uint16_t carId;
-    uint32_t carPos;
-    uint8_t carMode;
-}stationTable_t;
-
-typedef struct{
-    uint32_t start;
-    uint32_t end;
-}parkArea_t;
-
-typedef struct{
-    uint8_t parkNums;
-    uint8_t platNums;
-    rfid_t parkRfid;
-    uint32_t parkPos[5];
-    uint32_t parkStart[5];
-}cfgTable_t;
-
-
-typedef struct{
-    rfid_t reqRfid;
-    uint32_t reqEndPointer;
-    uint8_t reqRail;
-    rfid_t cmpRfid;
-    int32_t diffDist;
-}seqCfgTable_t;
-
-typedef struct{
-    rfid_t rfidLeft;
-    rfid_t rfidRight;
-    uint32_t endPointer;
-}adjCfgTable_t;
-
-
-typedef struct{
-    uint8_t isUsed;
-    uint16_t carId;
-    uint32_t dist;
-}adjTable_t;
-
-typedef struct{
-    uint8_t isUsed;
-    uint16_t carId;
-    uint32_t dist;
-}seqTable_t;
-
 typedef struct{
     uint16_t carId;
     uint8_t type;
-    //uint8_t tId;
-    routeId_t routeId;
-    /*
-    uint8_t carMode;
-    uint32_t carPos;
-    */
+    roadID_t roadID;
 }parkRequest_t;
-
-typedef struct{
-    uint16_t carId;
-    rfid_t rfid;
-}allotPacket_t;
 
 typedef struct{
     uint16_t carId;
@@ -167,6 +109,53 @@ typedef struct{
     uint8_t tid;
     uint8_t pid;
 }doorStatus_t;
+
+
+
+typedef struct{
+    uint16_t id;
+    uint16_t rpm;
+    uint8_t mode;
+    uint32_t pos;
+    uint8_t pid;
+}carQueue_t;
+
+typedef struct{
+    uint8_t isRing;
+    roadID_t roadID;
+    int32_t sectionB;
+    carQueue_t *carQueue;
+}roadInformation_t;
+
+typedef struct{
+    roadID_t leftRoadID;
+    roadID_t rightRoadID;
+    uint32_t start;
+    uint32_t end;
+}ajustZone_t;
+
+typedef struct{
+    roadID_t leftRoadID;
+    roadID_t rightRoadID;
+    uint32_t start;
+    uint32_t end;
+}separateZone_t;
+
+typedef struct{
+    uint32_t trigger;
+    uint32_t point;
+}park_t;
+
+typedef struct{
+    roadID_t roadID;
+    uint8_t roadType;
+    uint8_t roadArea;
+    uint8_t parkNums;
+    park_t *park;
+    carQueue_t * carQueue;
+}stationInformation_t;
+
+
 
 void S2CTaskInit();
 void S2CSetStationStatus(uint8_t state);

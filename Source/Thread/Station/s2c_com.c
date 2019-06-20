@@ -138,7 +138,7 @@ static const seqCfgTable_t constSeqCfgTable[S2C_SEQ_NUMS] = {
                 //轨道状态
                 0x02,
                 //分离区结束点ID32：0001010000000001000AA000
-                0x00,0x01,0x01,0x00,0x00,0x00,0x00,0x01,0x00,0x0A,0xA0,0x00,
+                0x00,0x01,0x02,0x00,0x00,0x00,0x00,0x01,0x00,0x0A,0xA0,0x00,
                 0x00000000
         },
 };
@@ -230,7 +230,7 @@ void S2CRecvTask(UArg arg0, UArg arg1)
             break;
         case S2C_CAR_STATUS_CMD:
             carSts.id = recvPacket.addr;
-            memcpy(&carSts.rfid,recvPacket.data,sizeof(rfid_t)+3);
+            memcpy(&carSts.rfid,recvPacket.data,sizeof(rfid_t)+7);
             Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             break;
         case S2C_ALLOT_PARK_ACK:
@@ -354,7 +354,9 @@ void S2CGetInstance(ZCPInstance_t* pInst)
 uint32_t S2CGetDistance(rfid_t rfid)
 {
     uint32_t dist;
-    memcpy(&dist,&rfid.byte[8],3);
+    dist = (rfid.byte[8]<<16) +
+           (rfid.byte[9]<<8) +
+            rfid.byte[10];
     return dist;
 }
 
@@ -461,7 +463,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 }
 
 
-                if(state == 0 && S2CGetDistance(carSts.rfid) < adjCfgData->endPointer)
+                if(state == 0 && carSts.dist < adjCfgData->endPointer)
                 {
                     if(adjData->isUsed == 0)
                     {
@@ -470,12 +472,13 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                          * 当前节点尚未分配前车，更新节点信息
                          * 跳出循环
                          */
-                        memcpy(&adjDataOld,&adjData,sizeof(adjTable_t));
+                        memcpy(adjDataOld,adjData,sizeof(adjTable_t));
 
                         adjData->isUsed = 1;
                         adjData->carId = carSts.id;
-                        adjData->dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(adjCfgData->rfidLeft));
+                        adjData->dist = S2CSubDist(carSts.dist,S2CGetDistance(adjCfgData->rfidLeft));
                         adjOk = 1;
+                        LogMsg("Adj%d:first Car%x\r\n",i,carSts.id);
                         break;
                     }
                     else
@@ -486,7 +489,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                              * 同一辆车，更新和调节点的距离
                              * 跳出查询
                              */
-                            adjData->dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(adjCfgData->rfidLeft));
+                            adjData->dist = S2CSubDist(carSts.dist,S2CGetDistance(adjCfgData->rfidLeft));
                             adjOk = 1;
                             break;
                         }
@@ -495,14 +498,15 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                             /*
                              * 不同车辆，若离调节点更近，则更新节点信息
                              */
-                            dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(adjCfgData->rfidLeft));
+                            dist = S2CSubDist(carSts.dist,S2CGetDistance(adjCfgData->rfidLeft));
 
                             if(dist <= adjData->dist)
                             {
-                                memcpy(&adjDataOld,&adjData,sizeof(adjTable_t));
+                                memcpy(adjDataOld,adjData,sizeof(adjTable_t));
                                 adjData->carId = carSts.id;
                                 adjData->dist = dist;
                                 adjOk = 1;
+                                LogMsg("Adj%d:update Car%x\r\n",i,carSts.id);
                                 break;
                             }
                         }
@@ -533,7 +537,8 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                          */
                         seqData->isUsed = 1;
                         seqData->carId = carSts.id;
-                        seqData->dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(seqCfgData->cmpRfid));
+                        seqData->dist = S2CSubDist(carSts.dist,S2CGetDistance(seqCfgData->cmpRfid));
+                        LogMsg("Sep%d:first Car%x\r\n",i,carSts.id);
                         break;
                     }
                     else
@@ -544,7 +549,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                              * 同一辆车，更新和分离节点的距离
                              * 跳出查询
                              */
-                            seqData->dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(seqCfgData->cmpRfid));
+                            seqData->dist = S2CSubDist(carSts.dist,S2CGetDistance(seqCfgData->cmpRfid));
                             break;
                         }
                         else
@@ -553,11 +558,12 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                              * 不同车辆，若离调节点更近，则更新节点信息
                              * 跳出查询
                              */
-                            dist = S2CSubDist(S2CGetDistance(carSts.rfid),S2CGetDistance(seqCfgData->cmpRfid));
+                            dist = S2CSubDist(carSts.dist,S2CGetDistance(seqCfgData->cmpRfid));
                             if(dist <= seqData->dist)
                             {
                                 seqData->carId = carSts.id;
                                 seqData->dist = dist;
+                                LogMsg("Sep%d:update Car%x\r\n",i,carSts.id);
                                 break;
                             }
                         }
@@ -595,6 +601,12 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
+
+
+        if(stationStatus != STATION_INIT_DONE)
+            continue;
+
+        LogMsg("car%x request ID\r\n",rid.carId);
         areaType = S2CGetArea(rid.rfid);
         dist = S2CGetDistance(rid.rfid);
         if(areaType == EREA_ADJUST_LEFT || areaType == EREA_ADJUST_RIGHT)
@@ -636,11 +648,12 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                             sendPacket.data[0] = 1;
                             memcpy(&sendPacket.data[1],&adjData->carId,2);
                         }
-                        else if(adjDataOld->carId != rid.carId)
+                        else if(adjDataOld->carId != rid.carId && adjDataOld->isUsed == 1)
                         {
                             sendPacket.data[0] = 1;
                             memcpy(&sendPacket.data[1],&adjDataOld->carId,2);
                         }
+                        else
                         {
                             /*
                              * 该调整点无前车
@@ -726,7 +739,8 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
     while(1)
     {
         Mailbox_pend(parkMbox,&parkReq,BIOS_WAIT_FOREVER);
-
+        if(stationStatus != STATION_INIT_DONE)
+            continue;
         /*
          * 确定所属站台路线
          */
@@ -762,9 +776,9 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             {
                 if(stationTable[i].carId == parkReq.carId)
                 {
-                    if(stationTable[cfgData->parkNums-1].isUsed == 1)
+                    if(stationTable[cfgData->parkNums].isUsed == 1)
                     {
-                        memcpy(&stationTable[i],&stationTable[cfgData->parkNums-1],sizeof(stationTable_t));
+                        memcpy(&stationTable[i],&stationTable[cfgData->parkNums],sizeof(stationTable_t));
                         for(j=cfgData->parkNums+1;j<cfgData->platNums;j++)
                         {
                             memcpy(&stationTable[j-1],&stationTable[j],sizeof(stationTable_t));
@@ -963,7 +977,8 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
     while(1)
     {
         state = Mailbox_pend(doorMbox,&door,100);
-
+        if(stationStatus != STATION_INIT_DONE)
+            continue;
         if(TRUE == state)
         {
             /*
