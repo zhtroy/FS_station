@@ -95,6 +95,7 @@ typedef struct{
 typedef struct{
     uint16_t carId;
     rfid_t rfid;
+    uint32_t dist;
     uint8_t rail;
 }rid_t;
 

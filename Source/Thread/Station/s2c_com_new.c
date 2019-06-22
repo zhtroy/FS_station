@@ -189,7 +189,7 @@ static void S2CMessageInit();
 static uint8_t S2CGetStationStatus();
 static uint8_t S2CGetCarNums();
 static void S2CStationDataInitial();
-
+static void S2CLogTask(UArg arg0, UArg arg1);
 
 
 /*****************************************************************************
@@ -224,7 +224,7 @@ void S2CRecvTask(UArg arg0, UArg arg1)
         case S2C_REQUEST_ID_CMD:
             rid.carId = recvPacket.addr;
 
-            memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+1);
+            memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+5);
             Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
             break;
 
@@ -333,6 +333,12 @@ void S2CTaskInit()
         BIOS_exit(0);
     }
 
+    taskParams.priority = 4;
+    task = Task_create((Task_FuncPtr)S2CLogTask, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
 }
 
 /*****************************************************************************
@@ -516,7 +522,7 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
 uint8_t S2CRoadQueueInsertByPosition(roadInformation_t *road,carQueue_t carQ)
 {
     uint8_t index;
-    if(road->isRing == 1)
+    if(road->isRing == 0)
         index = S2CFindCarByPosition(road->carQueue,carQ.pos);
     else
         index = S2CRingFindCarByPosition(road->carQueue,carQ.pos);
@@ -588,14 +594,14 @@ roadInformation_t *S2CFindAjustRoad(uint8_t isAjust,roadID_t *roadID,uint32_t po
     return roadAdj;
 }
 
-roadID_t S2CFindSeparateRoad(roadID_t *roadID,uint32_t pos)
+roadID_t S2CFindSeparateRoad(roadID_t roadID,uint32_t pos)
 {
     roadID_t rid;
     uint8_t i;
     for(i=0;i<sepNums;i++)
     {
         if(0 == memcmp(&roadID,&separateZone[i].leftRoadID,sizeof(roadID_t)) &&
-                separateZone[i].start < pos && pos < separateZone[i].end)
+                separateZone[i].start <= pos && pos <= separateZone[i].end)
         {
             rid = separateZone[i].rightRoadID;
             break;
@@ -673,7 +679,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     uint8_t carIsInserting;
     uint8_t carIsSecB;
     uint8_t carIsAjust;
-    int8_t index;
+    int8_t index,iAdj;
     uint8_t state;
     carStatus_t carSts;
     carQueue_t carQ;
@@ -768,7 +774,10 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
         if(roadFind == 0)
         {
-            LogMsg("Car %x:road ID is Wrong!\r\n",carSts.id);
+            LogMsg("Car %x:road ID is Wrong-%x%x%x!\r\n",carSts.id,
+                    carSts.rfid.byte[0],
+                    carSts.rfid.byte[1],
+                    carSts.rfid.byte[2]);
             continue;
         }
 
@@ -818,23 +827,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                  * 找到车辆，判断道路信息是否匹配
                  */
                 state = memcmp(&roadFind->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
-                if(0 != state && carIsAjust > 0)
-                {
-                    state = memcmp(&roadAjust->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
-                }
-
-                if(0 != state)
-                {
-                    /*
-                     * 道路信息不匹配，从路线队列中移除车辆；
-                     */
-                    vector_erase(roadInfo[i].carQueue,index);
-                    LogMsg("Info:Car%x del %d of road%x%x%x\r\n",carSts.id,index,
-                            roadInfo[i].roadID.byte[0],
-                            roadInfo[i].roadID.byte[1],
-                            roadInfo[i].roadID.byte[2]);
-                }
-                else
+                if(state == 0)
                 {
                     /*
                      * 道路信息匹配，更新信息
@@ -845,22 +838,55 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                         carQ.pos = carSts.dist;
 
                     roadInfo[i].carQueue[index] = carQ;
-
-#if 0
-                    if(carIsAjust)
-                    {
-                        if(carIsAjust == EREA_ADJUST_LEFT)
-                            carQ.pos = distRfid + roadAjust->sectionB;
-                        else
-                            carQ.pos = distRfid;
-
-                        index = S2CFindCarByID(carSts.id,roadAjust->carQueue);
-                        roadAjust->carQueue[index] = carQ;
-                    }
-#endif
                     carIsInserting = 0;
-                    carIsFound = 1;
+
+
+                    /*
+                     * 判断调整区对应轨道是否存在该车辆
+                     * 没有，则插入该车辆
+                     */
+                    if(carIsAjust > 0)
+                    {
+                        iAdj = S2CFindCarByID(carSts.id,roadAjust->carQueue);
+                        if(iAdj < 0)
+                        {
+                            carQ.pos = carSts.dist + roadAjust->sectionB;
+                            index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
+                            LogMsg("Info:Car%x insert %d of road%x%x%x\r\n",carSts.id,index,
+                                    roadAjust->roadID.byte[0],
+                                    roadAjust->roadID.byte[1],
+                                    roadAjust->roadID.byte[2]);
+                        }
+                    }
+
                 }
+                else if(carIsAjust > 0 && 0 == memcmp(&roadAjust->roadID,&roadInfo[i].roadID,sizeof(roadID_t)))
+                {
+                    /*
+                     * 道路信息匹配，为调整区另一侧车辆
+                     * 更新信息
+                     */
+                    if(carIsSecB)
+                        carQ.pos = carSts.dist + roadInfo[i].sectionB;
+                    else
+                        carQ.pos = carSts.dist;
+
+                    roadInfo[i].carQueue[index] = carQ;
+                    carIsInserting = 0;
+                }
+                else
+                {
+                    /*
+                     * 道路信息不匹配，从路线队列中移除车辆；
+                     */
+                    vector_erase(roadInfo[i].carQueue,index);
+                    LogMsg("Info:Car%x del %d of road%x%x%x\r\n",carSts.id,index,
+                            roadInfo[i].roadID.byte[0],
+                            roadInfo[i].roadID.byte[1],
+                            roadInfo[i].roadID.byte[2]);
+                }
+
+                carIsFound = 1;
             }
         }
 
@@ -906,6 +932,68 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     }
 }
 
+uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
+{
+    uint8_t size;
+    int8_t index;
+    size = vector_size(road->carQueue);
+    if(size == 0 || (size == 1 && carID == road->carQueue[0].id))
+    {
+        /*
+         * 线路上无车辆
+         */
+        return 0;
+        //memset(&sendPacket.data[0],0,3);
+        //LogMsg("Info:car%x -> none\r\n",rid.carId);
+    }
+    else
+    {
+        index = S2CFindCarByID(carID,road->carQueue);
+
+        if(index < 0)
+        {
+            if(road->isRing == 0)
+                index = S2CFindCarByPosition(road->carQueue,dist);
+            else
+                index = S2CRingFindCarByPosition(road->carQueue,dist);
+        }
+
+        if(index == 0)
+        {
+            /*
+             * 车辆在最前方
+             */
+            if(road->isRing == 0)
+            {
+                /*
+                 * 非环形轨道，前方无车
+                 */
+                //memset(&sendPacket.data[0],0,3);
+                //LogMsg("Info:car%x -> none\r\n",rid.carId);
+                return 0;
+            }
+            else
+            {
+                /*
+                 * 环形轨道，取最后一个车
+                 */
+                //sendPacket.data[0] = 1;
+                //memcpy(&sendPacket.data[1],&road->carQueue[size-1].id,2);
+                *frontCar = road->carQueue[size-1].id;
+                return 1;
+            }
+
+        }
+        else
+        {
+            //sendPacket.data[0] = 1;
+            //memcpy(&sendPacket.data[1],&roadFind->carQueue[cindex-1].id,2);
+            //LogMsg("Info:car%x -> %x\r\n",rid.carId,roadFind->carQueue[cindex-1].id);
+            *frontCar = road->carQueue[index-1].id;
+            return 1;
+        }
+    }
+}
 
 /*****************************************************************************
  * 函数名称: S2CRequestIDTask(UArg arg0, UArg arg1)
@@ -919,15 +1007,16 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
 {
     rid_t rid;
     uint8_t areaType;
-    uint32_t dist;
+    uint32_t distRfid,dist;
     uint8_t i;
 
     uint8_t carIsSecB;
     ZCPUserPacket_t sendPacket;
     roadInformation_t *roadFind;
+    roadInformation_t *roadAdjust;
     roadID_t roadID;
-    uint32_t size;
-    int8_t index;
+    uint16_t frontCar;
+    uint8_t state;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
@@ -940,13 +1029,13 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
          * 确定车辆所属路线
          */
         areaType = S2CGetArea(rid.rfid);
-        dist = S2CGetDistance(rid.rfid);
+        distRfid = S2CGetDistance(rid.rfid);
         carIsSecB = S2CGetBSection(rid.rfid);
 
         memcpy(&roadID,&rid.rfid.byte[1],sizeof(roadID_t));
         if(areaType == EREA_SEPERATE && rid.rail == RIGHT_RAIL)
         {
-            roadID = S2CFindSeparateRoad(&roadID,dist);
+            roadID = S2CFindSeparateRoad(roadID,distRfid);
         }
 
         roadFind = 0;
@@ -959,69 +1048,55 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         }
         if(roadFind == 0)
         {
-            LogMsg("Warn:car%x out of station zone\r\n",rid.carId);
+            LogMsg("Warn:car%x EPC out of range\r\n",rid.carId);
             continue;
         }
 
-        if(carIsSecB)
+        /*
+         * 车辆处于右调整区，且当前轨道无前车，需要获取左侧轨道的前车
+         */
+        if(areaType == EREA_ADJUST_RIGHT)
         {
-            dist += roadFind->sectionB;
+            roadAdjust = S2CFindAjustRoad(EREA_ADJUST_RIGHT,&roadFind->roadID,distRfid);
+            if(roadAdjust == 0)
+            {
+                LogMsg("Warn:car%x out of Adjust zone\r\n",rid.carId);
+                continue;
+            }
         }
 
-        /*
-         * 车辆处于分离区,取路线的最后一辆非本车辆
-         */
-        size = vector_size(roadFind->carQueue);
-        if(size == 0 || (size == 1 && rid.carId != roadFind->carQueue[0].id))
+
+        if(carIsSecB)
+        {
+            dist = rid.dist + roadFind->sectionB;
+        }
+        else
+        {
+            dist = rid.dist;
+        }
+
+        state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
+        if(state == 0 && areaType == EREA_ADJUST_RIGHT)
         {
             /*
-             * 线路上无车辆
+             * 车辆在右调整区，若调整区内无车，需申请主道车辆
+             */
+            state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar);
+        }
+
+        if(state == 0)
+        {
+            /*
+             * 无前车
              */
             memset(&sendPacket.data[0],0,3);
             LogMsg("Info:car%x -> none\r\n",rid.carId);
         }
         else
         {
-            index = S2CFindCarByID(rid.carId,roadFind->carQueue);
-
-            if(index < 0)
-            {
-                if(roadFind->isRing == 0)
-                    index = S2CFindCarByPosition(roadFind->carQueue,dist);
-                else
-                    index = S2CRingFindCarByPosition(roadFind->carQueue,dist);
-            }
-
-            if(index == 0)
-            {
-                /*
-                 * 车辆在最前方
-                 */
-                if(roadFind->isRing == 0)
-                {
-                    /*
-                     * 非环形轨道，前方无车
-                     */
-                    memset(&sendPacket.data[0],0,3);
-                    LogMsg("Info:car%x -> none\r\n",rid.carId);
-                }
-                else
-                {
-                    /*
-                     * 环形轨道，取最后一个车
-                     */
-                    sendPacket.data[0] = 1;
-                    memcpy(&sendPacket.data[1],&roadFind->carQueue[size-1].id,2);
-                    LogMsg("Info:car%x -> %x\r\n",rid.carId,roadFind->carQueue[size-1].id);
-                }
-
-            }
-            else if(index > 0)
-            {
-                sendPacket.data[0] = 1;
-                memcpy(&sendPacket.data[1],&roadFind->carQueue[index-1].id,2);
-                LogMsg("Info:car%x -> %x\r\n",rid.carId,roadFind->carQueue[index-1].id);
-            }
+            sendPacket.data[0] = 1;
+            memcpy(&sendPacket.data[1],&frontCar,2);
+            LogMsg("Info:car%x -> %x\r\n",rid.carId,frontCar);
         }
 
         sendPacket.addr = rid.carId;
@@ -1074,7 +1149,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
 
         if(stationFind == 0)
         {
-            LogMsg("Car%x is out of station",parkReq.carId);
+            LogMsg("Car%x request park out of station\r\n",parkReq.carId);
             continue;
         }
 
@@ -1196,7 +1271,7 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
 
             if(stationFind == 0)
             {
-                LogMsg("Car%x is out of station",door.carId);
+                LogMsg("Car%x request door out of station\r\n",door.carId);
                 continue;
             }
 
@@ -1256,6 +1331,46 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
     }
 }
 
+static void S2CLogTask(UArg arg0, UArg arg1)
+{
+    uint8_t i,j;
+    uint8_t size;
+    while(1)
+    {
+        Task_sleep(4000);
+
+        if(stationStatus != STATION_INIT_DONE)
+            continue;
+
+        LogMsg("\r\n-----Station Queue Status------\r\n");
+        /*
+         * 显示站台队列
+         */
+        for(i=0;i<termNums;i++)
+        {
+            LogMsg("T%d:",i);
+            size = vector_size(stationInfo[i].carQueue);
+            for(j=0;j<size;j++)
+                LogMsg(" %x",stationInfo[i].carQueue[j].id);
+            LogMsg("\r\n");
+        }
+
+        /*
+         * 显示道路队列
+         */
+        for(i=0;i<roadNums;i++)
+        {
+            LogMsg("R%x%x%x:",roadInfo[i].roadID.byte[0],
+                    roadInfo[i].roadID.byte[1],
+                    roadInfo[i].roadID.byte[2]);
+            size = vector_size(roadInfo[i].carQueue);
+            for(j=0;j<size;j++)
+                LogMsg(" %x",roadInfo[i].carQueue[j].id);
+            LogMsg("\r\n");
+        }
+    }
+}
+
 uint32_t S2CSubDist(uint32_t a,uint32_t b)
 {
     uint32_t tmp;
@@ -1302,3 +1417,4 @@ static uint8_t S2CGetArea(rfid_t rfid)
 
     return Area;
 }
+
