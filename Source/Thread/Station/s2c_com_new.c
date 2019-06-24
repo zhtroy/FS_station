@@ -393,7 +393,8 @@ int8_t S2CFindCarByID(uint16_t carID,carQueue_t *carQueue)
 {
     int8_t index = -1;
     uint8_t i;
-    for(i=0;i<vector_size(carQueue);i++)
+    uint8_t size = vector_size(carQueue);
+    for(i=0;i<size;i++)
     {
         if(carID == carQueue[i].id)
         {
@@ -627,7 +628,9 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
         index = S2CFindCarByID(carSts->id,stationInfo[i].carQueue);
         if(index >= 0)
         {
-            if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid,sizeof(roadID_t)+2))
+            index = S2CFindCarByID(carSts->id,stationInfo[i].carQueue);
+            //if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid.byte[1],sizeof(roadID_t)+2))
+            if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid.byte[1],sizeof(roadID_t)))
             {
                 /*
                  * 道路信息匹配
@@ -644,7 +647,7 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
             else
             {
                 /*
-                 * 距离超出最后一个停靠点
+                 * 道路信息不匹配
                  */
                 carIsLeaving = 1;
             }
@@ -653,7 +656,7 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
             {
                 pid = stationInfo[i].carQueue[index].pid;
                 vector_erase(stationInfo[i].carQueue,index);
-                LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,pid);
+                LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,i,pid);
             }
             break;
         }
@@ -1125,7 +1128,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
     uint8_t size;
     carQueue_t carQ;
     uint8_t state;
-
+    uint8_t tN;
     while(1)
     {
         Mailbox_pend(parkMbox,&parkReq,BIOS_WAIT_FOREVER);
@@ -1143,21 +1146,27 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             if(state == 0)
             {
                 stationFind = &stationInfo[i];
+                tN = i;
                 break;
             }
         }
 
         if(stationFind == 0)
         {
-            LogMsg("Car%x request park out of station\r\n",parkReq.carId);
+            LogMsg("Warn:Car%x request park out of range:%x%x%x\r\n",parkReq.carId,
+                    parkReq.roadID.byte[0],
+                    parkReq.roadID.byte[1],
+                    parkReq.roadID.byte[2]);
             continue;
         }
 
         /*
          * 查找车辆
          */
+
         index = S2CFindCarByID(parkReq.carId,stationFind->carQueue);
 
+#if 0
         if(parkReq.type == S2C_LEAVE_STATION)
         {
             if(index < 0)
@@ -1184,8 +1193,10 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
                 LogMsg("Send Failed!\r\n");
             }
         }/*S2C_LEAVE_STATION*/
-        else if(parkReq.type == S2C_INTO_STATION)
+#endif
+        if(parkReq.type == S2C_INTO_STATION)
         {
+            LogMsg("Park:car%x request park\r\n",parkReq.carId);
             if(index < 0)
             {
                 /*
@@ -1196,7 +1207,12 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
                 carQ.rpm = 0;
                 carQ.pos = 0;
                 size = vector_size(stationFind->carQueue);
-                carQ.pid = stationFind->carQueue[size-1].pid + 1;
+
+                if(size > 0)
+                    carQ.pid = stationFind->carQueue[size-1].pid + 1;
+                else
+                    carQ.pid = 0;
+
                 if(carQ.pid >= stationFind->parkNums)
                 {
                     carQ.pid = 0;
@@ -1207,13 +1223,17 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             {
                 carQ.pid = stationFind->carQueue[index].pid;
             }
-            memcpy(&sendPacket.data[1],&stationFind->roadID,sizeof(roadID_t)+2);
+            memset(sendPacket.data,0,13);
+            sendPacket.data[0] = 1;
+            memcpy(&sendPacket.data[2],&stationFind->roadID,sizeof(roadID_t)+2);
             sendPacket.data[9] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
             sendPacket.data[10] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
             sendPacket.data[11] = (stationFind->park[carQ.pid].trigger) & 0xff;
             sendPacket.addr = parkReq.carId;
             sendPacket.type = S2C_INTO_STATION_ACK;
             sendPacket.len = 13;
+
+            LogMsg("Park:car%x -> T%d.P%d-%x\r\n",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
             if(FALSE == ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT))
             {
                 LogMsg("Send Failed!\r\n");
