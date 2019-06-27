@@ -490,9 +490,17 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
     uint8_t i,j;
     uint8_t size;
     size = vector_size(carQueue);
-    if(size < 2)
+    if(size == 0)
     {
         return (0);
+    }
+
+    if(size == 1)
+    {
+        if(carQueue[0].pos > pos)
+            return (1);
+        else
+            return (0);
     }
 
     for(i=0;i<size;i++)
@@ -502,9 +510,12 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
         else
             j = i-1;
 
-        if(carQueue[j].pos > carQueue[i].pos)
+        /*
+         * 环形排在前面的车，比后面的车位置靠后（翻转）
+         */
+        if(carQueue[j].pos < carQueue[i].pos)
         {
-            if(pos > carQueue[i].pos && pos < carQueue[j].pos)
+            if(pos > carQueue[i].pos || pos < carQueue[j].pos)
             {
                 return i;
             }
@@ -517,7 +528,7 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
             }
         }
     }
-    return (0);
+    return (i);
 }
 
 uint8_t S2CRoadQueueInsertByPosition(roadInformation_t *road,carQueue_t carQ)
