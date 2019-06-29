@@ -20,6 +20,8 @@
 #define CAR_MODE_PARK (1)
 #define CAR_MODE_ERROR (2)
 
+#define CAR_MODE_REMOVE (0xff)
+
 /*
  * 1.站台路线
  * 2.调整点数量
@@ -161,6 +163,7 @@ typedef struct{
 void S2CTaskInit();
 void S2CSetStationStatus(uint8_t state);
 void S2CSetCarNums(uint8_t nums);
+void S2CRemoveCar(uint16_t carID);
 #endif /* S2C_COM_H_ */
 
 

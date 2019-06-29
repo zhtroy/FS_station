@@ -14,6 +14,7 @@ extern const CLI_Command_Definition_t xMemeoryRead;
 extern const CLI_Command_Definition_t xResetCPU;
 extern const CLI_Command_Definition_t xSetCarNums;
 extern const CLI_Command_Definition_t xSetState;
+extern const CLI_Command_Definition_t xDelCar;
 /*-----------------------------------------------------------*/
 
 void vRegisterSampleCLICommands( void )
@@ -24,6 +25,7 @@ void vRegisterSampleCLICommands( void )
     FreeRTOS_CLIRegisterCommand( &xMemeoryRead );
     FreeRTOS_CLIRegisterCommand( &xSetCarNums );
     FreeRTOS_CLIRegisterCommand( &xSetState );
+    FreeRTOS_CLIRegisterCommand( &xDelCar );
 }
 /*-----------------------------------------------------------*/
 

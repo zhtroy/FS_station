@@ -6,7 +6,7 @@
  */
 #include "Test_.h"
 #include "Test_config.h"
-#include "Station/s2c_com.h"
+#include "Station/s2c_com_new.h"
 
 
 void TestEntry()
