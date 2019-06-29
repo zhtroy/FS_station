@@ -1113,8 +1113,24 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             LogMsg("Info:car%x -> %x\r\n",rid.carId,frontCar);
         }
 
+        if(areaType == EREA_ADJUST_RIGHT)
+        {
+            /*
+             * 右调整区返回对应左侧轨道(相邻轨道)
+             */
+            memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
+        }
+        else
+        {
+            /*
+             * 其它区域返回请求车辆轨道
+             */
+            memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+        }
+
         sendPacket.addr = rid.carId;
-        sendPacket.len = 3;
+        //sendPacket.len = 3;
+        sendPacket.len = 8;
         sendPacket.type = S2C_REQUEST_ID_ACK;
         ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
     }
