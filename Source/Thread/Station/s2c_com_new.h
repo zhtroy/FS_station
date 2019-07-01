@@ -69,6 +69,7 @@
 #define ALLOT_PARK              (0x01)
 #define ALLOT_PLAT              (0x02)
 
+#define LEFT_RAIL               (0x01)
 #define RIGHT_RAIL              (0x02)
 
 #pragma pack(1)
@@ -156,6 +157,7 @@ typedef struct{
     uint8_t parkNums;
     park_t *park;
     carQueue_t * carQueue;
+    carQueue_t * carStation;
 }stationInformation_t;
 
 

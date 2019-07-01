@@ -53,7 +53,7 @@ static const roadInformation_t constRoadInfo[S2C_ROAD_NUMS] = {
         },
         {
                 //1:环形轨道,0:普通轨道
-                0x00,
+                0x01,
                 //道路编号
                 0x01,0x02,0x00,0x00,0x00,
                 //B段偏移
@@ -191,6 +191,7 @@ static uint8_t S2CGetCarNums();
 static void S2CStationDataInitial();
 static void S2CLogTask(UArg arg0, UArg arg1);
 static void S2CRemoveCarProcess(uint16_t carID);
+static void S2CUpdateStation(carStatus_t *carSts);
 
 /*****************************************************************************
  * 函数名称: void S2CRecvTask(UArg arg0, UArg arg1)
@@ -385,6 +386,7 @@ static void S2CStationDataInitial()
         vector_grow(stationInfo[i].park,stationInfo[i].parkNums);
         memcpy(stationInfo[i].park,&constParkInfo[i],stationInfo[i].parkNums*sizeof(park_t));
         vector_grow(stationInfo[i].carQueue,0);
+        vector_grow(stationInfo[i].carStation,stationInfo[i].parkNums);
     }
 }
 
@@ -522,7 +524,7 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
         }
         else
         {
-            if(pos > carQueue[i].pos)
+            if(pos > carQueue[i].pos && pos < carQueue[j].pos)
             {
                 return i;
             }
@@ -624,7 +626,7 @@ roadID_t S2CFindSeparateRoad(roadID_t roadID,uint32_t pos)
 
 void S2CLevaveStationProcess(carStatus_t *carSts)
 {
-    uint8_t i;
+    uint8_t i,j;
     int8_t index;
     uint8_t pid;
     uint8_t carIsLeaving = 0;
@@ -666,7 +668,23 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
             if(carIsLeaving)
             {
                 pid = stationInfo[i].carQueue[index].pid;
+                for(j=0;j<stationInfo[i].parkNums;j++)
+                {
+                    /*
+                     * 删除停靠点车辆
+                     */
+                    if(stationInfo[i].carQueue[index].id == stationInfo[i].carStation[j].id)
+                    {
+                        memset(&stationInfo[i].carStation[j],0,sizeof(carQueue_t));
+                        break;
+                    }
+                }
+
+                /*
+                 * 删除分配队列车辆
+                 */
                 vector_erase(stationInfo[i].carQueue,index);
+
                 LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,i,pid);
             }
             break;
@@ -691,6 +709,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     uint32_t distRfid;
     uint8_t carIsFound;
     uint8_t carIsInserting;
+    uint8_t carAdjustInserting;
     uint8_t carIsSecB;
     uint8_t carIsAjust;
     int8_t index,iAdj;
@@ -702,26 +721,6 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     roadInformation_t *roadAjust;
     while(1)
     {
-#if 0
-        /*
-         * 暂时关闭站台初始化过程
-         */
-        if(STATION_NOT_READY == stationStatus)
-        {
-            /*
-             * 站台未被初始化设置，每2s提醒设置站台
-             */
-            LogMsg("Station is not Setting\r\n");
-            carChecks = 0;
-            Task_sleep(2000);
-            continue;
-        }
-#endif
-
-        if(stationCarNums == 0 || carChecks >= stationCarNums)
-        {
-            S2CSetStationStatus(STATION_INIT_DONE);
-        }
 
         Mailbox_pend(carStatusMbox,&carSts,BIOS_WAIT_FOREVER);
 
@@ -729,58 +728,21 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carQ.mode = carSts.mode;
         carQ.rpm = carSts.rpm;
 
+        /*
+         * 车辆处于待删除模式
+         */
         if(carSts.mode == CAR_MODE_REMOVE)
         {
             S2CRemoveCarProcess(carSts.id);
             continue;
         }
 
-        if(STATION_IS_READY == stationStatus)
+        /*
+         * 更新站点车辆
+         */
+        if(carSts.mode == CAR_MODE_PARK)
         {
-            /*
-             * 初始化站台车辆
-             */
-            isChecked = 0;
-            for(i=0;i<termNums;i++)
-            {
-                /*
-                 * 1.匹配路线
-                 * 2.匹配站点
-                 * 3.判断是否有重复
-                 */
-                state = memcmp(&carSts.rfid.byte[1],&stationInfo[i].roadID,sizeof(roadID_t));
-
-                if(state == 0)
-                {
-                    for(j=0;j<stationInfo[i].parkNums;j++)
-                    {
-                        distRfid = S2CGetDistance(carSts.rfid);
-                        if(distRfid == stationInfo[i].park[j].point)
-                        {
-                            /*
-                             * 查找是否有重复
-                             */
-                            index = S2CFindCarByID(carSts.id,stationInfo[i].carQueue);
-
-                            if(index < 0)
-                            {
-                                /*
-                                 * 未找到车辆，则插入
-                                 */
-                                carQ.pos = distRfid;
-                                carQ.pid = j;
-                                S2CStationQueueInsertByPosition(&stationInfo[i],carQ);
-                            }
-
-                            isChecked = 1;
-                            break;
-                        }
-                    }
-                }
-
-                if(isChecked == 1)
-                    break;
-            }
+            S2CUpdateStation(&carSts);
         }
 
         /*
@@ -843,6 +805,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
          */
         carIsFound = 0;
         carIsInserting = 1;
+        carAdjustInserting = 1;
         for(i=0;i<roadNums;i++)
         {
             index = S2CFindCarByID(carSts.id,roadInfo[i].carQueue);
@@ -877,6 +840,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                         {
                             carQ.pos = carSts.dist + roadAjust->sectionB;
                             index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
+                            carAdjustInserting = 0;
                             LogMsg("Info:Car%x insert %d of road%x%x%x\r\n",carSts.id,index,
                                     roadAjust->roadID.byte[0],
                                     roadAjust->roadID.byte[1],
@@ -897,7 +861,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                         carQ.pos = carSts.dist;
 
                     roadInfo[i].carQueue[index] = carQ;
-                    carIsInserting = 0;
+                    carAdjustInserting = 0;
                 }
                 else
                 {
@@ -931,20 +895,20 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                     roadFind->roadID.byte[0],
                     roadFind->roadID.byte[1],
                     roadFind->roadID.byte[2]);
+        }
 
-            if(carIsAjust)
-            {
-                if(carIsAjust == EREA_ADJUST_LEFT)
-                    carQ.pos = carSts.dist + roadAjust->sectionB;
-                else
-                    carQ.pos = carSts.dist;
+        if(carIsAjust > 0 && carAdjustInserting == 1)
+        {
+            if(carIsAjust == EREA_ADJUST_LEFT)
+                carQ.pos = carSts.dist + roadAjust->sectionB;
+            else
+                carQ.pos = carSts.dist;
 
-                index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
-                LogMsg("Info:Car%x insert %d of road%x%x%x\r\n",carSts.id,index,
-                        roadAjust->roadID.byte[0],
-                        roadAjust->roadID.byte[1],
-                        roadAjust->roadID.byte[2]);
-            }
+            index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
+            LogMsg("Info:Car%x insert %d of road%x%x%x\r\n",carSts.id,index,
+                    roadAjust->roadID.byte[0],
+                    roadAjust->roadID.byte[1],
+                    roadAjust->roadID.byte[2]);
         }
 
         /*
@@ -959,7 +923,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
 uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
 {
-    uint8_t size;
+    volatile uint8_t size;
     int8_t index;
     size = vector_size(road->carQueue);
     if(size == 0 || (size == 1 && carID == road->carQueue[0].id))
@@ -1045,9 +1009,6 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
-
-        if(stationStatus != STATION_INIT_DONE)
-            continue;
 
         LogMsg("Info:Car%x Request ID\r\n",rid.carId);
         /*
@@ -1172,11 +1133,15 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
         Mailbox_pend(parkMbox,&parkReq,BIOS_WAIT_FOREVER);
 
         /*
-         * 确定所属站台路线
+         * 判断报文类型
          */
-        if(stationStatus != STATION_INIT_DONE)
+        if(parkReq.type != S2C_INTO_STATION)
             continue;
 
+        LogMsg("Park:car%x request park\r\n",parkReq.carId);
+        /*
+         * 确定所属站台路线
+         */
         stationFind = 0;
         for(i=0;i<termNums;i++)
         {
@@ -1198,58 +1163,39 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             continue;
         }
 
+        carQ.id = parkReq.carId;
+        carQ.mode = 0;
+        carQ.rpm = 0;
+        carQ.pos = 0;
         /*
          * 查找车辆
          */
-
-        index = S2CFindCarByID(parkReq.carId,stationFind->carQueue);
-
-#if 0
-        if(parkReq.type == S2C_LEAVE_STATION)
+        size = vector_size(stationFind->carQueue);
+        if(size == 0)
         {
-            if(index < 0)
+            for(i=stationFind->parkNums;i>0;i--)
             {
-                /*
-                 * 未找到待离站车辆，认为车站已经离站
-                 * 发送离站响应
-                 */
-            }
-            else
-            {
-                /*
-                 * 找到车辆，则从队列中删除该车辆
-                 */
-                vector_erase(stationFind->carQueue,index);
-            }
 
-            sendPacket.addr = parkReq.carId;
-            sendPacket.type = S2C_LEAVE_STATION_ACK;
-            sendPacket.len = 0;
-
-            if(FALSE == ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT))
-            {
-                LogMsg("Send Failed!\r\n");
+                if(stationFind->carStation[i-1].id != 0)
+                     break;
             }
-        }/*S2C_LEAVE_STATION*/
-#endif
-        if(parkReq.type == S2C_INTO_STATION)
+            carQ.pid = i;
+            carQ.id = parkReq.carId;
+
+            vector_push_back(stationFind->carQueue,carQ);
+        }
+        else
         {
-            LogMsg("Park:car%x request park\r\n",parkReq.carId);
+
+            index = S2CFindCarByID(parkReq.carId,stationFind->carQueue);
+
             if(index < 0)
             {
                 /*
                  * 未在站台队列中找到车辆，分配站台并推入队尾
                  */
-                carQ.id = parkReq.carId;
-                carQ.mode = 0;
-                carQ.rpm = 0;
-                carQ.pos = 0;
-                size = vector_size(stationFind->carQueue);
+                carQ.pid = stationFind->carQueue[size-1].pid + 1;
 
-                if(size > 0)
-                    carQ.pid = stationFind->carQueue[size-1].pid + 1;
-                else
-                    carQ.pid = 0;
 
                 if(carQ.pid >= stationFind->parkNums)
                 {
@@ -1261,23 +1207,24 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             {
                 carQ.pid = stationFind->carQueue[index].pid;
             }
-            memset(sendPacket.data,0,13);
-            sendPacket.data[0] = 1;
-            memcpy(&sendPacket.data[2],&stationFind->roadID,sizeof(roadID_t)+2);
-            sendPacket.data[9] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
-            sendPacket.data[10] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
-            sendPacket.data[11] = (stationFind->park[carQ.pid].trigger) & 0xff;
-            sendPacket.addr = parkReq.carId;
-            sendPacket.type = S2C_INTO_STATION_ACK;
-            sendPacket.len = 13;
-
-            LogMsg("Park:car%x -> T%d.P%d-%x\r\n",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
-            if(FALSE == ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT))
-            {
-                LogMsg("Send Failed!\r\n");
-            }
         }
 
+
+
+        memset(sendPacket.data,0,13);
+        sendPacket.data[0] = 1;
+        memcpy(&sendPacket.data[2],&stationFind->roadID,sizeof(roadID_t)+2);
+        sendPacket.data[9] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
+        sendPacket.data[10] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
+        sendPacket.data[11] = (stationFind->park[carQ.pid].trigger) & 0xff;
+        sendPacket.addr = parkReq.carId;
+        sendPacket.type = S2C_INTO_STATION_ACK;
+        sendPacket.len = 13;
+        LogMsg("Park:car%x -> T%d.P%d-%x\r\n",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
+        if(FALSE == ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT))
+        {
+            LogMsg("Send Failed!\r\n");
+        }
     }
 }
 
@@ -1304,16 +1251,11 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
     {
         state = Mailbox_pend(doorMbox,&door,100);
 
-        if(stationStatus != STATION_INIT_DONE)
-            continue;
-
         if(TRUE == state)
         {
             /*
              * 确定所属站台路线
              */
-            if(stationStatus != STATION_INIT_DONE)
-                continue;
 
             stationFind = 0;
             for(i=0;i<termNums;i++)
@@ -1397,9 +1339,6 @@ static void S2CLogTask(UArg arg0, UArg arg1)
     {
         Task_sleep(4000);
 
-        if(stationStatus != STATION_INIT_DONE)
-            continue;
-
         LogMsg("\r\n-----Station Queue Status------\r\n");
         /*
          * 显示站台队列
@@ -1407,9 +1346,14 @@ static void S2CLogTask(UArg arg0, UArg arg1)
         for(i=0;i<termNums;i++)
         {
             LogMsg("T%d:",i);
+            for(j=0;j<stationInfo[i].parkNums;j++)
+            {
+                LogMsg(" %x",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
+            }
+            LogMsg("\r\n    ");
             size = vector_size(stationInfo[i].carQueue);
             for(j=0;j<size;j++)
-                LogMsg("->%x",stationInfo[i].carQueue[size-1-j].id);
+                LogMsg("%x",stationInfo[i].carQueue[size-1-j].id);
             LogMsg("\r\n");
         }
 
@@ -1423,7 +1367,7 @@ static void S2CLogTask(UArg arg0, UArg arg1)
                     roadInfo[i].roadID.byte[2]);
             size = vector_size(roadInfo[i].carQueue);
             for(j=0;j<size;j++)
-                LogMsg("->%x",stationInfo[i].carQueue[size-1-j].id);
+                LogMsg("->%x",roadInfo[i].carQueue[size-1-j].id);
             LogMsg("\r\n");
         }
     }
@@ -1503,6 +1447,52 @@ static void S2CRemoveCarProcess(uint16_t carID)
                     roadInfo[i].roadID.byte[1],
                     roadInfo[i].roadID.byte[2]);
 
+        }
+    }
+}
+
+static void S2CUpdateStation(carStatus_t *carSts)
+{
+    carQueue_t carQ;
+    uint8_t i,j;
+    uint32_t distRfid;
+    uint8_t state;
+    for(i=0;i<termNums;i++)
+    {
+        /*
+         * 1.匹配路线
+         * 2.匹配站点,更新车辆
+         * 3.删除重复占用车辆
+         */
+        state = memcmp(&carSts->rfid.byte[1],&stationInfo[i].roadID,sizeof(roadID_t));
+
+        if(state == 0)
+        {
+            for(j=0;j<stationInfo[i].parkNums;j++)
+            {
+                distRfid = S2CGetDistance(carSts->rfid);
+
+                if(distRfid == stationInfo[i].park[j].point)
+                {
+                    carQ.id = carSts->id;
+                    carQ.mode = carSts->mode;
+                    carQ.pos = distRfid;
+                    carQ.rpm = 0;
+                    carQ.pid = j;
+
+                    stationInfo[i].carStation[j] = carQ;
+                }
+                else
+                {
+                    /*
+                     * 车辆ID匹配，停靠点位置不匹配
+                     * 清除车辆
+                     */
+                    if(carSts->id == stationInfo[i].carStation[j].id)
+                        memset(&stationInfo[i].carStation[j],0,sizeof(carQueue_t));
+                }
+            }
+            break;
         }
     }
 }
