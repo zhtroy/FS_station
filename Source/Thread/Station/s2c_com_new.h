@@ -46,6 +46,7 @@
 
 
 #define S2C_RAIL_LENGTH         (2770)
+#define S2C_MAX_FRONT_CAR_DISTANCE (2000)
 
 #define S2C_MBOX_DEPTH          (16)
 

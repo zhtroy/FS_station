@@ -223,9 +223,18 @@ void S2CRecvTask(UArg arg0, UArg arg1)
             break;
 
         case S2C_REQUEST_ID_CMD:
-            rid.carId = recvPacket.addr;
 
+
+            rid.carId = recvPacket.addr;
             memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+5);
+
+            /*请求ID先POST到状态处理任务，进行排队*/
+            carSts.id = recvPacket.addr;
+            carSts.rfid = rid.rfid;
+            carSts.dist = rid.dist;
+            carSts.rpm = 0;
+            carSts.mode = CAR_MODE_RUN;
+            Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
             break;
 
@@ -925,15 +934,16 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
 {
     volatile uint8_t size;
     int8_t index;
+    uint8_t found;
+    uint32_t frontCarDist;
+    uint32_t distDiff;
     size = vector_size(road->carQueue);
     if(size == 0 || (size == 1 && carID == road->carQueue[0].id))
     {
         /*
          * 线路上无车辆
          */
-        return 0;
-        //memset(&sendPacket.data[0],0,3);
-        //LogMsg("Info:car%x -> none\r\n",rid.carId);
+        found = 0;
     }
     else
     {
@@ -957,28 +967,49 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
                 /*
                  * 非环形轨道，前方无车
                  */
-                //memset(&sendPacket.data[0],0,3);
-                //LogMsg("Info:car%x -> none\r\n",rid.carId);
-                return 0;
+                found = 0;
             }
             else
             {
                 /*
                  * 环形轨道，取最后一个车
                  */
-                //sendPacket.data[0] = 1;
-                //memcpy(&sendPacket.data[1],&road->carQueue[size-1].id,2);
                 *frontCar = road->carQueue[size-1].id;
-                return 1;
+                frontCarDist = road->carQueue[size-1].pos;
+                found = 1;
+
             }
 
         }
         else
         {
-            //sendPacket.data[0] = 1;
-            //memcpy(&sendPacket.data[1],&roadFind->carQueue[cindex-1].id,2);
-            //LogMsg("Info:car%x -> %x\r\n",rid.carId,roadFind->carQueue[cindex-1].id);
             *frontCar = road->carQueue[index-1].id;
+            frontCarDist = road->carQueue[index-1].pos;
+            found = 1;
+        }
+    }
+
+    if(found == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        if(dist > frontCarDist)
+        {
+            distDiff = S2C_RAIL_LENGTH + frontCarDist - dist;
+        }
+        else
+        {
+            distDiff = frontCarDist - dist;
+        }
+
+        if(distDiff > (S2C_MAX_FRONT_CAR_DISTANCE))
+        {
+            return 0;
+        }
+        else
+        {
             return 1;
         }
     }
