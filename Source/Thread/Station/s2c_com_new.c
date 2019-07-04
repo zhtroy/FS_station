@@ -213,6 +213,10 @@ void S2CRecvTask(UArg arg0, UArg arg1)
     while(1)
     {
         ZCPRecvPacket(&s2cInst, &recvPacket, &timestamp, BIOS_WAIT_FOREVER);
+
+        if((recvPacket.addr & 0x6000) != 0x6000)
+            continue;
+
         switch(recvPacket.type)
         {
         case S2C_INTO_STATION_CMD:
