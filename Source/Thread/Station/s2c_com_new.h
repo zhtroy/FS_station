@@ -16,8 +16,8 @@
 #define T1_PARKS    (1)
 #define T2_PARKS    (2)
 
-#define CAR_MODE_RUN (0)
-#define CAR_MODE_PARK (1)
+#define CAR_MODE_RUN (1)
+#define CAR_MODE_PARK (0)
 #define CAR_MODE_ERROR (2)
 
 #define CAR_MODE_REMOVE (0xff)
