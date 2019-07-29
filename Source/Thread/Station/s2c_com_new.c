@@ -523,7 +523,7 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
 
     if(size == 1)
     {
-        if(carQueue[0].pos > pos)
+        if(carQueue[0].pos >= pos)
             return (1);
         else
             return (0);
