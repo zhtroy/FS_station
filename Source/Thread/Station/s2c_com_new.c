@@ -48,7 +48,7 @@ static const roadInformation_t constRoadInfo[S2C_ROAD_NUMS] = {
                 //道路编号
                 0x01,0x01,0x00,0x00,0x00,
                 //B段偏移
-                -17,
+                0,
                 0x00000000,
         },
         {
@@ -81,7 +81,7 @@ static const ajustZone_t constAjustZone[S2C_SEP_NUMS] = {
         {
                 0x01,0x00,0x00,0x00,0x00,
                 0x01,0x01,0x00,0x00,0x00,
-                0x000007D0,
+                0x00000708,
                 0x000008C0,
         },
         {
@@ -135,22 +135,22 @@ static const stationInformation_t constStationInfo[S2C_TERM_NUMS] = {
 static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         {
                 {
-                        0x00000586,
-                        0x00000586,
+                        0x0000059A,
+                        0x0000059A,
                 },
                 {
-                        0x0000055D,
-                        0x0000055D,
+                        0x00000572,
+                        0x00000572,
                 },
                 {
-                        0x00000534,
-                        0x00000534,
+                        0x0000054A,
+                        0x0000054A,
                 },
         },
         {
                 {
-                        0x00000546,
-                        0x00000546,
+                        0x0000055A,
+                        0x0000055A,
                 },
                 {
                         0x00000000,
@@ -541,14 +541,14 @@ uint8_t S2CRingFindCarByPosition(carQueue_t *carQueue,uint32_t pos)
          */
         if(carQueue[j].pos < carQueue[i].pos)
         {
-            if(pos > carQueue[i].pos || pos < carQueue[j].pos)
+            if(pos > carQueue[i].pos || pos <= carQueue[j].pos)
             {
                 return i;
             }
         }
         else
         {
-            if(pos > carQueue[i].pos && pos < carQueue[j].pos)
+            if(pos > carQueue[i].pos && pos <= carQueue[j].pos)
             {
                 return i;
             }
