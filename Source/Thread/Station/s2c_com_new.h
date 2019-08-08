@@ -70,8 +70,8 @@
 #define ALLOT_PARK              (0x01)
 #define ALLOT_PLAT              (0x02)
 
-#define LEFT_RAIL               (0x01)
-#define RIGHT_RAIL              (0x02)
+#define LEFT_RAIL               (0x02)
+#define RIGHT_RAIL              (0x01)
 
 #pragma pack(1)
 typedef struct
