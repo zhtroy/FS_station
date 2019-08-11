@@ -123,6 +123,7 @@ typedef struct{
     uint8_t mode;
     uint32_t pos;
     uint8_t pid;
+    uint8_t isLocal;
 }carQueue_t;
 
 typedef struct{

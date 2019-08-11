@@ -849,6 +849,8 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                     else
                         carQ.pos = carSts.dist;
 
+                    carQ.isLocal = 1;
+
                     roadInfo[i].carQueue[index] = carQ;
                     carIsInserting = 0;
 
@@ -863,6 +865,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                         if(iAdj < 0)
                         {
                             carQ.pos = carSts.dist + roadAjust->sectionB;
+                            carQ.isLocal = 0;
                             index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
                             carAdjustInserting = 0;
                             LogMsg("\r\nStatus:Adjust Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
@@ -889,6 +892,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                     else
                         carQ.pos = carSts.dist;
 
+                    carQ.isLocal = 0;
                     roadInfo[i].carQueue[index] = carQ;
                     carAdjustInserting = 0;
                 }
@@ -923,6 +927,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             else
                 carQ.pos = carSts.dist;
 
+            carQ.isLocal = 1;
             index = S2CRoadQueueInsertByPosition(roadFind,carQ);
             LogMsg("\r\nStatus:Local Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
                             distRfid,
@@ -942,6 +947,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             else
                 carQ.pos = carSts.dist;
 
+            carQ.isLocal = 0;
             index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
             LogMsg("\r\nStatus:Adjust Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
                             distRfid,
@@ -959,7 +965,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     }
 }
 
-uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
+uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar,uint8_t *isLocal)
 {
     volatile uint8_t size;
     int8_t index;
@@ -1005,6 +1011,7 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
                  */
                 *frontCar = road->carQueue[size-1].id;
                 frontCarDist = road->carQueue[size-1].pos;
+                *isLocal = road->carQueue[size-1].isLocal;
                 found = 1;
 
             }
@@ -1014,6 +1021,7 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
         {
             *frontCar = road->carQueue[index-1].id;
             frontCarDist = road->carQueue[index-1].pos;
+            *isLocal = road->carQueue[index-1].isLocal;
             found = 1;
         }
     }
@@ -1067,6 +1075,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     roadID_t roadID;
     uint16_t frontCar;
     uint8_t state;
+    uint8_t isLocal;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
@@ -1143,13 +1152,13 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             dist = rid.dist;
         }
 
-        state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
+        state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar,&isLocal);
         if(state == 0 && areaType == EREA_ADJUST_RIGHT)
         {
             /*
              * 车辆在右调整区，若调整区内无车，需申请主道车辆
              */
-            state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar);
+            state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar,&isLocal);
         }
 
         if(state == 0)
@@ -1162,9 +1171,21 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         }
         else
         {
-            sendPacket.data[0] = 1;
-            memcpy(&sendPacket.data[1],&frontCar,2);
-            LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+            if(areaType == EREA_SEPERATE && isLocal == 0)
+            {
+                /*
+                 * 分离区申请的前车为该轨道对应调整区另一轨道车辆，则认为无前车
+                 */
+
+                memset(&sendPacket.data[0],0,3);
+                LogMsg("ACK:car%x -> none\r\n    <%x>\r\n",rid.carId,frontCar);
+            }
+            else
+            {
+                sendPacket.data[0] = 1;
+                memcpy(&sendPacket.data[1],&frontCar,2);
+                LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+            }
         }
         S2CShowRoadLog();
 
