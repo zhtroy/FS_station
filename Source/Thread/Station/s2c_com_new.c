@@ -1286,6 +1286,10 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             carQ.pid = i;
             carQ.id = parkReq.carId;
 
+            if(carQ.pid >= stationFind->parkNums)
+            {
+                carQ.pid = 0;
+            }
             vector_push_back(stationFind->carQueue,carQ);
         }
         else
@@ -1315,6 +1319,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
 
 
 
+
         memset(sendPacket.data,0,13);
         sendPacket.data[0] = 1;
         memcpy(&sendPacket.data[2],&stationFind->roadID,sizeof(roadID_t)+2);
@@ -1329,6 +1334,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
         {
             LogMsg("Send Failed!\r\n");
         }
+        S2CShowStationLog();
     }
 }
 
