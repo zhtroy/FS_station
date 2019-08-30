@@ -1126,82 +1126,85 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         if(roadFind == 0)
         {
             LogMsg("Warn:car%x EPC out of range\r\n",rid.carId);
-            continue;
-        }
-
-        /*
-         * 车辆处于右调整区，且当前轨道无前车，需要获取左侧轨道的前车
-         */
-        if(areaType == EREA_ADJUST_RIGHT)
-        {
-            roadAdjust = S2CFindAjustRoad(EREA_ADJUST_RIGHT,&roadFind->roadID,distRfid);
-            if(roadAdjust == 0)
-            {
-                LogMsg("Warn:car%x out of Adjust zone\r\n",rid.carId);
-                continue;
-            }
-        }
-
-
-        if(carIsSecB)
-        {
-            dist = rid.dist + roadFind->sectionB;
-        }
-        else
-        {
-            dist = rid.dist;
-        }
-
-        state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar,&isLocal);
-        if(state == 0 && areaType == EREA_ADJUST_RIGHT)
-        {
-            /*
-             * 车辆在右调整区，若调整区内无车，需申请主道车辆
-             */
-            state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar,&isLocal);
-        }
-
-        if(state == 0)
-        {
-            /*
-             * 无前车
-             */
             memset(&sendPacket.data[0],0,3);
             LogMsg("ACK:car%x -> none\r\n",rid.carId);
         }
         else
         {
-            if(areaType == EREA_SEPERATE && isLocal == 0)
-            {
-                /*
-                 * 分离区申请的前车为该轨道对应调整区另一轨道车辆，则认为无前车
-                 */
+			/*
+			 * 车辆处于右调整区，且当前轨道无前车，需要获取左侧轨道的前车
+			 */
+			if(areaType == EREA_ADJUST_RIGHT)
+			{
+				roadAdjust = S2CFindAjustRoad(EREA_ADJUST_RIGHT,&roadFind->roadID,distRfid);
+				if(roadAdjust == 0)
+				{
+					LogMsg("Warn:car%x out of Adjust zone\r\n",rid.carId);
+					continue;
+				}
+			}
 
-                memset(&sendPacket.data[0],0,3);
-                LogMsg("ACK:car%x -> none\r\n    <%x>\r\n",rid.carId,frontCar);
-            }
-            else
-            {
-                sendPacket.data[0] = 1;
-                memcpy(&sendPacket.data[1],&frontCar,2);
-                LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
-            }
-        }
-        S2CShowRoadLog();
 
-        if(areaType == EREA_ADJUST_RIGHT)
-        {
-            /*
-             * 右调整区返回对应左侧轨道(相邻轨道)
-             */
-            memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
-        }
-        else
-        {
-            /*
-             * 其它区域返回请求车辆轨道
-             */
-            memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+			if(carIsSecB)
+			{
+				dist = rid.dist + roadFind->sectionB;
+			}
+			else
+			{
+				dist = rid.dist;
+			}
+
+			state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar,&isLocal);
+			if(state == 0 && areaType == EREA_ADJUST_RIGHT)
+			{
+				/*
+				 * 车辆在右调整区，若调整区内无车，需申请主道车辆
+				 */
+				state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar,&isLocal);
+			}
+
+			if(state == 0)
+			{
+				/*
+				 * 无前车
+				 */
+				memset(&sendPacket.data[0],0,3);
+				LogMsg("ACK:car%x -> none\r\n",rid.carId);
+			}
+			else
+			{
+				if(areaType == EREA_SEPERATE && isLocal == 0)
+				{
+					/*
+					 * 分离区申请的前车为该轨道对应调整区另一轨道车辆，则认为无前车
+					 */
+
+					memset(&sendPacket.data[0],0,3);
+					LogMsg("ACK:car%x -> none\r\n    <%x>\r\n",rid.carId,frontCar);
+				}
+				else
+				{
+					sendPacket.data[0] = 1;
+					memcpy(&sendPacket.data[1],&frontCar,2);
+					LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+				}
+			}
+			S2CShowRoadLog();
+
+			if(areaType == EREA_ADJUST_RIGHT)
+			{
+				/*
+				 * 右调整区返回对应左侧轨道(相邻轨道)
+				 */
+				memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
+			}
+			else
+			{
+				/*
+				 * 其它区域返回请求车辆轨道
+				 */
+				memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+			}
         }
 
         sendPacket.addr = rid.carId;
