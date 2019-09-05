@@ -149,8 +149,8 @@ static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         },
         {
                 {
-                        0x00000532,
-                        0x00000532,
+                        0x0000051E,
+                        0x0000051E,
                 },
                 {
                         0x00000000,
