@@ -71,25 +71,32 @@ static const roadInformation_t constRoadInfo[S2C_ROAD_NUMS] = {
         }
 };
 
-static const ajustZone_t constAjustZone[S2C_SEP_NUMS] = {
+static const adjustZone_t constAdjustZone[S2C_SEP_NUMS] = {
         {
-                0x01,0x00,0x00,0x00,0x00,
-                0x01,0x02,0x00,0x00,0x00,
-                0x00000000,
-                0x00000140,
-        },
-        {
-                0x01,0x00,0x00,0x00,0x00,
-                0x01,0x01,0x00,0x00,0x00,
-                0x00000708,
-                0x000008C0,
-        },
-        {
+                0,
                 0x01,0x01,0x00,0x00,0x00,
                 0x01,0x01,0x01,0x00,0x00,
                 0x000005F0,
                 0x000006E0,
+                0,
         },
+        {
+                1,
+                0x01,0x00,0x00,0x00,0x00,
+                0x01,0x02,0x00,0x00,0x00,
+                0x00000000,
+                0x00000140,
+                0,
+        },
+        {
+                2,
+                0x01,0x00,0x00,0x00,0x00,
+                0x01,0x01,0x00,0x00,0x00,
+                0x00000708,
+                0x000008C0,
+                0,
+        },
+
 };
 
 static const separateZone_t constSeparateZone[S2C_ADJ_NUMS] = {
@@ -164,7 +171,7 @@ static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
 };
 
 static roadInformation_t *roadInfo;
-static ajustZone_t *adjustZone;
+static adjustZone_t *adjustZone;
 static separateZone_t *separateZone;
 static stationInformation_t *stationInfo;
 
@@ -180,15 +187,14 @@ static uint8_t stationCarNums = 0;
 static uint32_t timeStamp = 0;
 
 static uint32_t S2CGetDistance(rfid_t rfid);
-static uint8_t S2CGetArea(rfid_t rfid);
+static uint8_t S2CGetAreaType(rfid_t rfid);
 static void S2CCarStatusProcTask(UArg arg0, UArg arg1);
 static void S2CRequestIDTask(UArg arg0, UArg arg1);
 static void S2CRequestParkTask(UArg arg0, UArg arg1);
 static void S2CDoorCtrlTask(UArg arg0, UArg arg1);
-static uint32_t S2CSubDist(uint32_t a,uint32_t b);
 static void S2CMessageInit();
-static uint8_t S2CGetStationStatus();
-static uint8_t S2CGetCarNums();
+static uint8_t S2CGetAdjustZoneNums(rfid_t rfid);
+static adjustZone_t* S2CGetAdjustZone(uint8_t nums);
 static void S2CStationDataInitial();
 static void S2CRemoveCarProcess(uint16_t carID);
 static void S2CUpdateStation(carStatus_t *carSts);
@@ -392,7 +398,11 @@ static void S2CStationDataInitial()
      * 调整区初始化
      */
     vector_grow(adjustZone,adjNums);
-    memcpy(adjustZone,constAjustZone,adjNums*sizeof(ajustZone_t));
+    memcpy(adjustZone,constAdjustZone,adjNums*sizeof(adjustZone_t));
+    for(i=0;i<adjNums;i++)
+    {
+        vector_grow(adjustZone[i].carQueue,0);
+    }
 
     /*
      * 分离区初始化
@@ -584,24 +594,15 @@ uint8_t S2CGetBSection(rfid_t rfid)
         return 0;
 }
 
-uint8_t S2CGetAjustZone(rfid_t rfid)
-{
-    uint8_t state;
-    state = (rfid.byte[7] >> 6);
-    if(state == EREA_ADJUST_LEFT || state == EREA_ADJUST_RIGHT)
-        return state;
-    else
-        return 0;
-}
 
-roadInformation_t *S2CFindAjustRoad(uint8_t isAjust,roadID_t *roadID,uint32_t pos)
+roadInformation_t *S2CFindAdjustRoad(uint8_t adjustArea,roadID_t *roadID,uint32_t pos)
 {
     roadInformation_t * roadAdj=0;
     uint8_t i;
     roadID_t rid;
     for(i=0;i<adjNums;i++)
     {
-        if(isAjust == EREA_ADJUST_LEFT)
+        if(adjustArea == EREA_ADJUST_LEFT)
         {
             if((0 == memcmp(roadID,&adjustZone[i].leftRoadID,sizeof(roadID_t))) &&
                     (adjustZone[i].start <= pos) && (pos <= adjustZone[i].end))
@@ -610,7 +611,7 @@ roadInformation_t *S2CFindAjustRoad(uint8_t isAjust,roadID_t *roadID,uint32_t po
                 break;
             }
         }
-        else if(isAjust == EREA_ADJUST_RIGHT)
+        else if(adjustArea == EREA_ADJUST_RIGHT)
         {
             if((0 == memcmp(roadID,&adjustZone[i].rightRoadID,sizeof(roadID_t))) &&
                     (adjustZone[i].start <= pos) && (pos <= adjustZone[i].end))
@@ -728,20 +729,17 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
 *****************************************************************************/
 void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 {
-    uint8_t carChecks = 0;
-    uint8_t i,j;
+    uint8_t i;
     uint32_t distRfid;
     uint8_t carIsInserting;
-    uint8_t carAdjustInserting;
     uint8_t carIsSecB;
-    uint8_t carIsAjust;
-    int8_t index,iAdj;
+    int8_t index;
     uint8_t state;
     carStatus_t carSts;
     carQueue_t carQ;
-    uint8_t isChanged = 0;
+    uint8_t isShowRoad = 0;
     roadInformation_t *roadFind;
-    roadInformation_t *roadAjust;
+    uint8_t areaType;
     while(1)
     {
 
@@ -751,7 +749,8 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carQ.mode = carSts.mode;
         carQ.rpm = carSts.rpm;
 
-        isChanged = 0;
+        isShowRoad = 0;
+
         /*
          * 车辆处于待删除模式
          */
@@ -804,32 +803,13 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carIsSecB = S2CGetBSection(carSts.rfid);
         distRfid = S2CGetDistance(carSts.rfid);
 
-
         /*
-         * 获取调整区对应路线信息
-         */
-        carIsAjust = S2CGetAjustZone(carSts.rfid);
-
-        if(carIsAjust > 0)
-        {
-            roadAjust = S2CFindAjustRoad(carIsAjust,&roadFind->roadID,distRfid);
-
-            if(roadAjust == 0)
-            {
-                LogMsg("Error:Ajust Zone cannot found\r\n");
-                continue;
-            }
-        }
-        else
-        {
-            roadAjust = 0;
-        }
-
-        /*
-         * 遍历所有路线表，确认车辆是否已经存在
+         * --------------------- 路段队列处理   ------------------------------
+         * 1.对应轨道已存在该车辆，则更新车辆信息；
+         * 2.对应轨道不存在该车辆，则插入该车辆；
+         * 3.其它轨道上存在该车辆，则从队列中删除该车辆；
          */
         carIsInserting = 1;
-        carAdjustInserting = 1;
         for(i=0;i<roadNums;i++)
         {
             index = S2CFindCarByID(carSts.id,roadInfo[i].carQueue);
@@ -849,52 +829,8 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                     else
                         carQ.pos = carSts.dist;
 
-                    carQ.isLocal = 1;
-
                     roadInfo[i].carQueue[index] = carQ;
                     carIsInserting = 0;
-
-
-                    /*
-                     * 判断调整区对应轨道是否存在该车辆
-                     * 没有，则插入该车辆
-                     */
-                    if(carIsAjust > 0)
-                    {
-                        iAdj = S2CFindCarByID(carSts.id,roadAjust->carQueue);
-                        if(iAdj < 0)
-                        {
-                            carQ.pos = carSts.dist + roadAjust->sectionB;
-                            carQ.isLocal = 0;
-                            index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
-                            carAdjustInserting = 0;
-                            LogMsg("\r\nStatus:Adjust Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
-                                    distRfid,
-                                    carSts.dist,
-                                    index,
-                                    roadAjust->roadID.byte[0],
-                                    roadAjust->roadID.byte[1],
-                                    roadAjust->roadID.byte[2],
-                                    distRfid);
-                            isChanged = 1;
-                        }
-                    }
-
-                }
-                else if(carIsAjust > 0 && 0 == memcmp(&roadAjust->roadID,&roadInfo[i].roadID,sizeof(roadID_t)))
-                {
-                    /*
-                     * 道路信息匹配，为调整区另一侧车辆
-                     * 更新信息
-                     */
-                    if(carIsSecB)
-                        carQ.pos = carSts.dist + roadInfo[i].sectionB;
-                    else
-                        carQ.pos = carSts.dist;
-
-                    carQ.isLocal = 0;
-                    roadInfo[i].carQueue[index] = carQ;
-                    carAdjustInserting = 0;
                 }
                 else
                 {
@@ -910,7 +846,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                                     roadInfo[i].roadID.byte[1],
                                     roadInfo[i].roadID.byte[2],
                                     distRfid);
-                    isChanged = 1;
+                    isShowRoad = 1;
                 }
 
             }
@@ -920,16 +856,14 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         {
             /*
              * 车辆处于待插入状态，则在队列中插入车辆
-             * 调整区车辆同时属于两条轨道
              */
             if(carIsSecB)
                 carQ.pos = carSts.dist + roadFind->sectionB;
             else
                 carQ.pos = carSts.dist;
 
-            carQ.isLocal = 1;
             index = S2CRoadQueueInsertByPosition(roadFind,carQ);
-            LogMsg("\r\nStatus:Local Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
+            LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
                             distRfid,
                             carSts.dist,
                             index,
@@ -937,35 +871,32 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                             roadFind->roadID.byte[1],
                             roadFind->roadID.byte[2],
                             distRfid);
-            isChanged = 1;
+            isShowRoad = 1;
         }
 
-        if(carIsAjust > 0 && carAdjustInserting == 1)
+        areaType = S2CGetAreaType(carSts.rfid);
+        if(areaType != EREA_ADJUST_RIGHT && areaType != EREA_ADJUST_LEFT)
         {
-            if(carIsAjust == EREA_ADJUST_LEFT)
-                carQ.pos = carSts.dist + roadAjust->sectionB;
-            else
-                carQ.pos = carSts.dist;
-
-            carQ.isLocal = 0;
-            index = S2CRoadQueueInsertByPosition(roadAjust,carQ);
-            LogMsg("\r\nStatus:Adjust Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
-                            distRfid,
-                            carSts.dist,
-                            index,
-                            roadAjust->roadID.byte[0],
-                            roadAjust->roadID.byte[1],
-                            roadAjust->roadID.byte[2],
-                            distRfid);
-            isChanged = 1;
+            /*
+             * 车辆不处于调整区，遍历调整区队列，并删除该车辆
+             */
+            for(i=0;i<adjNums;i++)
+            {
+                index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
+                if(index >= 0)
+                {
+                    vector_erase(adjustZone[i].carQueue,index);
+                    isShowRoad = 1;
+                }
+            }
         }
 
-        if(isChanged == 1)
+        if(isShowRoad == 1)
             S2CShowRoadLog();
     }
 }
 
-uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar,uint8_t *isLocal)
+uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
 {
     volatile uint8_t size;
     int8_t index;
@@ -1011,7 +942,6 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
                  */
                 *frontCar = road->carQueue[size-1].id;
                 frontCarDist = road->carQueue[size-1].pos;
-                *isLocal = road->carQueue[size-1].isLocal;
                 found = 1;
 
             }
@@ -1021,7 +951,6 @@ uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint
         {
             *frontCar = road->carQueue[index-1].id;
             frontCarDist = road->carQueue[index-1].pos;
-            *isLocal = road->carQueue[index-1].isLocal;
             found = 1;
         }
     }
@@ -1066,8 +995,6 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     uint8_t areaType;
     uint32_t distRfid,dist;
     uint8_t i;
-    int32_t timestamp;
-
     uint8_t carIsSecB;
     ZCPUserPacket_t sendPacket;
     roadInformation_t *roadFind;
@@ -1075,16 +1002,23 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     roadID_t roadID;
     uint16_t frontCar;
     uint8_t state;
-    uint8_t isLocal;
+    uint8_t adjustZoneNums = 0;
+    adjustZone_t *adjustZonePtr;
+    carQueue_t carQ;
+    uint8_t size;
+    int8_t index;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
 
+        carQ.id = rid.carId;
+        carQ.mode = 0;
+        carQ.rpm = 0;
 
         /*
          * 确定车辆所属路线
          */
-        areaType = S2CGetArea(rid.rfid);
+        areaType = S2CGetAreaType(rid.rfid);
         distRfid = S2CGetDistance(rid.rfid);
         carIsSecB = S2CGetBSection(rid.rfid);
 
@@ -1114,13 +1048,13 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                 rid.dist
                 );
 
-
         roadFind = 0;
         for(i=0;i<roadNums;i++)
         {
             if(0 == memcmp(&roadID,&roadInfo[i].roadID,sizeof(roadID_t)))
             {
                 roadFind = &roadInfo[i];
+                break;
             }
         }
         if(roadFind == 0)
@@ -1128,20 +1062,6 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             LogMsg("Warn:car%x EPC out of range\r\n",rid.carId);
             continue;
         }
-
-        /*
-         * 车辆处于右调整区，且当前轨道无前车，需要获取左侧轨道的前车
-         */
-        if(areaType == EREA_ADJUST_RIGHT)
-        {
-            roadAdjust = S2CFindAjustRoad(EREA_ADJUST_RIGHT,&roadFind->roadID,distRfid);
-            if(roadAdjust == 0)
-            {
-                LogMsg("Warn:car%x out of Adjust zone\r\n",rid.carId);
-                continue;
-            }
-        }
-
 
         if(carIsSecB)
         {
@@ -1152,13 +1072,89 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             dist = rid.dist;
         }
 
-        state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar,&isLocal);
-        if(state == 0 && areaType == EREA_ADJUST_RIGHT)
+        if(areaType == EREA_ADJUST_RIGHT || areaType == EREA_ADJUST_LEFT)
         {
+
             /*
-             * 车辆在右调整区，若调整区内无车，需申请主道车辆
+             * --------------------- 调整区队列处理   ------------------------------
+             * 1.车辆处于调整区，则将车辆放入对应队列，或者更新信息；
+             * 2.车辆处于非调整区，则将队列中的车辆删除；
              */
-            state = S2CGetFrontCar(roadAdjust,rid.carId,rid.dist,&frontCar,&isLocal);
+            areaType = S2CGetAreaType(rid.rfid);
+
+
+            adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
+            adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+
+            index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
+            carQ.pos = dist;
+            if(index < 0)
+            {
+                /*
+                 * 车辆不存在，则将车辆推入队尾
+                 */
+                vector_push_back(adjustZonePtr->carQueue,carQ);
+            }
+            else
+            {
+                /*
+                 * 车辆存在，则更新车辆信息
+                 */
+                adjustZonePtr->carQueue[index] = carQ;
+            }
+
+            /*
+             * 车辆处于调整区
+             * 1.查询调整区队列是否有前车
+             * 2.若调整区内无前车，则查询对应左侧轨道(主轨)是否有前车
+             */
+            //adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
+            //adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+            size = vector_size(adjustZonePtr->carQueue);
+            if(size > 1)
+            {
+                /*
+                 * 调整区有前车
+                 * ps:车辆在调整区申请时，已经处于调整区队列的队尾
+                 */
+                index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
+                if(index < 0)
+                {
+                    LogMsg("Adjust Queue Error!\r\n");
+                }
+                else
+                {
+                    if(index == 0)
+                    {
+                        state = 0;
+                    }
+                    else
+                    {
+                        state = 1;
+                        frontCar = adjustZonePtr->carQueue[index-1].id;
+                    }
+                }
+
+            }
+            else
+            {
+                /*
+                 * 调整区无前车
+                 */
+                for(i=0;i<roadNums;i++)
+                {
+                    if(0 == memcmp(&adjustZonePtr->leftRoadID,&roadInfo[i].roadID,sizeof(roadID_t)))
+                    {
+                        roadAdjust = &roadInfo[i];
+                        break;
+                    }
+                }
+                state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar);
+            }
+        }
+        else
+        {
+            state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
         }
 
         if(state == 0)
@@ -1171,21 +1167,12 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         }
         else
         {
-            if(areaType == EREA_SEPERATE && isLocal == 0)
-            {
-                /*
-                 * 分离区申请的前车为该轨道对应调整区另一轨道车辆，则认为无前车
-                 */
 
-                memset(&sendPacket.data[0],0,3);
-                LogMsg("ACK:car%x -> none\r\n    <%x>\r\n",rid.carId,frontCar);
-            }
-            else
-            {
-                sendPacket.data[0] = 1;
-                memcpy(&sendPacket.data[1],&frontCar,2);
-                LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
-            }
+
+            sendPacket.data[0] = 1;
+            memcpy(&sendPacket.data[1],&frontCar,2);
+            LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+
         }
         S2CShowRoadLog();
 
@@ -1491,31 +1478,25 @@ static void S2CShowRoadLog()
                     roadInfo[i].carQueue[size-1-j].pos);
         LogMsg("\r\n");
     }
+
+    /*
+     * 显示调整区队列
+     */
+    for(i=0;i<adjNums;i++)
+    {
+        LogMsg("Adj%d:",adjustZone[i].adjustNums);
+        size = vector_size(adjustZone[i].carQueue);
+        for(j=0;j<size;j++)
+            LogMsg("->%x(%d)",adjustZone[i].carQueue[size-1-j].id,
+                    adjustZone[i].carQueue[size-1-j].pos);
+        LogMsg("\r\n");
+    }
 }
 
-uint32_t S2CSubDist(uint32_t a,uint32_t b)
-{
-    uint32_t tmp;
-    if(a >= b)
-        tmp = a-b;
-    else
-        tmp = S2C_RAIL_LENGTH + a - b;
-    return tmp;
-}
-
-uint8_t S2CGetStationStatus()
-{
-    return stationStatus;
-}
 
 void S2CSetStationStatus(uint8_t state)
 {
     stationStatus = state;
-}
-
-uint8_t S2CGetCarNums()
-{
-    return stationCarNums;
 }
 
 void S2CSetCarNums(uint8_t nums)
@@ -1532,12 +1513,24 @@ static uint32_t S2CGetDistance(rfid_t rfid)
     return dist;
 }
 
-static uint8_t S2CGetArea(rfid_t rfid)
+static uint8_t S2CGetAreaType(rfid_t rfid)
 {
     uint8_t Area;
     Area = rfid.byte[7] >> 6;
 
     return Area;
+}
+
+static uint8_t S2CGetAdjustZoneNums(rfid_t rfid)
+{
+    uint8_t nums;
+    nums = (rfid.byte[6] & 0x7f) >> 2;
+    return nums;
+}
+
+static adjustZone_t* S2CGetAdjustZone(uint8_t nums)
+{
+    return (&adjustZone[nums]);
 }
 
 void S2CRemoveCar(uint16_t carID)
@@ -1567,6 +1560,18 @@ static void S2CRemoveCarProcess(uint16_t carID)
                     roadInfo[i].roadID.byte[1],
                     roadInfo[i].roadID.byte[2]);
 
+        }
+    }
+
+    for(i=0;i<adjNums;i++)
+    {
+        index = S2CFindCarByID(carID,adjustZone[i].carQueue);
+        if(index >= 0)
+        {
+            /*
+             * 找到车辆
+             */
+            vector_erase(adjustZone[i].carQueue,index);
         }
     }
 }

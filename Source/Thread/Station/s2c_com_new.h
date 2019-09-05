@@ -123,7 +123,6 @@ typedef struct{
     uint8_t mode;
     uint32_t pos;
     uint8_t pid;
-    uint8_t isLocal;
 }carQueue_t;
 
 typedef struct{
@@ -134,11 +133,13 @@ typedef struct{
 }roadInformation_t;
 
 typedef struct{
+    uint8_t adjustNums;
     roadID_t leftRoadID;
     roadID_t rightRoadID;
     uint32_t start;
     uint32_t end;
-}ajustZone_t;
+    carQueue_t *carQueue;
+}adjustZone_t;
 
 typedef struct{
     roadID_t leftRoadID;
