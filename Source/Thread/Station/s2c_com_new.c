@@ -156,8 +156,8 @@ static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         },
         {
                 {
-                        0x00000532,
-                        0x00000532,
+                        0x0000051E,
+                        0x0000051E,
                 },
                 {
                         0x00000000,
@@ -1073,135 +1073,139 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         if(roadFind == 0)
         {
             LogMsg("Warn:car%x EPC out of range\r\n",rid.carId);
-            continue;
-        }
-
-        if(carIsSecB)
-        {
-            dist = rid.dist + roadFind->sectionB;
-        }
-        else
-        {
-            dist = rid.dist;
-        }
-
-        if(areaType == EREA_ADJUST_RIGHT || areaType == EREA_ADJUST_LEFT)
-        {
-
-            /*
-             * --------------------- 调整区队列处理   ------------------------------
-             * 1.车辆处于调整区，则将车辆放入对应队列，或者更新信息；
-             * 2.车辆处于非调整区，则将队列中的车辆删除；
-             */
-            areaType = S2CGetAreaType(rid.rfid);
-
-
-            adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
-            adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
-
-            index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
-            carQ.pos = dist;
-            if(index < 0)
-            {
-                /*
-                 * 车辆不存在，则将车辆推入队尾
-                 */
-                vector_push_back(adjustZonePtr->carQueue,carQ);
-            }
-            else
-            {
-                /*
-                 * 车辆存在，则更新车辆信息
-                 */
-                adjustZonePtr->carQueue[index] = carQ;
-            }
-
-            /*
-             * 车辆处于调整区
-             * 1.查询调整区队列是否有前车
-             * 2.若调整区内无前车，则查询对应左侧轨道(主轨)是否有前车
-             */
-            //adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
-            //adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
-            size = vector_size(adjustZonePtr->carQueue);
-            if(size > 1)
-            {
-                /*
-                 * 调整区有前车
-                 * ps:车辆在调整区申请时，已经处于调整区队列的队尾
-                 */
-                index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
-                if(index < 0)
-                {
-                    LogMsg("Adjust Queue Error!\r\n");
-                }
-                else
-                {
-                    if(index == 0)
-                    {
-                        state = 0;
-                    }
-                    else
-                    {
-                        state = 1;
-                        frontCar = adjustZonePtr->carQueue[index-1].id;
-                    }
-                }
-
-            }
-            else
-            {
-                /*
-                 * 调整区无前车
-                 */
-                for(i=0;i<roadNums;i++)
-                {
-                    if(0 == memcmp(&adjustZonePtr->leftRoadID,&roadInfo[i].roadID,sizeof(roadID_t)))
-                    {
-                        roadAdjust = &roadInfo[i];
-                        break;
-                    }
-                }
-                state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar);
-            }
-        }
-        else
-        {
-            state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
-        }
-
-        if(state == 0)
-        {
-            /*
-             * 无前车
-             */
             memset(&sendPacket.data[0],0,3);
             LogMsg("ACK:car%x -> none\r\n",rid.carId);
         }
         else
         {
 
+            if(carIsSecB)
+            {
+                dist = rid.dist + roadFind->sectionB;
+            }
+            else
+            {
+                dist = rid.dist;
+            }
 
-            sendPacket.data[0] = 1;
-            memcpy(&sendPacket.data[1],&frontCar,2);
-            LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+            if(areaType == EREA_ADJUST_RIGHT || areaType == EREA_ADJUST_LEFT)
+            {
 
-        }
-        S2CShowRoadLog();
+                /*
+                 * --------------------- 调整区队列处理   ------------------------------
+                 * 1.车辆处于调整区，则将车辆放入对应队列，或者更新信息；
+                 * 2.车辆处于非调整区，则将队列中的车辆删除；
+                 */
+                areaType = S2CGetAreaType(rid.rfid);
 
-        if(areaType == EREA_ADJUST_RIGHT)
-        {
-            /*
-             * 右调整区返回对应左侧轨道(相邻轨道)
-             */
-            memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
-        }
-        else
-        {
-            /*
-             * 其它区域返回请求车辆轨道
-             */
-            memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+
+                adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
+                adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+
+                index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
+                carQ.pos = dist;
+                if(index < 0)
+                {
+                    /*
+                     * 车辆不存在，则将车辆推入队尾
+                     */
+                    vector_push_back(adjustZonePtr->carQueue,carQ);
+                }
+                else
+                {
+                    /*
+                     * 车辆存在，则更新车辆信息
+                     */
+                    adjustZonePtr->carQueue[index] = carQ;
+                }
+
+                /*
+                 * 车辆处于调整区
+                 * 1.查询调整区队列是否有前车
+                 * 2.若调整区内无前车，则查询对应左侧轨道(主轨)是否有前车
+                 */
+                //adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
+                //adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+                size = vector_size(adjustZonePtr->carQueue);
+                if(size > 1)
+                {
+                    /*
+                     * 调整区有前车
+                     * ps:车辆在调整区申请时，已经处于调整区队列的队尾
+                     */
+                    index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
+                    if(index < 0)
+                    {
+                        LogMsg("Adjust Queue Error!\r\n");
+                    }
+                    else
+                    {
+                        if(index == 0)
+                        {
+                            state = 0;
+                        }
+                        else
+                        {
+                            state = 1;
+                            frontCar = adjustZonePtr->carQueue[index-1].id;
+                        }
+                    }
+
+                }
+                else
+                {
+                    /*
+                     * 调整区无前车
+                     */
+                    for(i=0;i<roadNums;i++)
+                    {
+                        if(0 == memcmp(&adjustZonePtr->leftRoadID,&roadInfo[i].roadID,sizeof(roadID_t)))
+                        {
+                            roadAdjust = &roadInfo[i];
+                            break;
+                        }
+                    }
+                    state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar);
+                }
+            }
+            else
+            {
+                state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
+            }
+
+            if(state == 0)
+            {
+                /*
+                 * 无前车
+                 */
+                memset(&sendPacket.data[0],0,3);
+                LogMsg("ACK:car%x -> none\r\n",rid.carId);
+            }
+            else
+            {
+
+
+                sendPacket.data[0] = 1;
+                memcpy(&sendPacket.data[1],&frontCar,2);
+                LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+
+            }
+            S2CShowRoadLog();
+
+            if(areaType == EREA_ADJUST_RIGHT)
+            {
+                /*
+                 * 右调整区返回对应左侧轨道(相邻轨道)
+                 */
+                memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
+            }
+            else
+            {
+                /*
+                 * 其它区域返回请求车辆轨道
+                 */
+                memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+            }
         }
 
         sendPacket.addr = rid.carId;
