@@ -649,11 +649,28 @@ roadID_t S2CFindSeparateRoad(roadID_t roadID,uint32_t pos)
     return rid;
 }
 
-void S2CLevaveStationProcess(carStatus_t *carSts)
+void S2CDelStationPark(uint16_t carId)
 {
     uint8_t i,j;
+    for(i=0;i<termNums;i++)
+    {
+        for(j=0;j<stationInfo[i].parkNums;j++)
+        {
+            /*
+             * 删除停靠点车辆
+             */
+            if(carId == stationInfo[i].carStation[j].id)
+            {
+                memset(&stationInfo[i].carStation[j],0,sizeof(carQueue_t));
+            }
+        }
+    }
+}
+
+void S2CLevaveStationProcess(carStatus_t *carSts)
+{
+    uint8_t i;
     int8_t index;
-    uint8_t pid;
     uint8_t carIsLeaving = 0;
     uint32_t dist;
     /*
@@ -690,32 +707,28 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
                 carIsLeaving = 1;
             }
 
+
+
             if(carIsLeaving)
             {
-                pid = stationInfo[i].carQueue[index].pid;
-                for(j=0;j<stationInfo[i].parkNums;j++)
-                {
-                    /*
-                     * 删除停靠点车辆
-                     */
-                    if(stationInfo[i].carQueue[index].id == stationInfo[i].carStation[j].id)
-                    {
-                        memset(&stationInfo[i].carStation[j],0,sizeof(carQueue_t));
-                        break;
-                    }
-                }
+                /*
+                 * 删除站点车辆
+                 */
+                S2CDelStationPark(carSts->id);
 
                 /*
                  * 删除分配队列车辆
                  */
                 vector_erase(stationInfo[i].carQueue,index);
 
-                LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,i,pid);
+                LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,i,stationInfo[i].carQueue[index].pid);
             }
             break;
         }
     }
+
 }
+
 
 /*****************************************************************************
  * 函数名称: S2CCarStatusProcTask(UArg arg0, UArg arg1)
