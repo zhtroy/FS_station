@@ -198,7 +198,7 @@ static adjustZone_t* S2CGetAdjustZone(uint8_t nums);
 static void S2CStationDataInitial();
 static void S2CRemoveCarProcess(uint16_t carID);
 static void S2CUpdateStation(carStatus_t *carSts);
-static void S2CShowStationLog();
+void S2CShowStationLog();
 static void S2CShowRoadLog();
 static void S2CTimerTask(UArg arg0, UArg arg1);
 /*****************************************************************************
@@ -1449,7 +1449,7 @@ static void S2CTimerTask(UArg arg0, UArg arg1)
 }
 
 
-static void S2CShowStationLog()
+void S2CShowStationLog()
 {
     uint8_t i,j;
     uint8_t size;

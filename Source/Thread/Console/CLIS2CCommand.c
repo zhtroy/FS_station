@@ -15,9 +15,13 @@
 #include "FreeRTOS_CLI.h"
 #include "s2c_com_new.h"
 
+extern void S2CShowStationLog();
+
 BaseType_t prvSetCarNums( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 BaseType_t prvSetStationStatus( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 BaseType_t prvDelCar( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
+BaseType_t prvShowStationStatus( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
+
 const CLI_Command_Definition_t xSetCarNums =
 {
     "setCar",
@@ -42,6 +46,15 @@ const CLI_Command_Definition_t xDelCar =
     ex:delCar 0x6001\r\n",
     prvDelCar, /* The function to run. */
     1
+};
+
+const CLI_Command_Definition_t xShowStation =
+{
+    "showstation",
+    "\r\n Show Station Status. \
+    ex:showstation \r\n",
+    prvShowStationStatus, /* The function to run. */
+    0
 };
 
 BaseType_t prvSetCarNums( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
@@ -166,6 +179,31 @@ BaseType_t prvDelCar( char *pcWriteBuffer, size_t xWriteBufferLen, const char *p
             xReturn = pdFALSE;
         }
     }
+
+    return xReturn;
+}
+
+BaseType_t prvShowStationStatus( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
+{
+    const char *pcParameter;
+    BaseType_t xParameterStringLength, xReturn;
+    static UBaseType_t uxParameterNumber = 0;
+    static uint16_t usValue = 0;
+
+    /* Remove compile time warnings about unused parameters, and check the
+    write buffer is not NULL.  NOTE - for simplicity, this example assumes the
+    write buffer length is adequate, so does not check for buffer overflows. */
+    ( void ) pcCommandString;
+    ( void ) xWriteBufferLen;
+    configASSERT( pcWriteBuffer );
+
+    /* Command Process*/
+    memset( pcWriteBuffer, 0x00, xWriteBufferLen );
+
+    S2CShowStationLog();
+
+	xReturn = pdFALSE;
+
 
     return xReturn;
 }
