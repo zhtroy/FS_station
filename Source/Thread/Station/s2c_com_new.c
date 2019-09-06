@@ -649,20 +649,18 @@ roadID_t S2CFindSeparateRoad(roadID_t roadID,uint32_t pos)
     return rid;
 }
 
-void S2CDelStationPark(uint16_t carId)
+void S2CDelStationPark(uint16_t carId,uint8_t stationId)
 {
-    uint8_t i,j;
-    for(i=0;i<termNums;i++)
+    uint8_t i;
+    for(i=0;i<stationInfo[stationId].parkNums;i++)
     {
-        for(j=0;j<stationInfo[i].parkNums;j++)
+        /*
+         * 删除停靠点车辆
+         */
+        if(carId == stationInfo[stationId].carStation[i].id)
         {
-            /*
-             * 删除停靠点车辆
-             */
-            if(carId == stationInfo[i].carStation[j].id)
-            {
-                memset(&stationInfo[i].carStation[j],0,sizeof(carQueue_t));
-            }
+            memset(&stationInfo[stationId].carStation[i],0,sizeof(carQueue_t));
+            LogMsg("Info:Clear Car%x from T%d\r\n",carId,i);
         }
     }
 }
@@ -674,59 +672,55 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
     uint8_t carIsLeaving = 0;
     uint32_t dist;
     /*
-     * 离站条件
-     * 1.车辆在站台队列中
-     * 2.车辆道路信息不匹配，或车辆距离大于最后一个停靠点
+     * 离站条件:
+     * 车辆道路信息不匹配，或车辆距离大于最后一个停靠点
      */
     for(i=0;i<termNums;i++)
     {
-        index = S2CFindCarByID(carSts->id,stationInfo[i].carQueue);
-        if(index >= 0)
+        if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid.byte[1],sizeof(roadID_t)))
         {
-            index = S2CFindCarByID(carSts->id,stationInfo[i].carQueue);
-            //if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid.byte[1],sizeof(roadID_t)+2))
-            if(0 == memcmp(&stationInfo[i].roadID,&carSts->rfid.byte[1],sizeof(roadID_t)))
+            /*
+             * 道路信息匹配
+             */
+            dist = S2CGetDistance(carSts->rfid);
+            if(dist > stationInfo[i].park[0].point)
             {
                 /*
-                 * 道路信息匹配
-                 */
-                dist = S2CGetDistance(carSts->rfid);
-                if(dist > stationInfo[i].park[0].point)
-                {
-                    /*
-                     * 距离超出最后一个停靠点
-                     */
-                    carIsLeaving = 1;
-                }
-            }
-            else
-            {
-                /*
-                 * 道路信息不匹配
+                 * 距离超出最后一个停靠点
                  */
                 carIsLeaving = 1;
             }
+        }
+        else
+        {
+            /*
+             * 道路信息不匹配
+             */
+            carIsLeaving = 1;
+        }
 
 
 
-            if(carIsLeaving)
+        if(carIsLeaving)
+        {
+            /*
+             * 删除站点车辆
+             */
+            S2CDelStationPark(carSts->id,i);
+
+            /*
+             * 删除分配队列车辆
+             */
+            index = S2CFindCarByID(carSts->id,stationInfo[i].carQueue);
+            if(index >= 0)
             {
-                /*
-                 * 删除站点车辆
-                 */
-                S2CDelStationPark(carSts->id);
-
-                /*
-                 * 删除分配队列车辆
-                 */
                 vector_erase(stationInfo[i].carQueue,index);
-
                 LogMsg("Info:Car%x leave T%d-P%d\r\n",carSts->id,i,stationInfo[i].carQueue[index].pid);
             }
-            break;
+
+            carIsLeaving = 0;
         }
     }
-
 }
 
 
