@@ -73,6 +73,9 @@
 #define LEFT_RAIL               (0x02)
 #define RIGHT_RAIL              (0x01)
 
+#define MANUAL_MODE             (0x00)
+#define AUTO_MODE             (0x02)
+
 #pragma pack(1)
 typedef struct
 {
@@ -87,6 +90,8 @@ typedef struct{
     uint32_t dist;
     uint16_t rpm;
     uint8_t  mode;
+    uint8_t  rail;
+    uint8_t carMode;
     uint32_t timeStamp;
 }carStatus_t;
 
@@ -101,6 +106,8 @@ typedef struct{
     rfid_t rfid;
     uint32_t dist;
     uint8_t rail;
+    uint8_t carMode;
+    uint32_t timeStamp;
 }rid_t;
 
 typedef struct{

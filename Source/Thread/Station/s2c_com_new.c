@@ -238,7 +238,7 @@ void S2CRecvTask(UArg arg0, UArg arg1)
 
 
             rid.carId = recvPacket.addr;
-            memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+5);
+            memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+7);
 
             /*请求ID先POST到状态处理任务，进行排队*/
             carSts.id = recvPacket.addr;
@@ -246,6 +246,9 @@ void S2CRecvTask(UArg arg0, UArg arg1)
             carSts.dist = rid.dist;
             carSts.rpm = 0;
             carSts.mode = CAR_MODE_RUN;
+            carSts.rail = rid.rail;
+            carSts.carMode = rid.carMode;
+
             Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
             break;
@@ -264,7 +267,7 @@ void S2CRecvTask(UArg arg0, UArg arg1)
             break;
         case S2C_CAR_STATUS_CMD:
             carSts.id = recvPacket.addr;
-            memcpy(&carSts.rfid,recvPacket.data,sizeof(rfid_t)+7);
+            memcpy(&carSts.rfid,recvPacket.data,sizeof(rfid_t)+9);
             Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             break;
         default:
@@ -739,14 +742,18 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     uint8_t i;
     uint32_t distRfid;
     uint8_t carIsInserting;
+    uint8_t carSepIsInserting;
     uint8_t carIsSecB;
     int8_t index;
-    uint8_t state;
+    int8_t state;
+    int8_t stateSep;
     carStatus_t carSts;
     carQueue_t carQ;
     uint8_t isShowRoad = 0;
     roadInformation_t *roadFind;
+    roadInformation_t *roadSep;
     uint8_t areaType;
+    roadID_t roadSepID;
     while(1)
     {
 
@@ -809,6 +816,31 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
          */
         carIsSecB = S2CGetBSection(carSts.rfid);
         distRfid = S2CGetDistance(carSts.rfid);
+        areaType = S2CGetAreaType(carSts.rfid);
+
+        /*
+         * 若车辆处于分离区的右侧轨道，获取分离区右轨信息
+         */
+        roadSep = 0;
+        if(areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
+        {
+            roadSepID = S2CFindSeparateRoad(roadFind->roadID,carSts.dist);
+            for(i=0;i<roadNums;i++)
+            {
+                state = memcmp(&roadSepID,&roadInfo[i].roadID,sizeof(roadID_t));
+                if(0 == state)
+                {
+                    roadSep = &roadInfo[i];
+                    break;
+                }
+            }
+            if(roadSep == 0)
+            {
+                LogMsg("Car %x is out of Seperate Zone\r\n");
+                continue;
+            }
+            carSepIsInserting = 1;
+        }
 
         /*
          * --------------------- 路段队列处理   ------------------------------
@@ -817,6 +849,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
          * 3.其它轨道上存在该车辆，则从队列中删除该车辆；
          */
         carIsInserting = 1;
+
         for(i=0;i<roadNums;i++)
         {
             index = S2CFindCarByID(carSts.id,roadInfo[i].carQueue);
@@ -826,18 +859,38 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                  * 找到车辆，判断道路信息是否匹配
                  */
                 state = memcmp(&roadFind->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
-                if(state == 0)
-                {
-                    /*
-                     * 道路信息匹配，更新信息
-                     */
-                    if(carIsSecB)
-                        carQ.pos = carSts.dist + roadInfo[i].sectionB;
-                    else
-                        carQ.pos = carSts.dist;
 
-                    roadInfo[i].carQueue[index] = carQ;
-                    carIsInserting = 0;
+                stateSep = 1;
+                if(state != 0 && areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
+                    stateSep = memcmp(&roadSep->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
+
+                if(state == 0 || stateSep == 0)
+                {
+
+                    if(carSts.carMode != AUTO_MODE)
+                    {
+                        /*
+                         * 手动模式下，车辆位置关系重排
+                         */
+                        vector_erase(roadInfo[i].carQueue,index);
+                    }
+                    else
+                    {
+                        /*
+                         * 非手动模式下，道路信息匹配，更新信息
+                         */
+                        if(carIsSecB)
+                            carQ.pos = carSts.dist + roadInfo[i].sectionB;
+                        else
+                            carQ.pos = carSts.dist;
+
+                        roadInfo[i].carQueue[index] = carQ;
+
+                        if(state == 0)
+                            carIsInserting = 0;
+                        else
+                            carSepIsInserting = 0;
+                    }
                 }
                 else
                 {
@@ -855,7 +908,6 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                                     distRfid);
                     isShowRoad = 1;
                 }
-
             }
         }
 
@@ -881,7 +933,28 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             isShowRoad = 1;
         }
 
-        areaType = S2CGetAreaType(carSts.rfid);
+        if(carSepIsInserting == 1)
+        {
+            /*
+             * 车辆处于待插入状态，则在队列中插入车辆
+             */
+
+            carQ.pos = carSts.dist;
+
+            index = S2CRoadQueueInsertByPosition(roadSep,carQ);
+            LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
+                            distRfid,
+                            carSts.dist,
+                            index,
+                            roadSep->roadID.byte[0],
+                            roadSep->roadID.byte[1],
+                            roadSep->roadID.byte[2],
+                            distRfid);
+            isShowRoad = 1;
+            carSepIsInserting = 0;
+        }
+
+
         if(areaType != EREA_ADJUST_RIGHT && areaType != EREA_ADJUST_LEFT)
         {
             /*
@@ -894,6 +967,32 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 {
                     vector_erase(adjustZone[i].carQueue,index);
                     isShowRoad = 1;
+                }
+            }
+        }
+        else if(carSts.carMode != AUTO_MODE)
+        {
+            /*
+             * 车辆处于调整区，且车辆处于手动模式
+             * 遍历调整区队列，重新插入该车辆
+             */
+            for(i=0;i<adjNums;i++)
+            {
+                index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
+                if(index >= 0)
+                {
+                    /*
+                     * 从队列中删除该车辆
+                     */
+                    vector_erase(adjustZone[i].carQueue,index);
+
+                    /*
+                     * 重新根据位置将车辆插入队列中
+                     */
+                    index = S2CFindCarByPosition(adjustZone[i].carQueue,carQ.pos);
+                    vector_insert(adjustZone[i].carQueue,index,carQ);
+                    isShowRoad = 1;
+                    break;
                 }
             }
         }
