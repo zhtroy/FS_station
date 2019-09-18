@@ -143,21 +143,21 @@ static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         {
                 {
                         0x00000572,
-                        0x00000572,
+                        0x00000590,
                 },
                 {
                         0x0000054A,
-                        0x0000054A,
+                        0x00000568,
                 },
                 {
                         0x00000522,
-                        0x00000522,
+                        0x00000540,
                 },
         },
         {
                 {
                         0x0000051E,
-                        0x0000051E,
+                        0x00000546,
                 },
                 {
                         0x00000000,
@@ -198,7 +198,7 @@ static adjustZone_t* S2CGetAdjustZone(uint8_t nums);
 static void S2CStationDataInitial();
 static void S2CRemoveCarProcess(uint16_t carID);
 static void S2CUpdateStation(carStatus_t *carSts);
-static void S2CShowStationLog();
+void S2CShowStationLog();
 static void S2CShowRoadLog();
 static void S2CTimerTask(UArg arg0, UArg arg1);
 /*****************************************************************************
@@ -1548,7 +1548,7 @@ static void S2CTimerTask(UArg arg0, UArg arg1)
 }
 
 
-static void S2CShowStationLog()
+void S2CShowStationLog()
 {
     uint8_t i,j;
     uint8_t size;

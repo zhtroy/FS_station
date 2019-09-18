@@ -15,6 +15,8 @@ extern const CLI_Command_Definition_t xResetCPU;
 extern const CLI_Command_Definition_t xSetCarNums;
 extern const CLI_Command_Definition_t xSetState;
 extern const CLI_Command_Definition_t xDelCar;
+extern const CLI_Command_Definition_t xShowStation;
+
 /*-----------------------------------------------------------*/
 
 void vRegisterSampleCLICommands( void )
@@ -26,6 +28,7 @@ void vRegisterSampleCLICommands( void )
     FreeRTOS_CLIRegisterCommand( &xSetCarNums );
     FreeRTOS_CLIRegisterCommand( &xSetState );
     FreeRTOS_CLIRegisterCommand( &xDelCar );
+    FreeRTOS_CLIRegisterCommand( &xShowStation );
 }
 /*-----------------------------------------------------------*/
 
