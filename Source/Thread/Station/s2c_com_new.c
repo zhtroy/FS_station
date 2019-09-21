@@ -965,8 +965,20 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
                 if(index >= 0)
                 {
-                    vector_erase(adjustZone[i].carQueue,index);
-                    isShowRoad = 1;
+                    if(carSts.carMode == AUTO_MODE)
+                    {
+                        if(carSts.dist >= adjustZone[i].end)
+                        {
+                            vector_erase(adjustZone[i].carQueue,index);
+                            isShowRoad = 1;
+                        }
+                    }
+                    else
+                    {
+                        vector_erase(adjustZone[i].carQueue,index);
+                        isShowRoad = 1;
+                    }
+
                 }
             }
         }
@@ -974,17 +986,25 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         {
             /*
              * 车辆处于调整区，且车辆处于手动模式
-             * 遍历调整区队列，重新插入该车辆
+             * 找到车辆所属调整区，并重新插入该车辆
              */
             for(i=0;i<adjNums;i++)
             {
-                index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
-                if(index >= 0)
+                if(areaType == EREA_ADJUST_LEFT)
+                    state = memcmp(&carSts.rfid.byte[1],&adjustZone[i].leftRoadID,sizeof(roadID_t));
+                else
+                    state = memcmp(&carSts.rfid.byte[1],&adjustZone[i].rightRoadID,sizeof(roadID_t));
+
+                if(0 == state)
                 {
-                    /*
-                     * 从队列中删除该车辆
-                     */
-                    vector_erase(adjustZone[i].carQueue,index);
+                    index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
+                    if(index >= 0)
+                    {
+                        /*
+                         * 若队列中存在该车辆，从队列中删除该车辆
+                         */
+                        vector_erase(adjustZone[i].carQueue,index);
+                    }
 
                     /*
                      * 重新根据位置将车辆插入队列中
