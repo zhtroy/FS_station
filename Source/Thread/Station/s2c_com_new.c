@@ -1011,13 +1011,13 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                      */
                     index = S2CFindCarByPosition(adjustZone[i].carQueue,carQ.pos);
                     vector_insert(adjustZone[i].carQueue,index,carQ);
-                    isShowRoad = 1;
+                    //isShowRoad = 1;
                     break;
                 }
             }
         }
 
-        if(isShowRoad == 1)
+        if(isShowRoad == 1 && carSts.carMode == AUTO_MODE)
             S2CShowRoadLog();
     }
 }
