@@ -1349,6 +1349,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
     carQueue_t carQ;
     uint8_t state;
     uint8_t tN;
+    uint8_t stationFlag = 0;
     while(1)
     {
         Mailbox_pend(parkMbox,&parkReq,BIOS_WAIT_FOREVER);
@@ -1419,7 +1420,26 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
                 /*
                  * 未在站台队列中找到车辆，分配站台并推入队尾
                  */
-                carQ.pid = stationFind->carQueue[size-1].pid + 1;
+                stationFlag = 0;
+
+                for(i=0;i<stationFind->parkNums;i++)
+                {
+                    if(stationFind->carStation[i].id == stationFind->carQueue[size-1].id)
+                    {
+                        /*
+                         * 站点队列中存在请求队列中的最后一个车辆，则按照站点队列的实际位置分配车辆
+                         */
+                        carQ.pid = stationFind->carStation[i].pid + 1;
+                        stationFlag = 1;
+                        break;
+                    }
+                }
+
+                if(stationFlag == 0)
+                {
+                    carQ.pid = stationFind->carQueue[size-1].pid + 1;
+                }
+
 
 
                 if(carQ.pid >= stationFind->parkNums)
