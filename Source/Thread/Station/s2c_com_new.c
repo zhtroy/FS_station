@@ -754,6 +754,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     roadInformation_t *roadSep;
     uint8_t areaType;
     roadID_t roadSepID;
+    uint8_t ajustNum;
     while(1)
     {
 
@@ -988,14 +989,10 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
              * 车辆处于调整区，且车辆处于手动模式
              * 找到车辆所属调整区，并重新插入该车辆
              */
-            for(i=0;i<adjNums;i++)
+            ajustNum = S2CGetAdjustZoneNums(carSts.rfid);
+            if(ajustNum < S2C_ADJ_NUMS)
             {
-                if(areaType == EREA_ADJUST_LEFT)
-                    state = memcmp(&carSts.rfid.byte[1],&adjustZone[i].leftRoadID,sizeof(roadID_t));
-                else
-                    state = memcmp(&carSts.rfid.byte[1],&adjustZone[i].rightRoadID,sizeof(roadID_t));
-
-                if(0 == state)
+                if(carSts.dist <= adjustZone[ajustNum].start && carSts.dist <= adjustZone[ajustNum].end)
                 {
                     index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
                     if(index >= 0)
@@ -1011,9 +1008,15 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                      */
                     index = S2CFindCarByPosition(adjustZone[i].carQueue,carQ.pos);
                     vector_insert(adjustZone[i].carQueue,index,carQ);
-                    //isShowRoad = 1;
-                    break;
                 }
+                else
+                {
+                    LogMsg("Manual Mode:Adjust scale error\r\n");
+                }
+            }
+            else
+            {
+                LogMsg("Manual Mode:Adjust Number error\r\n");
             }
         }
 
@@ -1213,7 +1216,22 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
 
 
                 adjustZoneNums = S2CGetAdjustZoneNums(rid.rfid);
-                adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+
+
+                if(adjustZoneNums > S2C_ADJ_NUMS)
+                {
+                    LogMsg("Adjust Number Error!\r\n");
+                    continue;
+                }
+                else
+                {
+                    adjustZonePtr = S2CGetAdjustZone(adjustZoneNums);
+                    if(adjustZonePtr->start > rid.dist || adjustZonePtr->end < rid.dist)
+                    {
+                        LogMsg("Adjust Scale Error!\r\n");
+                        continue;
+                    }
+                }
 
                 index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
                 carQ.pos = dist;
