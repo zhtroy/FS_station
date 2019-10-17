@@ -992,7 +992,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             ajustNum = S2CGetAdjustZoneNums(carSts.rfid);
             if(ajustNum < S2C_ADJ_NUMS)
             {
-                if(carSts.dist <= adjustZone[ajustNum].start && carSts.dist <= adjustZone[ajustNum].end)
+                if(adjustZone[ajustNum].start <= carSts.dist && carSts.dist <= adjustZone[ajustNum].end)
                 {
                     index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
                     if(index >= 0)
