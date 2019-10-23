@@ -994,20 +994,20 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             {
                 if(adjustZone[ajustNum].start <= carSts.dist && carSts.dist <= adjustZone[ajustNum].end)
                 {
-                    index = S2CFindCarByID(carSts.id,adjustZone[i].carQueue);
+                    index = S2CFindCarByID(carSts.id,adjustZone[ajustNum].carQueue);
                     if(index >= 0)
                     {
                         /*
                          * 若队列中存在该车辆，从队列中删除该车辆
                          */
-                        vector_erase(adjustZone[i].carQueue,index);
+                        vector_erase(adjustZone[ajustNum].carQueue,index);
                     }
 
                     /*
                      * 重新根据位置将车辆插入队列中
                      */
-                    index = S2CFindCarByPosition(adjustZone[i].carQueue,carQ.pos);
-                    vector_insert(adjustZone[i].carQueue,index,carQ);
+                    index = S2CFindCarByPosition(adjustZone[ajustNum].carQueue,carQ.pos);
+                    vector_insert(adjustZone[ajustNum].carQueue,index,carQ);
                 }
                 else
                 {
