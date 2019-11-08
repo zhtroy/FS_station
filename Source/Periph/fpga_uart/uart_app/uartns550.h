@@ -21,7 +21,7 @@
 #define UART_RS232_MODE (0)
 
 /* 串口接收Buffer的大小 */
-#define UART_REC_BUFFER_SIZE (32)
+#define UART_REC_BUFFER_SIZE (64)
 
 /* 串口设备硬件复位 */
 #define UartNs550HardReset(deviceNum) do {\
