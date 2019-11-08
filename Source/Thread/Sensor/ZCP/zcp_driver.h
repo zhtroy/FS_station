@@ -56,6 +56,8 @@ typedef enum  {
     STS_ADDR,
     STS_USR_LEN,
     STS_USR_TYPE,
+    STS_SRC_ADDR_L,
+    STS_SRC_ADDR_H,
     STS_DATA,
     STS_USR_CRC,
     STS_TAIL
@@ -67,6 +69,7 @@ typedef struct
     uint8_t addrL; /*地址低字节*/
     uint8_t len;
     uint8_t type;
+    uint16_t src_addr;/*添加发送源地址，解决模块之间数据串扰问题*/
     uint8_t data[MAX_ZCP_PACKET_SIZE];
     uint8_t extSec; /*扩展字段*/
     Semaphore_Handle ackSem;
@@ -94,6 +97,7 @@ typedef struct _zcp_instance_{
     Mailbox_Handle userSendMbox;
     uint8_t ackSts;
     ZCPStatistic_t stat;
+    uint16_t src_addr;
 }ZCPInstance_t;
 
 typedef struct
@@ -109,7 +113,7 @@ typedef struct{
     ZCPInstance_t *pInst;
 }ZCPCfgTable_t;
 
-uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum);
+uint8_t ZCPInit(ZCPInstance_t *pInst, uint8_t devNum,uint8_t uartDevNum,uint16_t src_addr);
 Bool ZCPPend(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout);
 Bool ZCPPost(ZCPInstance_t *pInst,ZCPPacket_t *pUserPacket,UInt timeout);
 Bool ZCPRecvPacket(ZCPInstance_t *pInst,

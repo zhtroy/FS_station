@@ -22,6 +22,7 @@
 
 #define CAR_MODE_REMOVE (0xff)
 
+#define STATION_ID (0x5001)
 /*
  * 1.站台路线
  * 2.调整点数量

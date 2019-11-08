@@ -315,7 +315,7 @@ void S2CTaskInit()
     Task_Handle task;
     Task_Params taskParams;
 
-    ZCPInit(&s2cInst,S2C_ZCP_DEV_NUM,S2C_ZCP_UART_DEV_NUM);
+    ZCPInit(&s2cInst,S2C_ZCP_DEV_NUM,S2C_ZCP_UART_DEV_NUM,STATION_ID);
 
 
 
