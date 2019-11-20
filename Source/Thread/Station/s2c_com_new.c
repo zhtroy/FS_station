@@ -170,6 +170,22 @@ static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         },
 };
 
+/*(220~227,163~170,20~27)*/
+static criticalArea_t criticalArea[CRITICAL_AREA_NUMS] =
+{
+        /*起始位置,结束位置,车辆ID,车辆位置*/
+        {
+                220,227,0,0
+        },
+        {
+                163,170,0,0
+        },
+        {
+                20,27,0,0
+        }
+};
+
+static collisionData_t collision_data;
 static roadInformation_t *roadInfo;
 static adjustZone_t *adjustZone;
 static separateZone_t *separateZone;
@@ -181,6 +197,7 @@ static Mailbox_Handle carStatusMbox;
 static Mailbox_Handle parkMbox;
 static Mailbox_Handle doorMbox;
 static Mailbox_Handle ridMbox;
+static Mailbox_Handle collisionMbox;
 
 static uint8_t stationStatus = STATION_NOT_READY;
 static uint8_t stationCarNums = 0;
@@ -198,9 +215,11 @@ static adjustZone_t* S2CGetAdjustZone(uint8_t nums);
 static void S2CStationDataInitial();
 static void S2CRemoveCarProcess(uint16_t carID);
 static void S2CUpdateStation(carStatus_t *carSts);
-void S2CShowStationLog();
 static void S2CShowRoadLog();
 static void S2CTimerTask(UArg arg0, UArg arg1);
+static void S2CStationStopRequestTask(UArg arg0, UArg arg1);
+static uint8_t S2CGetRoadSection(rfid_t rfid);
+static uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar);
 /*****************************************************************************
  * 函数名称: void S2CRecvTask(UArg arg0, UArg arg1)
  * 函数说明: S2C接收任务
@@ -295,7 +314,7 @@ void S2CMessageInit()
 
     doorMbox = Mailbox_create (sizeof (doorCtrl_t),S2C_MBOX_DEPTH, NULL, NULL);
     ridMbox = Mailbox_create (sizeof (rid_t),S2C_MBOX_DEPTH, NULL, NULL);
-
+    collisionMbox = Mailbox_create (sizeof (collisionData_t),S2C_MBOX_DEPTH, NULL, NULL);
 }
 
 
@@ -325,7 +344,7 @@ void S2CTaskInit()
 
     Task_Params_init(&taskParams);
     taskParams.priority = 5;
-    taskParams.stackSize = 2048;
+    taskParams.stackSize = 4096;
 
 
     task = Task_create((Task_FuncPtr)S2CCarStatusProcTask, &taskParams, NULL);
@@ -353,6 +372,12 @@ void S2CTaskInit()
     }
 
     task = Task_create((Task_FuncPtr)S2CRecvTask, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
+
+    task = Task_create((Task_FuncPtr)S2CStationStopRequestTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
@@ -726,6 +751,142 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
     }
 }
 
+uint8_t S2CCriticalAreaDetect(carStatus_t *carSts)
+{
+    uint8_t i;
+    if(carSts->carMode != AUTO_MODE)
+    {
+        return 0;
+    }
+    /*关键区*/
+    for(i=0;i<CRITICAL_AREA_NUMS;i++)
+    {
+        if(carSts->dist >= criticalArea[i].start && carSts->dist <= criticalArea[i].end)
+        {
+            /*关键区域存在一辆以上车辆*/
+            if(criticalArea[i].carID != 0 && criticalArea[i].carID != carSts->id)
+            {
+                LogMsg("Critical Area collision detected:%x(%d),%x(%d)\r\n",
+                        carSts->id,carSts->dist,
+                        criticalArea[i].carID,criticalArea[i].carPos);
+                return 1;
+            }
+            else
+            {
+                /*更新关键区域车辆信息*/
+                criticalArea[i].carID = carSts->id;
+                criticalArea[i].carPos = carSts->dist;
+            }
+
+        }
+        else
+        {
+            /*车辆已经移出该区域，清除车辆*/
+            if(criticalArea[i].carID == carSts->id)
+            {
+                criticalArea[i].carID = 0;
+                criticalArea[i].carPos = 0;
+            }
+        }
+    }
+    return 0;
+}
+
+uint8_t S2CCarCollisionDetect(carStatus_t *carSts,roadInformation_t *roadFind)
+{
+    /*
+     * --------- 碰撞风险 -------------------------------
+     * 1) 站台区: 前车距离小于3.6米
+     * 2) 调整区: 同一轨道前车距离小于6米
+     * 3) 普通区: 同一轨道前车距离小于7米
+     * 4) 关键区: 并轨区(220~227,163~170,20~27)内，超过1辆车
+     */
+    uint8_t roadSection;
+    uint16_t frontCar;
+    int8_t index_frontCar;
+    carQueue_t frontCarInfo;
+    int32_t dist_diff;
+    uint8_t areaType;
+    uint8_t isBSection;
+
+    if(carSts->carMode != AUTO_MODE)
+    {
+        return 0;
+    }
+
+    /*道路内无前车*/
+    if(0 == S2CGetFrontCar(roadFind,carSts->id,carSts->dist,&frontCar))
+    {
+        return 0;
+    }
+
+    index_frontCar = S2CFindCarByID(frontCar,roadFind->carQueue);
+    frontCarInfo = roadFind->carQueue[index_frontCar];
+
+    dist_diff = frontCarInfo.pos - carSts->dist;
+
+    /*站台区*/
+    roadSection = S2CGetRoadSection(carSts->rfid);
+    if(frontCarInfo.roadSection == roadSection && SECTION_STATION == roadSection)
+    {
+        if(dist_diff >= 0 && dist_diff < MIN_DISTANCE_STATION)
+        {
+            LogMsg("Station Area collision detected:%x(%d),%x(%d)\r\n",
+                    carSts->id,carSts->dist,
+                    frontCarInfo.id,frontCarInfo.pos);
+
+            return STATION_COLLISION_TYPE;
+        }
+        else
+            return 0;
+    }
+
+    /*调整区*/
+    areaType = S2CGetAreaType(carSts->rfid);
+    //if(frontCarInfo.areaType == areaType &&
+    //        frontCarInfo.adjustNums == adjustNums &&
+    //        (EREA_ADJUST_LEFT == areaType || EREA_ADJUST_LEFT == areaType))
+    if(EREA_ADJUST_LEFT == areaType || EREA_ADJUST_RIGHT == areaType)
+    {
+        if(dist_diff >= 0 && dist_diff < MIN_DISTANCE_ADJUST)
+        {
+            LogMsg("Adjust Area collision detected:%x(%d),%x(%d)\r\n",
+                    carSts->id,carSts->dist,
+                    frontCarInfo.id,frontCarInfo.pos);
+            return ADJUST_COLLISION_TYPE;
+        }
+        else
+            return 0;
+    }
+
+    /*普通区*/
+    isBSection = S2CGetBSection(carSts->rfid);
+    if(SECTION_NORMAL == roadSection)
+    {
+        /*环形轨道负值纠正*/
+        if(roadFind->isRing && dist_diff < 0)
+            dist_diff = dist_diff + S2C_RAIL_LENGTH;
+
+        /*前车在B段，本车在A段，纠正距离差*/
+        if(isBSection == 0 && frontCarInfo.isBSection == 1)
+        {
+            dist_diff = dist_diff - BSECTION_DIFF;
+        }
+
+        if(dist_diff >= 0 && dist_diff < MIN_DISTANCE_NORMAL)
+        {
+            LogMsg("Normal Area collision detected:%x(%d),%x(%d)\r\n",
+                    carSts->id,carSts->dist,
+                    frontCarInfo.id,frontCarInfo.pos);
+            return NORMAL_COLLISION_TYPE;
+        }
+
+        else
+            return 0;
+    }
+
+    return 0;
+}
 
 /*****************************************************************************
  * 函数名称: S2CCarStatusProcTask(UArg arg0, UArg arg1)
@@ -752,7 +913,6 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     uint8_t isShowRoad = 0;
     roadInformation_t *roadFind;
     roadInformation_t *roadSep;
-    uint8_t areaType;
     roadID_t roadSepID;
     uint8_t ajustNum;
     while(1)
@@ -760,9 +920,6 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
         Mailbox_pend(carStatusMbox,&carSts,BIOS_WAIT_FOREVER);
 
-        carQ.id = carSts.id;
-        carQ.mode = carSts.mode;
-        carQ.rpm = carSts.rpm;
 
         isShowRoad = 0;
 
@@ -807,23 +964,57 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             continue;
         }
 
+
         /*
          * 车辆离站处理
          */
         S2CLevaveStationProcess(&carSts);
+
+
+        /*
+         * 冲突检测
+         */
+        if(S2CCriticalAreaDetect(&carSts))
+        {
+            /*关键区域碰撞风险*/
+            collision_data.carID = carSts.id;
+            collision_data.type = 0;
+
+            Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
+        }
+        else if(collision_data.type == S2CCarCollisionDetect(&carSts,roadFind))
+        {
+            /*道路碰撞风险*/
+            collision_data.carID = carSts.id;
+
+            Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
+        }
 
         /*
          * 获取车辆距离信息
          */
         carIsSecB = S2CGetBSection(carSts.rfid);
         distRfid = S2CGetDistance(carSts.rfid);
-        areaType = S2CGetAreaType(carSts.rfid);
+
+        /*
+         * 初始化队列信息
+         */
+        carQ.id = carSts.id;
+        carQ.mode = carSts.mode;
+        carQ.rpm = carSts.rpm;
+        carQ.pos = 0;           /*默认值*/
+        carQ.pid = 0;           /*默认值*/
+        carQ.areaType = S2CGetAreaType(carSts.rfid);
+        carQ.roadSection = S2CGetRoadSection(carSts.rfid);
+        carQ.adjustNums = S2CGetAdjustZoneNums(carSts.rfid);
+        carQ.isBSection = carIsSecB;
+        carQ.carMode = carSts.carMode;
 
         /*
          * 若车辆处于分离区的右侧轨道，获取分离区右轨信息
          */
         roadSep = 0;
-        if(areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
+        if(carQ.areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
         {
             roadSepID = S2CFindSeparateRoad(roadFind->roadID,carSts.dist);
             for(i=0;i<roadNums;i++)
@@ -839,6 +1030,14 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             {
                 LogMsg("Car %x is out of Seperate Zone\r\n");
                 continue;
+            }
+
+            if(collision_data.type ==  S2CCarCollisionDetect(&carSts,roadSep))
+            {
+                /*道路碰撞风险*/
+                collision_data.carID = carSts.id;
+
+                Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
             }
             carSepIsInserting = 1;
         }
@@ -862,7 +1061,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 state = memcmp(&roadFind->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
 
                 stateSep = 1;
-                if(state != 0 && areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
+                if(state != 0 && carQ.areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
                     stateSep = memcmp(&roadSep->roadID,&roadInfo[i].roadID,sizeof(roadID_t));
 
                 if(state == 0 || stateSep == 0)
@@ -899,15 +1098,18 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                      * 道路信息不匹配，从路线队列中移除车辆；
                      */
                     vector_erase(roadInfo[i].carQueue,index);
-                    LogMsg("\r\nStatus:Car%x(%d,%d) del %d from %x%x%x %04x\r\n",carSts.id,
-                                    distRfid,
-                                    carSts.dist,
-                                    index,
-                                    roadInfo[i].roadID.byte[0],
-                                    roadInfo[i].roadID.byte[1],
-                                    roadInfo[i].roadID.byte[2],
-                                    distRfid);
-                    isShowRoad = 1;
+                    if(carSts.carMode == AUTO_MODE)
+                    {
+                        LogMsg("\r\nStatus:Car%x(%d,%d) del %d from %x%x%x %04x\r\n",carSts.id,
+                                        distRfid,
+                                        carSts.dist,
+                                        index,
+                                        roadInfo[i].roadID.byte[0],
+                                        roadInfo[i].roadID.byte[1],
+                                        roadInfo[i].roadID.byte[2],
+                                        distRfid);
+                        isShowRoad = 1;
+                    }
                 }
             }
         }
@@ -923,15 +1125,18 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 carQ.pos = carSts.dist;
 
             index = S2CRoadQueueInsertByPosition(roadFind,carQ);
-            LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
-                            distRfid,
-                            carSts.dist,
-                            index,
-                            roadFind->roadID.byte[0],
-                            roadFind->roadID.byte[1],
-                            roadFind->roadID.byte[2],
-                            distRfid);
-            isShowRoad = 1;
+            if(carSts.carMode == AUTO_MODE)
+            {
+                LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
+                                distRfid,
+                                carSts.dist,
+                                index,
+                                roadFind->roadID.byte[0],
+                                roadFind->roadID.byte[1],
+                                roadFind->roadID.byte[2],
+                                distRfid);
+                isShowRoad = 1;
+            }
         }
 
         if(carSepIsInserting == 1)
@@ -943,20 +1148,23 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             carQ.pos = carSts.dist;
 
             index = S2CRoadQueueInsertByPosition(roadSep,carQ);
-            LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
-                            distRfid,
-                            carSts.dist,
-                            index,
-                            roadSep->roadID.byte[0],
-                            roadSep->roadID.byte[1],
-                            roadSep->roadID.byte[2],
-                            distRfid);
-            isShowRoad = 1;
+            if(carSts.carMode == AUTO_MODE)
+            {
+                LogMsg("\r\nStatus:Car%x(%d,%d) insert %d to %x%x%x %04x\r\n",carSts.id,
+                                distRfid,
+                                carSts.dist,
+                                index,
+                                roadSep->roadID.byte[0],
+                                roadSep->roadID.byte[1],
+                                roadSep->roadID.byte[2],
+                                distRfid);
+                isShowRoad = 1;
+            }
             carSepIsInserting = 0;
         }
 
 
-        if(areaType != EREA_ADJUST_RIGHT && areaType != EREA_ADJUST_LEFT)
+        if(carQ.areaType != EREA_ADJUST_RIGHT && carQ.areaType != EREA_ADJUST_LEFT)
         {
             /*
              * 车辆不处于调整区，遍历调整区队列，并删除该车辆
@@ -1020,12 +1228,12 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             }
         }
 
-        if(isShowRoad == 1 && carSts.carMode == AUTO_MODE)
+        if(isShowRoad == 1)
             S2CShowRoadLog();
     }
 }
 
-uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
+static uint8_t S2CGetFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,uint16_t *frontCar)
 {
     volatile uint8_t size;
     int8_t index;
@@ -1605,6 +1813,77 @@ static void S2CTimerTask(UArg arg0, UArg arg1)
     }
 }
 
+static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
+{
+    collisionData_t collisionInfo;
+    uint8_t i,j;
+    uint8_t size;
+    int8_t index;
+    ZCPUserPacket_t sendPacket;
+    uint8_t retryNums;
+    uint8_t isEnd;
+    while(1)
+    {
+        Mailbox_pend(collisionMbox,&collisionInfo,BIOS_WAIT_FOREVER);
+        retryNums = 0;
+        do
+        {
+            if(collisionInfo.type == STATION_COLLISION_TYPE)
+            {
+                for(i=0;i<roadNums;i++)
+                {
+                    index = S2CFindCarByID(collisionInfo.carID,roadInfo[i].carQueue);
+                    if(index > 0)
+                    {
+                        if(roadInfo[i].carQueue[index].carMode == STOP_MODE)
+                        {
+                            isEnd = 1;
+                        }
+                        else
+                        {
+                            sendPacket.addr = collisionInfo.carID;
+                            sendPacket.len = 1;
+                            sendPacket.type = S2C_REQUEST_STOP;
+                            sendPacket.data[0] = collisionInfo.type;
+                            ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
+                            Task_sleep(50);
+                            isEnd = 0;
+                            retryNums ++;
+                        }
+                        break;
+                    }
+                }
+
+            }
+            else
+            {
+                for(i=0;i<roadNums;i++)
+                {
+                    size = vector_size(roadInfo[i].carQueue);
+                    for(j=0;j<size;j++)
+                    {
+                        if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
+                        {
+                            sendPacket.addr = roadInfo[i].carQueue[j].id;
+                            sendPacket.len = 1;
+                            sendPacket.type = S2C_REQUEST_STOP;
+                            sendPacket.data[0] = collisionInfo.type;
+                            ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
+                            isEnd = 0;
+                            Task_sleep(50);
+                        }
+                        else
+                        {
+                            isEnd = 1;
+                        }
+                    }
+                }
+                retryNums ++;
+            }
+        }while(retryNums < 5 && isEnd == 0);
+    }
+}
+
 
 void S2CShowStationLog()
 {
@@ -1694,6 +1973,13 @@ static uint8_t S2CGetAdjustZoneNums(rfid_t rfid)
     uint8_t nums;
     nums = (rfid.byte[6] & 0x7f) >> 2;
     return nums;
+}
+
+static uint8_t S2CGetRoadSection(rfid_t rfid)
+{
+    uint8_t road_section;
+    road_section = (rfid.byte[6] & 0x03);
+    return road_section;
 }
 
 static adjustZone_t* S2CGetAdjustZone(uint8_t nums)

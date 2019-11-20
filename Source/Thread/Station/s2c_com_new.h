@@ -38,6 +38,7 @@
 #define S2C_LEAVE_STATION_CMD   (0x04)
 #define S2C_CAR_STATUS_CMD      (0x40)
 #define S2C_ALLOT_PARK_ACK      (0X41)
+#define S2C_REQUEST_STOP        (0x50)
 
 #define S2C_ALLOT_PARK_CMD      (0x20)
 #define S2C_INTO_STATION_ACK    (0x61)
@@ -75,8 +76,25 @@
 #define RIGHT_RAIL              (0x01)
 
 #define MANUAL_MODE             (0x00)
-#define AUTO_MODE             (0x02)
+#define SETTING_MODE            (0x01)
+#define AUTO_MODE               (0x02)
+#define STOP_MODE               (0x03)
 
+#define SECTION_STATION         (0x01)
+#define SECTION_NORMAL          (0x00)
+
+#define MIN_DISTANCE_STATION    (36)
+#define MIN_DISTANCE_ADJUST     (60)
+#define MIN_DISTANCE_NORMAL     (70)
+
+#define CRITICAL_AREA_NUMS         (3)
+
+#define CRITICAL_AREA_TYPE      (0)
+#define STATION_COLLISION_TYPE  (1)
+#define ADJUST_COLLISION_TYPE   (2)
+#define NORMAL_COLLISION_TYPE   (3)
+
+#define BSECTION_DIFF           (147)
 #pragma pack(1)
 typedef struct
 {
@@ -131,6 +149,11 @@ typedef struct{
     uint8_t mode;
     uint32_t pos;
     uint8_t pid;
+    uint8_t roadSection;
+    uint8_t areaType;
+    uint8_t adjustNums;
+    uint8_t isBSection;
+    uint8_t carMode;
 }carQueue_t;
 
 typedef struct{
@@ -171,12 +194,23 @@ typedef struct{
     carQueue_t * carStation;
 }stationInformation_t;
 
+typedef struct{
+    uint32_t start;
+    uint32_t end;
+    uint16_t carID;
+    uint32_t carPos;
+}criticalArea_t;
 
+typedef struct{
+    uint8_t type;
+    uint16_t carID;
+}collisionData_t;
 
 void S2CTaskInit();
 void S2CSetStationStatus(uint8_t state);
 void S2CSetCarNums(uint8_t nums);
 void S2CRemoveCar(uint16_t carID);
+void S2CShowStationLog();
 #endif /* S2C_COM_H_ */
 
 
