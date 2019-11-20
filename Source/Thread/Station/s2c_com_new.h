@@ -154,6 +154,7 @@ typedef struct{
     uint8_t adjustNums;
     uint8_t isBSection;
     uint8_t carMode;
+    uint8_t rail;
 }carQueue_t;
 
 typedef struct{
@@ -205,6 +206,12 @@ typedef struct{
     uint8_t type;
     uint16_t carID;
 }collisionData_t;
+
+typedef struct{
+    uint8_t state;
+    uint16_t carID[2];
+    roadID_t roadID;
+}frontCar_t;
 
 void S2CTaskInit();
 void S2CSetStationStatus(uint8_t state);

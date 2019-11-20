@@ -1009,6 +1009,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carQ.adjustNums = S2CGetAdjustZoneNums(carSts.rfid);
         carQ.isBSection = carIsSecB;
         carQ.carMode = carSts.carMode;
+        carQ.rail = carSts.rail;
 
         /*
          * 若车辆处于分离区的右侧轨道，获取分离区右轨信息
@@ -1331,19 +1332,18 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     rid_t rid;
     uint8_t areaType;
     uint32_t distRfid,dist;
-    uint8_t i;
+    int8_t i;
     uint8_t carIsSecB;
     ZCPUserPacket_t sendPacket;
     roadInformation_t *roadFind;
     roadInformation_t *roadAdjust;
     roadID_t roadID;
-    uint16_t frontCar;
-    uint8_t state;
     uint8_t adjustZoneNums = 0;
     adjustZone_t *adjustZonePtr;
     carQueue_t carQ;
     uint8_t size;
     int8_t index;
+    frontCar_t frontCar;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
@@ -1351,6 +1351,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         carQ.id = rid.carId;
         carQ.mode = 0;
         carQ.rpm = 0;
+        carQ.rail = rid.rail;
 
         /*
          * 确定车辆所属路线
@@ -1475,18 +1476,30 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                     index = S2CFindCarByID(rid.carId,adjustZonePtr->carQueue);
                     if(index < 0)
                     {
+                        frontCar.state = 0;
                         LogMsg("Adjust Queue Error!\r\n");
                     }
                     else
                     {
                         if(index == 0)
                         {
-                            state = 0;
+                            frontCar.state = 0;
                         }
                         else
                         {
-                            state = 1;
-                            frontCar = adjustZonePtr->carQueue[index-1].id;
+                            frontCar.state = 1;
+                            frontCar.carID[0] = adjustZonePtr->carQueue[index-1].id;
+                            frontCar.carID[1] = frontCar.carID[0];
+
+                            /*查找另外一条轨道上的前车*/
+                            for(i=(index-2);i>=0;i--)
+                            {
+                                if(adjustZonePtr->carQueue[index-1].rail != adjustZonePtr->carQueue[i].rail)
+                                {
+                                    frontCar.carID[1] = adjustZonePtr->carQueue[i].id;
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -1494,7 +1507,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                 else
                 {
                     /*
-                     * 调整区无前车
+                     * 调整区无前车，返回主道上的车辆
                      */
                     for(i=0;i<roadNums;i++)
                     {
@@ -1504,29 +1517,26 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                             break;
                         }
                     }
-                    state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar);
+                    frontCar.state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar.carID[0]);
+                    frontCar.carID[1] = frontCar.carID[0];
                 }
             }
             else
             {
-                state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar);
+                frontCar.state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar.carID[0]);
+                frontCar.carID[1] = frontCar.carID[0];
             }
 
-            if(state == 0)
+            if(frontCar.state == 0)
             {
                 /*
                  * 无前车
                  */
-                memset(&sendPacket.data[0],0,3);
                 LogMsg("ACK:car%x -> none\r\n",rid.carId);
             }
             else
             {
-
-
-                sendPacket.data[0] = 1;
-                memcpy(&sendPacket.data[1],&frontCar,2);
-                LogMsg("ACK:car%x -> %x\r\n",rid.carId,frontCar);
+                LogMsg("ACK:car%x -> %x,%x\r\n",rid.carId,frontCar.carID[0],frontCar.carID[1]);
 
             }
             S2CShowRoadLog();
@@ -1536,20 +1546,20 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                 /*
                  * 右调整区返回对应左侧轨道(相邻轨道)
                  */
-                memcpy(&sendPacket.data[3],&roadAdjust->roadID,sizeof(roadID_t));
+                frontCar.roadID = roadAdjust->roadID;
             }
             else
             {
                 /*
                  * 其它区域返回请求车辆轨道
                  */
-                memcpy(&sendPacket.data[3],&rid.rfid.byte[1],sizeof(roadID_t));
+                memcpy(&frontCar.roadID,&rid.rfid.byte[1],sizeof(roadID_t));
             }
         }
 
         sendPacket.addr = rid.carId;
-        //sendPacket.len = 3;
-        sendPacket.len = 8;
+        memcpy(sendPacket.data,&frontCar,sizeof(frontCar_t));
+        sendPacket.len = sizeof(frontCar_t);
         sendPacket.type = S2C_REQUEST_ID_ACK;
         ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
     }
