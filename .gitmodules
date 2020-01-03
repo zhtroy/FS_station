@@ -1,0 +1,6 @@
+[submodule "Dependency/Collections-C"]
+	path = Dependency/Collections-C
+	url = https://github.com/zhtroy/Collections-C
+[submodule "Source/Thread/net_msg"]
+	path = Source/Thread/net_msg
+	url = https://github.com/zhtroy/net_msg
