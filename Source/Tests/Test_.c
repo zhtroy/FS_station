@@ -16,6 +16,13 @@ void TestEntry()
     testUARTCommandLineInit();
 #endif 
 
+    testEasylogTask();
+
+    testShellTask();
+
+#ifdef TEST_NDK
+    TaskNDKInit();
+#endif
     S2CTaskInit();
 
 #ifdef TEST_WATCHDOG

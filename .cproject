@@ -41,6 +41,7 @@
 									<listOptionValue builtIn="false" value="EMPL"/>
 									<listOptionValue builtIn="false" value="MPL_LOG_NDEBUG=1"/>
 									<listOptionValue builtIn="false" value="MPU9250"/>
+									<listOptionValue builtIn="false" value="ZIGBEE_WIFI=1"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.ABI.564262712" name="Application binary interface (coffabi not supported) [See 'General' page to edit] (--abi)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.ABI" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.ABI.eabi" valueType="enumerated"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DEBUGGING_MODEL.153172001" name="Debugging model" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DEBUGGING_MODEL" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DEBUGGING_MODEL.SYMDEBUG__DWARF" valueType="enumerated"/>
@@ -64,6 +65,12 @@
 									<listOptionValue builtIn="false" value="&quot;${NDK_INSTALL_DIR}/packages/ti/ndk/inc&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Collections-C/src/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/easyflash/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/easylogger/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/easylogger/plugins/flash}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/letter-shell}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Include/StarterWare/NandLib}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph/nandflash}&quot;"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.GCC.968118243" name="Enable support for GCC extensions (DEPRECATED) (--gcc)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.GCC" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DISPLAY_ERROR_NUMBER.2124570724" name="Emit diagnostic identifier numbers (--display_error_number, -pden)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>
@@ -71,7 +78,8 @@
 									<listOptionValue builtIn="false" value="225"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DIAG_WRAP.625988912" name="Wrap diagnostic messages (--diag_wrap)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DIAG_WRAP" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DIAG_WRAP.off" valueType="enumerated"/>
-								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT.25764606" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT.C99" valueType="enumerated"/>
+								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT.25764606" name="C Dialect" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.C_DIALECT.C99" valueType="enumerated"/>
+								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.KEEP_ASM.983586649" name="Keep the generated assembly language (.asm) file (--keep_asm, -k)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.KEEP_ASM" value="false" valueType="boolean"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__C_SRCS.1183053372" name="C Sources" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__C_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__CPP_SRCS.1835268642" name="C++ Sources" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__CPP_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__ASM_SRCS.1602995959" name="Assembly Sources" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compiler.inputType__ASM_SRCS"/>
@@ -87,6 +95,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Library/StarterWare/SystemConfig/Debug/system_config.lib}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Library/StarterWare/Utils/Debug/utils.lib}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Library/Platform/Debug/Platform.lib}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Library/StarterWare/NandLib/Debug/nand.lib}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;libc.a&quot;"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.SEARCH_PATH.1089518315" name="Add &lt;dir&gt; to library search path (--search_path, -i)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.SEARCH_PATH" valueType="libPaths">
@@ -96,6 +105,9 @@
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.DISPLAY_ERROR_NUMBER.257596937" name="Emit diagnostic identifier numbers (--display_error_number)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.DIAG_WRAP.146244365" name="Wrap diagnostic messages (--diag_wrap)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.DIAG_WRAP" value="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.DIAG_WRAP.off" valueType="enumerated"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.XML_LINK_INFO.1135440982" name="Detailed link information data-base into &lt;file&gt; (--xml_link_info, -xml_link_info)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.XML_LINK_INFO" value="&quot;${ProjName}_linkInfo.xml&quot;" valueType="string"/>
+								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.RETAIN.875533107" name="Specify symbols/sections to be retained by linker (--retain)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.linkerID.RETAIN" valueType="stringList">
+									<listOptionValue builtIn="false" value="*(.shell*)"/>
+								</option>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__CMD_SRCS.2009897425" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__CMD_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__CMD2_SRCS.2090676159" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__CMD2_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__GEN_CMDS.578657712" name="Generated Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.exeLinker.inputType__GEN_CMDS"/>
@@ -156,7 +168,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Dependency/Collections-C/test|Source/Thread/Station/s2c_com.c|Source/Thread/Moto/task_ctrldata.c|platform/tl/dsp/evm6748/package/build.cfg|Source/Thread/Sensor/mpu9250/mpl|Source/Thread/Sensor/mpu9250/mllite|Source/Thread/Decision/Decision.c|out|Source/Periph/DSP_Uart/uartStdio.c|platform|srcinst|Source/Tests/Test4GControl/test4GControl.c|out/c6748AISgen_456M_config.cfg|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Tests/testSja1000Task.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Source/Thread/Net/ssl_client1.c|Source/easylogger/plugins/file|Source/easyflash/plugins|Dependency/Collections-C/test|Source/Thread/Station/s2c_com.c|Source/Thread/Moto/task_ctrldata.c|platform/tl/dsp/evm6748/package/build.cfg|Source/Thread/Sensor/mpu9250/mpl|Source/Thread/Sensor/mpu9250/mllite|Source/Thread/Decision/Decision.c|out|Source/Periph/DSP_Uart/uartStdio.c|platform|srcinst|Source/Tests/Test4GControl/test4GControl.c|out/c6748AISgen_456M_config.cfg|Source/Thread/Sensor/mpu9250/eMPL-hal|Source/Tests/testSja1000Task.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

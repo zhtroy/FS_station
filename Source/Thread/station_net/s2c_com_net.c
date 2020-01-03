@@ -4,9 +4,9 @@
  *  Created on: 2019-5-30
  *      Author: DELL
  */
-#if ZIGBEE_WIFI==0
+#if ZIGBEE_WIFI==1
 #include "common.h"
-#include "Station\s2c_com_new.h"
+#include "Station\s2c_com_net.h"
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/BIOS.h>
 #include <xdc/runtime/System.h>
@@ -2091,4 +2091,5 @@ static void S2CUpdateStation(carStatus_t *carSts)
         }
     }
 }
+
 #endif

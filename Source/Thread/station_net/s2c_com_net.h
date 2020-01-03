@@ -5,9 +5,10 @@
  *      Author: DELL
  */
 
-#ifndef S2C_COM_NEW_H_
-#define S2C_COM_NEW_H_
-#if ZIGBEE_WIFI==0
+#ifndef S2C_COM_NET_H_
+#define S2C_COM_NET_H_
+
+#if ZIGBEE_WIFI==1
 #include "common.h"
 
 #define T1_PLATFORM_NUMS (3)
@@ -220,7 +221,9 @@ void S2CSetCarNums(uint8_t nums);
 void S2CRemoveCar(uint16_t carID);
 void S2CShowStationLog();
 void S2CShowRoadLog();
+
 #endif
+
 #endif /* S2C_COM_H_ */
 
 
