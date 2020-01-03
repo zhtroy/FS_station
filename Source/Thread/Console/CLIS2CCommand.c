@@ -15,7 +15,6 @@
 #include "FreeRTOS_CLI.h"
 #include "s2c_com_new.h"
 
-extern void S2CShowStationLog();
 
 BaseType_t prvSetCarNums( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 BaseType_t prvSetStationStatus( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
@@ -50,9 +49,9 @@ const CLI_Command_Definition_t xDelCar =
 
 const CLI_Command_Definition_t xShowStation =
 {
-    "showstation",
+    "show",
     "\r\n Show Station Status. \
-    ex:showstation \r\n",
+    ex:show \r\n",
     prvShowStationStatus, /* The function to run. */
     0
 };
@@ -200,6 +199,7 @@ BaseType_t prvShowStationStatus( char *pcWriteBuffer, size_t xWriteBufferLen, co
     /* Command Process*/
     memset( pcWriteBuffer, 0x00, xWriteBufferLen );
 
+    S2CShowRoadLog();
     S2CShowStationLog();
 
 	xReturn = pdFALSE;

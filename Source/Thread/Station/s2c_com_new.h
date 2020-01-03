@@ -50,7 +50,7 @@
 #define S2C_RAIL_LENGTH         (2810)
 #define S2C_MAX_FRONT_CAR_DISTANCE (2000)
 
-#define S2C_MBOX_DEPTH          (16)
+#define S2C_MBOX_DEPTH          (32)
 
 #define EREA_ADJUST_LEFT             (0x02)
 #define EREA_ADJUST_RIGHT            (0x03)
@@ -94,7 +94,7 @@
 #define ADJUST_COLLISION_TYPE   (2)
 #define NORMAL_COLLISION_TYPE   (3)
 
-#define BSECTION_DIFF           (147)
+#define BSECTION_DIFF           (160)
 #pragma pack(1)
 typedef struct
 {
@@ -155,6 +155,7 @@ typedef struct{
     uint8_t isBSection;
     uint8_t carMode;
     uint8_t rail;
+    roadID_t roadID;
 }carQueue_t;
 
 typedef struct{
@@ -218,6 +219,7 @@ void S2CSetStationStatus(uint8_t state);
 void S2CSetCarNums(uint8_t nums);
 void S2CRemoveCar(uint16_t carID);
 void S2CShowStationLog();
+void S2CShowRoadLog();
 #endif /* S2C_COM_H_ */
 
 

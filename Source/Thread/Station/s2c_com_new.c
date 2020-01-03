@@ -215,7 +215,6 @@ static adjustZone_t* S2CGetAdjustZone(uint8_t nums);
 static void S2CStationDataInitial();
 static void S2CRemoveCarProcess(uint16_t carID);
 static void S2CUpdateStation(carStatus_t *carSts);
-static void S2CShowRoadLog();
 static void S2CTimerTask(UArg arg0, UArg arg1);
 static void S2CStationStopRequestTask(UArg arg0, UArg arg1);
 static uint8_t S2CGetRoadSection(rfid_t rfid);
@@ -971,24 +970,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         S2CLevaveStationProcess(&carSts);
 
 
-        /*
-         * 冲突检测
-         */
-        if(S2CCriticalAreaDetect(&carSts))
-        {
-            /*关键区域碰撞风险*/
-            collision_data.carID = carSts.id;
-            collision_data.type = 0;
 
-            Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
-        }
-        else if(collision_data.type == S2CCarCollisionDetect(&carSts,roadFind))
-        {
-            /*道路碰撞风险*/
-            collision_data.carID = carSts.id;
-
-            Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
-        }
 
         /*
          * 获取车辆距离信息
@@ -1010,6 +992,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carQ.isBSection = carIsSecB;
         carQ.carMode = carSts.carMode;
         carQ.rail = carSts.rail;
+        memcpy(&carQ.roadID,&carSts.rfid.byte[1],sizeof(roadID_t));
 
         /*
          * 若车辆处于分离区的右侧轨道，获取分离区右轨信息
@@ -1033,14 +1016,38 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 continue;
             }
 
-            if(collision_data.type ==  S2CCarCollisionDetect(&carSts,roadSep))
+
+            carSepIsInserting = 1;
+        }
+
+        /*
+         * 碰撞风险检测
+         */
+        if(S2CCriticalAreaDetect(&carSts))
+        {
+            /*关键区域碰撞风险*/
+            collision_data.carID = carSts.id;
+            collision_data.type = 0;
+
+            Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
+        }
+        else
+        {
+            collision_data.type = S2CCarCollisionDetect(&carSts,roadFind);
+
+            if(collision_data.type == 0 && carQ.areaType == EREA_SEPERATE && carSts.rail == RIGHT_RAIL)
+            {
+                /*分离区车辆属于两条轨道，若主轨上无碰撞风险，则继续检测辅轨的碰撞风险*/
+                collision_data.type =  S2CCarCollisionDetect(&carSts,roadSep);
+            }
+
+            if(collision_data.type > 0)
             {
                 /*道路碰撞风险*/
                 collision_data.carID = carSts.id;
 
                 Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
             }
-            carSepIsInserting = 1;
         }
 
         /*
@@ -1220,12 +1227,12 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 }
                 else
                 {
-                    LogMsg("Manual Mode:Adjust scale error\r\n");
+                    LogMsg("Manual Mode:%x Adjust scale error\r\n",carSts.id);
                 }
             }
             else
             {
-                LogMsg("Manual Mode:Adjust Number error\r\n");
+                LogMsg("Manual Mode:Adjust Number error\r\n",carSts.id);
             }
         }
 
@@ -1344,6 +1351,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     uint8_t size;
     int8_t index;
     frontCar_t frontCar;
+    uint16_t tmp;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
@@ -1352,7 +1360,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         carQ.mode = 0;
         carQ.rpm = 0;
         carQ.rail = rid.rail;
-
+        memcpy(&carQ.roadID,&rid.rfid.byte[1],sizeof(roadID_t));
         /*
          * 确定车辆所属路线
          */
@@ -1489,12 +1497,13 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                         {
                             frontCar.state = 1;
                             frontCar.carID[0] = adjustZonePtr->carQueue[index-1].id;
-                            frontCar.carID[1] = frontCar.carID[0];
+                            frontCar.carID[1] = 0;
 
                             /*查找另外一条轨道上的前车*/
                             for(i=(index-2);i>=0;i--)
                             {
-                                if(adjustZonePtr->carQueue[index-1].rail != adjustZonePtr->carQueue[i].rail)
+                                //if(adjustZonePtr->carQueue[index-1].rail != adjustZonePtr->carQueue[i].rail)
+                                if(memcmp(&adjustZonePtr->carQueue[index-1].roadID,&adjustZonePtr->carQueue[i].roadID,sizeof(roadID_t)))
                                 {
                                     frontCar.carID[1] = adjustZonePtr->carQueue[i].id;
                                     break;
@@ -1517,14 +1526,16 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                             break;
                         }
                     }
-                    frontCar.state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&frontCar.carID[0]);
-                    frontCar.carID[1] = frontCar.carID[0];
+                    frontCar.state = S2CGetFrontCar(roadAdjust,rid.carId,dist,&tmp);
+                    frontCar.carID[0] = tmp;
+                    frontCar.carID[1] = 0;
                 }
             }
             else
             {
-                frontCar.state = S2CGetFrontCar(roadFind,rid.carId,dist,&frontCar.carID[0]);
-                frontCar.carID[1] = frontCar.carID[0];
+                frontCar.state = S2CGetFrontCar(roadFind,rid.carId,dist,&tmp);
+                frontCar.carID[0] = tmp;
+                frontCar.carID[1] = 0;
             }
 
             if(frontCar.state == 0)
@@ -1838,6 +1849,7 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
         retryNums = 0;
         do
         {
+            isEnd = 1;
             if(collisionInfo.type == STATION_COLLISION_TYPE)
             {
                 for(i=0;i<roadNums;i++)
@@ -1845,18 +1857,15 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                     index = S2CFindCarByID(collisionInfo.carID,roadInfo[i].carQueue);
                     if(index > 0)
                     {
-                        if(roadInfo[i].carQueue[index].carMode == STOP_MODE)
+                        if(roadInfo[i].carQueue[index].carMode != STOP_MODE)
                         {
-                            isEnd = 1;
-                        }
-                        else
-                        {
+                            LogMsg("Collision Stop %x,type %d\r\n",collisionInfo.carID,collisionInfo.type);
                             sendPacket.addr = collisionInfo.carID;
                             sendPacket.len = 1;
                             sendPacket.type = S2C_REQUEST_STOP;
                             sendPacket.data[0] = collisionInfo.type;
                             ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
-                            Task_sleep(50);
+                            Task_sleep(100);
                             isEnd = 0;
                             retryNums ++;
                         }
@@ -1874,22 +1883,19 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                     {
                         if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
                         {
+                            LogMsg("Collision Stop %x,type %d\r\n",roadInfo[i].carQueue[j].id,collisionInfo.type);
                             sendPacket.addr = roadInfo[i].carQueue[j].id;
                             sendPacket.len = 1;
                             sendPacket.type = S2C_REQUEST_STOP;
                             sendPacket.data[0] = collisionInfo.type;
                             ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
                             isEnd = 0;
-                            Task_sleep(50);
-                        }
-                        else
-                        {
-                            isEnd = 1;
                         }
                     }
                 }
                 retryNums ++;
             }
+            Task_sleep(100);
         }while(retryNums < 5 && isEnd == 0);
     }
 }
@@ -1917,7 +1923,7 @@ void S2CShowStationLog()
     }
 }
 
-static void S2CShowRoadLog()
+void S2CShowRoadLog()
 {
     uint8_t i,j;
     uint8_t size;
