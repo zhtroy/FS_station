@@ -1,4 +1,6 @@
 eclipse.preferences.version=1
+encoding//Debug/Dependency/Collections-C/src/subdir_rules.mk=UTF-8
+encoding//Debug/Dependency/Collections-C/src/subdir_vars.mk=UTF-8
 encoding//Debug/Dependency/Driver/StarterWare/Drivers/subdir_rules.mk=UTF-8
 encoding//Debug/Dependency/Driver/StarterWare/Drivers/subdir_vars.mk=UTF-8
 encoding//Debug/Dependency/Driver/StarterWare/Grlib/fonts/subdir_rules.mk=UTF-8
@@ -75,6 +77,8 @@ encoding//Debug/Source/Thread/Station/subdir_rules.mk=UTF-8
 encoding//Debug/Source/Thread/Station/subdir_vars.mk=UTF-8
 encoding//Debug/Source/Thread/Watchdog/subdir_rules.mk=UTF-8
 encoding//Debug/Source/Thread/Watchdog/subdir_vars.mk=UTF-8
+encoding//Debug/Source/Thread/net_msg/subdir_rules.mk=UTF-8
+encoding//Debug/Source/Thread/net_msg/subdir_vars.mk=UTF-8
 encoding//Debug/Source/Thread/subdir_rules.mk=UTF-8
 encoding//Debug/Source/Thread/subdir_vars.mk=UTF-8
 encoding//Debug/Source/subdir_rules.mk=UTF-8
