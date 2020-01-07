@@ -65,7 +65,7 @@ char *VerStr = "\nTronlong TCP/IP NDK Application ......\r\n";
 #define SUB_NET "192.168.127"     //不用加括号
 char *HostName     = "DSP_C6748";
 char  LocalIPAddr[16]  = SUB_NET".XXX";          // 本机IP = 192.168.127 + carID
-char *LocalIPMask  = "255.255.255.0";    // DHCP 模式下无效
+char *LocalIPMask  = "255.255.0.0";    // DHCP 模式下无效
 char *GatewayIP    = SUB_NET".0";    // DHCP 模式下无效
 char *DomainName   = "x.51dsp.net";      // DHCP 模式下无效
 // 114.114.114.114 国内公共 DNS 服务器
