@@ -40,6 +40,7 @@
 #include "Test_config.h"
 #include "easyflash.h"
 #include "soc_C6748.h"
+#include "psc.h"
 
 #define FPGA_LAN8710_RST    (SOC_EMIFA_CS2_ADDR + (0x18<<1))
 /****************************************************************************/
@@ -93,6 +94,10 @@ void AddWebFiles();
 void RemoveWebFiles();
 void TaskNDKInit();
 
+void EMAC_init()
+{
+	PSCModuleControl(SOC_PSC_1_REGS, HW_PSC_EMAC, PSC_POWERDOMAIN_ALWAYS_ON, PSC_MDCTL_NEXT_ENABLE);
+}
 /****************************************************************************/
 /*                                                                          */
 /*              回调函数 EMAC 初始化                                        */
@@ -534,7 +539,7 @@ Void NDKTask(UArg a0, UArg a1)
     rc = 8192;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_SOCKUDPRXLIMIT, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
-#if 0
+#if 1
     // TCP Keep Idle(10 秒)
     rc = 100;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);

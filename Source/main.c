@@ -29,6 +29,8 @@
 
 #define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
 
+extern void EMAC_init();
+
 void PeriphInit()
 {
     /*
@@ -51,6 +53,8 @@ void PeriphInit()
 	EMIFAInit();
 
 	nand_init();
+    
+    EMAC_init();
 
 	/*
 	 * **********FPGA外设初始化***************

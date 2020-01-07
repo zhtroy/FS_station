@@ -415,32 +415,35 @@ static void taskStartUp(UArg arg0, UArg arg1)
     taskParams.priority = 5;
     taskParams.stackSize = 4096;
 
-
+    taskParams.instance->name = "s2cCarStatus";
     task = Task_create((Task_FuncPtr)S2CCarStatusProcTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
+    taskParams.instance->name = "s2cRequestID";
     task = Task_create((Task_FuncPtr)S2CRequestIDTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
+    taskParams.instance->name = "s2cRequestPark";
     task = Task_create((Task_FuncPtr)S2CRequestParkTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
+    taskParams.instance->name = "s2cDoorCtrl";
     task = Task_create((Task_FuncPtr)S2CDoorCtrlTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-
+    taskParams.instance->name = "s2cStopTask";
     task = Task_create((Task_FuncPtr)S2CStationStopRequestTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
@@ -474,6 +477,7 @@ void S2CTaskInit()
     Task_Params_init(&taskParams);
     taskParams.priority = 4;
     taskParams.stackSize = 2048;
+    taskParams.instance->name = "s2cstartup";
 
     task = Task_create((Task_FuncPtr)taskStartUp, &taskParams, NULL);
     if (task == NULL) {
