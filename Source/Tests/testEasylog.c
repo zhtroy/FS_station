@@ -48,16 +48,10 @@ static void easylogInit(UArg arg0, UArg arg1)
         elog_assert_set_hook(elog_user_assert_hook);
         elog_flash_init();
         elog_start();
-        while(1)
-        {
-            Task_sleep(1000);
-            log_i("easylog count %d %d.",i,test);
-            i++;
-        }
     }
     else
     {
-
+        UARTPuts("easyflash or elog initial failed\r\n",-1);
     }
 
 }

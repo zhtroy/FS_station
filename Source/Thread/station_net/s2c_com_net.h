@@ -215,12 +215,21 @@ typedef struct{
     roadID_t roadID;
 }frontCar_t;
 
+typedef struct{
+    uint8_t status;
+    uint8_t rfid[12];
+}intoStationAck_t;
+
+typedef struct{
+    uint8_t operation;
+    uint8_t status;
+}doorAck_t;
+
+typedef struct{
+    uint8_t collision;
+}stopRequest_t;
+#pragma pack()
 void S2CTaskInit();
-void S2CSetStationStatus(uint8_t state);
-void S2CSetCarNums(uint8_t nums);
-void S2CRemoveCar(uint16_t carID);
-void S2CShowStationLog();
-void S2CShowRoadLog();
 
 #endif
 

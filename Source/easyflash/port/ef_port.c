@@ -38,8 +38,10 @@
 
 /* default environment variables set for user */
 const uint16_t device_id = 0x6080;
+const uint16_t device_port = 10001;
 static const ef_env default_env_set[] = {
-        {"device_id",&device_id,2}
+        {"device_id",&device_id,2},
+        {"device_port",&device_port,2}
 };
 
 static char log_buf[128];

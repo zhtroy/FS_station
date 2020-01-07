@@ -25,6 +25,7 @@
 #include "fpga_ttl.h"
 #include "common.h"
 #include "TL6748.h"
+#include "nandflash.h"
 
 #define FPGA_TEST_REG (SOC_EMIFA_CS2_ADDR + (0x5<<1))
 
@@ -49,6 +50,8 @@ void PeriphInit()
 
 	EMIFAInit();
 
+	nand_init();
+
 	/*
 	 * **********FPGA外设初始化***************
 	 * 1. 等待FPGA加载成功(FPGA的DONE信号拉高);
@@ -60,7 +63,7 @@ void PeriphInit()
 	 *       设备表;
 	 * ************************************
 	 */
-	GPIOWaitFpgaDone();
+	//GPIOWaitFpgaDone();
 	GPIOFpgaReset();
 
 	EMIFAWriteWord(FPGA_TEST_REG,0,0xaa);
