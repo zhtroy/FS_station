@@ -13,8 +13,9 @@
 #include <ti/sysbios/knl/Task.h>
 
 static SHELL_TypeDef shell;
-static Task_Handle taskhanle_shell;
 extern uint8_t UARTSemGetc(uint8_t * val,uint32_t timeout);
+extern void console_output(const char * chr, uint32_t len);
+extern void console_shellInit();
 //extern const unsigned int _shell_command_start = 0xc0000000;
 //extern const unsigned int _shell_command_end = 0xc0000000;
 static char getChar(char *c)
@@ -23,49 +24,61 @@ static char getChar(char *c)
     return 0;
 }
 
-void shell_createTask()
+static void shell_write(char c)
 {
+    console_output(&c,1);
+}
+
+void shell_open()
+{
+    Task_Handle taskhandle_shell = NULL;
     Error_Block eb;
     Task_Params taskParams;
-    Error_init(&eb);
-    Task_Params_init(&taskParams);
-    taskParams.priority = 5;
-    taskParams.stackSize = 2048;
-    taskParams.instance->name = "shellTask";
-    taskParams.arg0 = (xdc_UArg)(&shell);
 
-    taskhanle_shell = Task_create(shellTask, &taskParams, &eb);
-    if (taskhanle_shell == NULL) {
-        System_printf("Task_create() failed!\n");
-        BIOS_exit(0);
+    if(taskhandle_shell == NULL)
+    {
+        Error_init(&eb);
+        Task_Params_init(&taskParams);
+        taskParams.priority = 5;
+        taskParams.stackSize = 2048;
+        taskParams.instance->name = "shellTask";
+        taskParams.arg0 = (xdc_UArg)(&shell);
+        taskhandle_shell = Task_create(shellTask, &taskParams, &eb);
+        if (taskhandle_shell == NULL) {
+            System_printf("Task_create() failed!\n");
+            BIOS_exit(0);
+        }
     }
 }
 
-void shell_defaultRegister()
-{
-}
+/*void shell_close()*/
+/*{*/
+    /*if(taskhandle_shell != NULL)*/
+    /*{*/
+        /*Task_delete(&taskhandle_shell);*/
+        /*taskhandle_shell = NULL;*/
+    /*}*/
+/*}*/
+
+/*void shell_readRegisterDefault()*/
+/*{*/
+    /*shell.read = getChar;*/
+/*}*/
+
+/*void shell_readRegister(shellRead cb)*/
+/*{*/
+    /*shell.read = cb;*/
+/*}*/
 
 void testShellTask(void)
 {
-    Task_Handle task;
-    Error_Block eb;
-    Task_Params taskParams;
 
     shell.read = getChar;
-    shell.write = UARTPutc;
+    shell.write = shell_write;
 
     shellInit(&shell);
-    Error_init(&eb);
-    Task_Params_init(&taskParams);
-    taskParams.priority = 5;
-    taskParams.stackSize = 2048;
-    taskParams.instance->name = "shellTask";
-    taskParams.arg0 = (xdc_UArg)(&shell);
 
-    task = Task_create(shellTask, &taskParams, &eb);
-    if (task == NULL) {
-        System_printf("Task_create() failed!\n");
-        BIOS_exit(0);
-    }
+    console_shellInit();
 
+    shell_open();
 }
