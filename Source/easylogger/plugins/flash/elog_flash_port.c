@@ -57,7 +57,7 @@ ElogErrCode elog_flash_port_init(void) {
  */
 void elog_flash_port_output(const char *log, size_t size) {
     /* output to terminal */
-    UARTPuts(log,size);
+    sb_puts(log,size);
 }
 
 /**

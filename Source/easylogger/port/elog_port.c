@@ -35,7 +35,7 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/BIOS.h>
 #include <xdc/runtime/System.h>
-#include "uartStdio.h"
+#include "common.h"
 static Semaphore_Handle output_lock;
 
 #ifdef ELOG_ASYNC_OUTPUT_ENABLE
@@ -95,7 +95,7 @@ void elog_port_output(const char *log, size_t size) {
     /* output to terminal */
     //rt_kprintf("%.*s", size, log);
     //UARTprintf("%.*s", size, log);
-    UARTPuts(log,size);
+    sb_puts(log,size);
     /* output to flash */
     elog_flash_write(log, size);
 }

@@ -331,11 +331,13 @@ unsigned short shellDisplay(SHELL_TypeDef *shell, const char *string)
     {
         return 0;
     }
-    while(*string)
-    {
-        shell->write(*string++);
-        count ++;
-    }
+    count =  strlen(string);
+    shell->write(string, count);
+    /*while(*string)*/
+    /*{*/
+        /*shell->write(*string++);*/
+        /*count ++;*/
+    /*}*/
     return count;
 }
 
@@ -352,7 +354,7 @@ static void shellDisplayByte(SHELL_TypeDef *shell, char data)
     {
         return;
     }
-    shell->write(data);
+    shell->write(&data,1);
 }
 
 

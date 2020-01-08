@@ -2169,17 +2169,17 @@ static int showlog(uint8_t argc,uint8_t **argv)
      */
     for(i=0;i<termNums;i++)
     {
-        UARTprintf("\r\nT%d:",i);
+        sb_printf("\r\nT%d:",i);
 
         for(j=0;j<stationInfo[i].parkNums;j++)
         {
-            UARTprintf("%x",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
+            sb_printf("%x",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
         }
         
-        UARTprintf("\r\nQ%d:",i);
+        sb_printf("\r\nQ%d:",i);
         size = vector_size(stationInfo[i].carQueue);
         for(j=0;j<size;j++)
-            UARTprintf("%x",stationInfo[i].carQueue[size-1-j].id);
+            sb_printf("%x",stationInfo[i].carQueue[size-1-j].id);
     }
     /*showRoadLog();*/
     /*
@@ -2187,14 +2187,14 @@ static int showlog(uint8_t argc,uint8_t **argv)
      */
     for(i=0;i<roadNums;i++)
     {
-        UARTprintf("\r\nR%x%x%x:",roadInfo[i].roadID.byte[0],
+        sb_printf("\r\nR%x%x%x:",roadInfo[i].roadID.byte[0],
                 roadInfo[i].roadID.byte[1],
                 roadInfo[i].roadID.byte[2]);
         size = vector_size(roadInfo[i].carQueue);
         for(j=0;j<size;j++)
-            UARTprintf("->%x(%d)",roadInfo[i].carQueue[size-1-j].id,
+            sb_printf("->%x(%d)",roadInfo[i].carQueue[size-1-j].id,
                     roadInfo[i].carQueue[size-1-j].pos);
-        UARTPuts("\r\n",2);
+        sb_puts("\r\n",2);
     }
 
     /*
@@ -2202,10 +2202,10 @@ static int showlog(uint8_t argc,uint8_t **argv)
      */
     for(i=0;i<adjNums;i++)
     {
-        UARTprintf("\r\nAdj%d:",adjustZone[i].adjustNums);
+        sb_printf("\r\nAdj%d:",adjustZone[i].adjustNums);
         size = vector_size(adjustZone[i].carQueue);
         for(j=0;j<size;j++)
-            UARTprintf("->%x(%d)",adjustZone[i].carQueue[size-1-j].id,
+            sb_printf("->%x(%d)",adjustZone[i].carQueue[size-1-j].id,
                     adjustZone[i].carQueue[size-1-j].pos);
     }
     return 0;
@@ -2219,7 +2219,7 @@ static int delcar(uint8_t argc,uint8_t **argv)
     SOCKET s;
     if(argc < 2)
     {
-        UARTPuts("Please input car id\r\n",-1);
+        sb_puts("Please input car id\r\n",-1);
     }
     else
     {
@@ -2232,11 +2232,11 @@ static int delcar(uint8_t argc,uint8_t **argv)
                 /*release SOCKET */
                 fdClose(s);
             }
-            UARTprintf("remove %x from station\r\n",id);
+            sb_printf("remove %x from station\r\n",id);
         }
         else
         {
-            UARTprintf("can not find %x\r\n",id);
+            sb_printf("can not find %x\r\n",id);
         }
     }
 

@@ -319,7 +319,7 @@ typedef signed char (*shellRead)(char *);
  * 
  * @param const char 需写的字符
  */
-typedef void (*shellWrite)(const char);
+typedef void (*shellWrite)(const char*,int32_t);
 
 /**
  * @brief shell指令执行函数原型

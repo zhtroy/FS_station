@@ -34,7 +34,7 @@
 #include <ti/sysbios/BIOS.h>
 #include <xdc/runtime/System.h>
 #include "nandflash.h"
-#include "uartStdio.h"
+#include "common.h"
 
 /* default environment variables set for user */
 const uint16_t device_id = 0x6080;
@@ -227,6 +227,6 @@ void ef_print(const char *format, ...) {
     va_start(args, format);
     /* must use vprintf to print */
     size = vsprintf(log_buf, format, args);
-    UARTPuts(log_buf,size);
+    sb_puts(log_buf,size);
     va_end(args);
 }

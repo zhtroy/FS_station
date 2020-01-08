@@ -11,10 +11,11 @@
 #include <ti/sysbios/BIOS.h>
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Task.h>
+#include "common.h"
 
 static SHELL_TypeDef shell;
 extern uint8_t UARTSemGetc(uint8_t * val,uint32_t timeout);
-extern void console_output(const char * chr, uint32_t len);
+
 extern void console_shellInit();
 //extern const unsigned int _shell_command_start = 0xc0000000;
 //extern const unsigned int _shell_command_end = 0xc0000000;
@@ -24,9 +25,9 @@ static char getChar(char *c)
     return 0;
 }
 
-static void shell_write(char c)
+static void shell_write(const char *chr, int32_t len)
 {
-    console_output(&c,1);
+    sb_puts(chr, len);
 }
 
 void shell_open()

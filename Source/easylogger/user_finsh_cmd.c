@@ -9,7 +9,7 @@
 #include "elog_flash.h"
 #include "easyflash.h"
 #include <string.h>
-#include "uartstdio.h"
+#include "common.h"
 #include <stdlib.h>
 
 void setenv(uint8_t argc, char **argv) {
@@ -46,9 +46,9 @@ void getvalue(uint8_t argc, char **argv) {
     char *value = NULL;
     value = ef_get_env(argv[1]);
     if (value) {
-        UARTprintf("The %s value is %s.\n", argv[1], value);
+        sb_printf("The %s value is %s.\n", argv[1], value);
     } else {
-        UARTprintf("Can't find %s.\n", argv[1]);
+        sb_printf("Can't find %s.\n", argv[1]);
     }
 }
 MSH_CMD_EXPORT(getvalue, Get an envrionment variable by name.);
@@ -60,10 +60,10 @@ static void elog(uint8_t argc, char **argv) {
         } else if (!strcmp(argv[1], "off") || !strcmp(argv[1], "OFF")) {
             elog_set_output_enabled(false);
         } else {
-            UARTprintf("Please input elog on or elog off.\n");
+            sb_printf("Please input elog on or elog off.\n");
         }
     } else {
-        UARTprintf("Please input elog on or elog off.\n");
+        sb_printf("Please input elog on or elog off.\n");
     }
 }
 MSH_CMD_EXPORT(elog, EasyLogger output enabled [on/off]);
@@ -73,10 +73,10 @@ static void elog_lvl(uint8_t argc, char **argv) {
         if ((atoi(argv[1]) <= ELOG_LVL_VERBOSE) && (atoi(argv[1]) >= 0)) {
             elog_set_filter_lvl(atoi(argv[1]));
         } else {
-            UARTprintf("Please input correct level(0-5).\n");
+            sb_printf("Please input correct level(0-5).\n");
         }
     } else {
-        UARTprintf("Please input level.\n");
+        sb_printf("Please input level.\n");
     }
 }
 MSH_CMD_EXPORT(elog_lvl, Set EasyLogger filter level);
@@ -86,7 +86,7 @@ static void elog_tag(uint8_t argc, char **argv) {
         if (strlen(argv[1]) <= ELOG_FILTER_TAG_MAX_LEN) {
             elog_set_filter_tag(argv[1]);
         } else {
-            UARTprintf("The tag length is too long. Max is %d.\n", ELOG_FILTER_TAG_MAX_LEN);
+            sb_printf("The tag length is too long. Max is %d.\n", ELOG_FILTER_TAG_MAX_LEN);
         }
     } else {
         elog_set_filter_tag("");
@@ -99,7 +99,7 @@ static void elog_kw(uint8_t argc, char **argv) {
         if (strlen(argv[1]) <= ELOG_FILTER_KW_MAX_LEN) {
             elog_set_filter_kw(argv[1]);
         } else {
-            UARTprintf("The keyword length is too long. Max is %d.\n", ELOG_FILTER_KW_MAX_LEN);
+            sb_printf("The keyword length is too long. Max is %d.\n", ELOG_FILTER_KW_MAX_LEN);
         }
     } else {
         elog_set_filter_kw("");
@@ -122,14 +122,14 @@ static void elog_flash(uint8_t argc, char **argv) {
 #ifdef ELOG_FLASH_USING_BUF_MODE
             elog_flash_flush();
 #else
-            UARTprintf("EasyLogger flash log buffer mode is not open.\n");
+            sb_printf("EasyLogger flash log buffer mode is not open.\n");
 #endif
 
         } else {
-            UARTprintf("Please input elog_flash {<read>, <clean>, <flush>}.\n");
+            sb_printf("Please input elog_flash {<read>, <clean>, <flush>}.\n");
         }
     } else {
-        UARTprintf("Please input elog_flash {<read>, <clean>, <flush>}.\n");
+        sb_printf("Please input elog_flash {<read>, <clean>, <flush>}.\n");
     }
 }
 MSH_CMD_EXPORT(elog_flash, EasyLogger <read> <clean> <flush> flash log);

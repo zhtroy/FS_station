@@ -28,7 +28,7 @@ static Void taskCellComMain(UArg a0, UArg a1)
 		if(msg->type==cell){
 			sprintf(string,"recv server command %x \n", *((uint16_t*) (msg->data)) );
 
-			UARTPuts(string, -2);
+			sb_puts(string, -2);
 		}
 
 	}

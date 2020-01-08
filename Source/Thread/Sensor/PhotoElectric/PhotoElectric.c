@@ -118,18 +118,18 @@ void taskPhotoElectric()
         	}
         	break;
         }
-        UARTprintf("photo deviceNum = %d\t",photo.deviceNum);
+        sb_printf("photo deviceNum = %d\t",photo.deviceNum);
         if(photo.content.cmd ==CAN_CMD_RISE ){
-			UARTPuts("rise: ",-1);
+			sb_puts("rise: ",-1);
 		}
 		else if(photo.content.cmd == CAN_CMD_FALL){
-			UARTPuts("fall: ",-1);
+			sb_puts("fall: ",-1);
 		}
 		else{
-			UARTPuts("unknown: ",-1);
+			sb_puts("unknown: ",-1);
 		}
 
-		UARTprintf("time: %d ms\tchn:%d\n", photo.content.data,photo.content.chn);
+		sb_printf("time: %d ms\tchn:%d\n", photo.content.data,photo.content.chn);
 
     }
 }

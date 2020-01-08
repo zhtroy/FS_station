@@ -51,7 +51,7 @@ static void easylogInit(UArg arg0, UArg arg1)
     }
     else
     {
-        UARTPuts("easyflash or elog initial failed\r\n",-1);
+        sb_puts("easyflash or elog initial failed\r\n",-1);
     }
 
 }

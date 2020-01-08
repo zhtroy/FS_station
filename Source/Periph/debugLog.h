@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 #define FSZX_DEBUG_LOG(type,fmt,...) \
-		if (((type) & FSZX_DBG_CURRENT_TYPES))  {LogMsg (fmt,##__VA_ARGS__); }
+		if (((type) & FSZX_DBG_CURRENT_TYPES))  {sb_printf (fmt,##__VA_ARGS__); }
 
 
 #ifdef __cplusplus

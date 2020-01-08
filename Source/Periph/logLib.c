@@ -5,7 +5,7 @@
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 #include <ti/sysbios/BIOS.h>
-#include "uartStdio.h"
+#include "common.h"
 #include "logLib.h"
 
 /* 宏定义 */
@@ -175,7 +175,7 @@ void LogPuts(char *txBuffer, int numBytesToWrite)
 {
     /*添加信号量锁，保证打印信息的顺序*/
     Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
-    UARTPuts(txBuffer, numBytesToWrite);
+    sb_puts(txBuffer, numBytesToWrite);
     Semaphore_post (logSem);
 }
 
@@ -195,6 +195,6 @@ void LogPrintf(char *fmt, ...)
 	va_start(vp,fmt);
 	/*添加信号量锁，保证打印信息的顺序*/
 	Semaphore_pend (logSem, BIOS_WAIT_FOREVER);
-	UARTprintf(fmt,vp);
+	sb_printf(fmt,vp);
 	Semaphore_post (logSem);
 }

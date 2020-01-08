@@ -614,7 +614,7 @@ Bool ZCPSendPacket(ZCPInstance_t *pInst,
     /*
      * 添加时间戳
      */
-    userGetMS(&timeMs);
+    //userGetMS(&timeMs);
     memcpy(&(sendPacket.data[userPacket->len]),&timeMs,sizeof(timeMs));
 
     /*
@@ -651,7 +651,7 @@ Bool ZCPRecvPacket(ZCPInstance_t *pInst,
     userPacket->addr = (recvPacket.addrH<<8) + recvPacket.addrL;
     if(userPacket->addr != recvPacket.src_addr)
     {
-        LogMsg("ZCP Source Address Error(%x->%x)\r\n",userPacket->addr,recvPacket.src_addr);
+        log_e("ZCP Source Address Error(%x->%x)",userPacket->addr,recvPacket.src_addr);
         userPacket->addr = recvPacket.src_addr;
     }
 

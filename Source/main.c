@@ -73,7 +73,7 @@ void PeriphInit()
 	EMIFAWriteWord(FPGA_TEST_REG,0,0xaa);
 	if(0xaa != EMIFAReadWord(FPGA_TEST_REG,0))
 	{
-		UARTprintf("ERROR: EMIFA Test Failed!!!\r\n");
+		sb_printf("ERROR: EMIFA Test Failed!!!\r\n");
 	}
 
     UartNs550HardIntMaskAll();

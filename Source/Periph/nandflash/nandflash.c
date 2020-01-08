@@ -11,6 +11,7 @@
 #include "nand_gpmc.h"
 #include "soc_C6748.h"
 #include "uartStdio.h"
+#include "common.h"
 
 /* 全局变量 */
 #pragma DATA_ALIGN(txData, 4);
@@ -141,29 +142,29 @@ void nand_init()
     retVal = NANDOpen(&nandInfo);
     if (retVal & NAND_STATUS_FAILED)
     {
-        UARTPuts("\r\n*** ERROR : NAND Open Failed... ",-1);
+        sb_puts("\r\n*** ERROR : NAND Open Failed... ",-1);
         while(1);
     }
     else if (retVal & NAND_STATUS_WAITTIMEOUT)
     {
-        UARTPuts("\r\n*** ERROR : Device Is Not Ready...!!!\r\n", -1);
+        sb_puts("\r\n*** ERROR : Device Is Not Ready...!!!\r\n", -1);
         while(1);
     }
     else if (retVal & NAND_STATUS_NOT_FOUND)
     {
-        UARTPuts("\r\n*** ERROR : DEVICE MAY NOT BE ACCESSABLE OR NOT PRESENT."
+        sb_puts("\r\n*** ERROR : DEVICE MAY NOT BE ACCESSABLE OR NOT PRESENT."
                  "\r\n", -1);
         while(1);
     }
     else if(nandInfo.devId != NAND_DEVICE_ID)
     {
         /* 检查NAND设备ID为不匹配 */
-        UARTPuts("\r\n*** ERROR : INVALID DEVICE ID.", -1);
+        sb_puts("\r\n*** ERROR : INVALID DEVICE ID.", -1);
         while(1);
     }
     else
     {
-        UARTPuts("\r\n*** NAND Open Success... ",-1);
+        sb_puts("\r\n*** NAND Open Success... ",-1);
     }
 }
 

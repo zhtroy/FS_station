@@ -30,7 +30,7 @@
 #include <ti/sysbios/knl/task.h>
 
 // 外设驱动库
-#include "uartStdio.h"
+#include "common.h"
 
 #include "emifa/emifa_app.h"
 
@@ -128,7 +128,7 @@ void EMAC_getConfig(unsigned char *pMacAddr)
 	bMacAddr[3] = (*(volatile unsigned int *)(0x01C1400C) & 0x0000FF00) >> 8;
 	bMacAddr[4] = (*(volatile unsigned int *)(0x01C1400C) & 0x000000FF) >> 0;
 	bMacAddr[5] = (*(volatile unsigned int *)(0x01C14010) & 0x000000FF) >> 0;
-	UARTprintf("Using MAC Address: %02X-%02X-%02X-%02X-%02X-%02X\n",
+	sb_printf("Using MAC Address: %02X-%02X-%02X-%02X-%02X-%02X\n",
     		bMacAddr[0], bMacAddr[1], bMacAddr[2], bMacAddr[3], bMacAddr[4], bMacAddr[5]);
 
     // 传递 MAC 地址
@@ -144,7 +144,7 @@ void EMAC_getConfig(unsigned char *pMacAddr)
 void EMAC_setConfig(unsigned char *pMacAddr)
 {
     mmCopy(bMacAddr, pMacAddr, 6);
-    UARTprintf(
+    sb_printf(
             "Setting MAC Addr to: %02x-%02x-%02x-%02x-%02x-%02x\n",
             bMacAddr[0], bMacAddr[1], bMacAddr[2],
             bMacAddr[3], bMacAddr[4], bMacAddr[5]);
@@ -158,15 +158,15 @@ void EMAC_setConfig(unsigned char *pMacAddr)
 // 这个函数被驱动调用 不要修改函数名
 void EMAC_linkStatus(unsigned int phy, unsigned int linkStatus)
 {
-	UARTprintf("\r\nLink Status: %s on PHY %d\n", LinkStr[linkStatus], phy);
+	sb_printf("\r\nLink Status: %s on PHY %d\n", LinkStr[linkStatus], phy);
 
 	if(!NDKFlag)
 	{
-		UARTPuts("Link Status has changed!Ready to restart NDK Stack!\n", -2);
+		sb_puts("Link Status has changed!Ready to restart NDK Stack!\n", -2);
 
-		UARTPuts("Stoping ......\n", -2);
+		sb_puts("Stoping ......\n", -2);
 		NC_NetStop(0);
-		UARTPuts("Starting ......\n", -2);
+		sb_puts("Starting ......\n", -2);
 		TaskNDKInit();
 	}
 
@@ -219,16 +219,16 @@ void NetworkIPAddr(IPN IPAddr, unsigned int IfIdx, unsigned int fAdd)
 {
 	if(fAdd)
 	{
-        UARTprintf("Network Added: ", IfIdx);
+        sb_printf("Network Added: ", IfIdx);
 	}
 	else
 	{
-		UARTprintf("Network Removed: ", IfIdx);
+		sb_printf("Network Removed: ", IfIdx);
 	}
 
 	char StrIP[16];
 	NtIPN2Str(IPAddr, StrIP);
-	UARTprintf("%s\r\n", StrIP);
+	sb_printf("%s\r\n", StrIP);
 }
 
 /****************************************************************************/
@@ -242,7 +242,7 @@ char *StatusStr[] = {"Disabled", "Waiting", "IPTerm", "Failed", "Enabled"};
 
 void ServiceReport(unsigned int Item, unsigned int Status, unsigned int Report, HANDLE h)
 {
-	UARTprintf("Service Status: %9s: %9s: %9s: %03d\n",
+	sb_printf("Service Status: %9s: %9s: %9s: %03d\n",
 			     TaskName[Item - 1], StatusStr[Status], ReportStr[Report / 256], Report & 0xFF);
 
     // 配置 DHCP
@@ -352,7 +352,7 @@ void DHCPStatus()
     int i, rc;
 
     // 扫描 DHCPOPT_SERVER_IDENTIFIER 服务
-    UARTprintf("\nDHCP Server ID:\n");
+    sb_printf("\nDHCP Server ID:\n");
     for(i = 1; ; i++)
     {
         // 获取 DNS 服务
@@ -364,20 +364,20 @@ void DHCPStatus()
 
         // IP 地址
         NtIPN2Str(IPAddr, IPString);
-        UARTprintf("DHCP Server %d = '%s'\n", i, IPString);
+        sb_printf("DHCP Server %d = '%s'\n", i, IPString);
     }
 
     if(i == 1)
     {
-    	UARTprintf("None\n\n");
+    	sb_printf("None\n\n");
     }
     else
     {
-    	UARTprintf("\n");
+    	sb_printf("\n");
     }
 
     // 扫描 DHCPOPT_ROUTER 服务
-    UARTprintf("Router Information:\n");
+    sb_printf("Router Information:\n");
     for(i = 1; ; i++)
     {
         // 获取 DNS 服务
@@ -389,16 +389,16 @@ void DHCPStatus()
 
         // IP 地址
         NtIPN2Str(IPAddr, IPString);
-        UARTprintf("Router %d = '%s'\n", i, IPString);
+        sb_printf("Router %d = '%s'\n", i, IPString);
     }
 
     if(i == 1)
     {
-    	UARTprintf("None\n\n");
+    	sb_printf("None\n\n");
     }
     else
     {
-    	UARTprintf("\n");
+    	sb_printf("\n");
     }
 }
 
@@ -417,7 +417,7 @@ Void NDKTask(UArg a0, UArg a1)
     rc = NC_SystemOpen(NC_PRIORITY_HIGH, NC_OPMODE_INTERRUPT);
     if(rc)
     {
-    	UARTprintf("NC_SystemOpen Failed (%d)\n", rc);
+    	sb_printf("NC_SystemOpen Failed (%d)\n", rc);
 
         for(;;);
     }
@@ -427,7 +427,7 @@ Void NDKTask(UArg a0, UArg a1)
     hCfg = CfgNew();
     if(!hCfg)
     {
-    	UARTprintf("Unable to create configuration\n");
+    	sb_printf("Unable to create configuration\n");
 
         goto Exit;
     }
@@ -435,7 +435,7 @@ Void NDKTask(UArg a0, UArg a1)
     // 配置主机名
     if(strlen( DomainName ) >= CFG_DOMAIN_MAX || strlen( HostName ) >= CFG_HOSTNAME_MAX)
     {
-    	UARTprintf("Names too long\n");
+    	sb_printf("Names too long\n");
 
         goto Exit;
     }
@@ -477,9 +477,9 @@ Void NDKTask(UArg a0, UArg a1)
 	CfgAddEntry(hCfg, CFGTAG_SYSINFO, CFGITEM_DHCP_DOMAINNAMESERVER, 0, sizeof(IPTmp), (UINT8 *)&IPTmp, 0);
 
 	// 输出配置信息
-	UARTprintf("\r\n\r\nIP Address is set to %s\n", LocalIPAddr);
-	UARTprintf("IP subnet mask is set to %s\n", LocalIPMask);
-	UARTprintf("IP default gateway is set to %s\r\n\r\n", GatewayIP);
+	sb_printf("\r\n\r\nIP Address is set to %s\n", LocalIPAddr);
+	sb_printf("IP subnet mask is set to %s\n", LocalIPMask);
+	sb_printf("IP default gateway is set to %s\r\n\r\n", GatewayIP);
 
 
     // 配置 TELNET 服务
@@ -561,7 +561,7 @@ Void NDKTask(UArg a0, UArg a1)
     } while(rc > 0);
 
     // 停止消息
-    UARTprintf("NDK Task has been stop(Return Code %d)!\r\n", rc);
+    sb_printf("NDK Task has been stop(Return Code %d)!\r\n", rc);
 
     // 移除 WEB 文件
 //    RemoveWebFiles();
@@ -596,6 +596,6 @@ void TaskNDKInit()
 	NDKTaskHandle = Task_create(NDKTask, &TaskParams, NULL);
 	if(NDKTaskHandle == NULL)
 	{
-		UARTprintf("NDK Task create failed!\r\n");
+		sb_printf("NDK Task create failed!\r\n");
 	}
 }

@@ -73,6 +73,7 @@ static void ConCmdPPPOEServer( int ntok, char *tok1, char *tok2, char *tok3, cha
 static HANDLE   hPPPOEServer =0 ;
 #endif
 
+static void console_output(const char * chr, int32_t len);
 /*-------------------------------------------------------------- */
 /* ConPrintf() */
 /* Formatted print to console output */
@@ -87,7 +88,8 @@ int ConPrintf(const char *format, ...)
    size = NDK_vsprintf(buffer, (char *)format, ap);
    va_end(ap);
 
-   send( scon, buffer, size, 0 );
+   console_output(buffer, size);
+   /*send( scon, buffer, size, 0 );*/
    return( size );
 }
 
@@ -150,7 +152,6 @@ char ConGetCh()
         InCnt--;
         c = InBuf[InIdx++];
 
-        return c;
         if( c != '\n' )
             return( c );
     }
@@ -159,7 +160,7 @@ abort_console:
     ConsoleClose();
 
     fdClose( scon );
-    //TaskExit();
+    TaskExit();
 
     return(0);
 }
@@ -738,20 +739,32 @@ static char console_getchar(char *c)
     *c = ConGetCh();
     return 0;
 }
-
-void console_output(const char * chr, uint32_t len)
+#endif
+static void console_output(const char * chr, int32_t len)
 {
     if(hConsole != 0)
     {
-        send( scon, chr , len , 0 );
+        if(len < 0)
+        {
+            send(scon, chr, strlen(chr), 0);
+        }
+        else
+        {
+            send( scon, chr , len , 0 );
+        }
     }
     else
     {
-        UARTPuts(chr,len); 
+        UARTPuts(chr,len);
     }
 }
 
-#define MAX_CONSOLE_OUTPUT_SIZE (1024)
+#define MAX_CONSOLE_OUTPUT_SIZE (256)
+void sb_puts(const char * chr, int32_t len)
+{
+    console_output(chr, len);
+}
+
 void sb_printf(const char *fmt, ...)
 {
     static char str[MAX_CONSOLE_OUTPUT_SIZE];
@@ -766,8 +779,7 @@ void sb_printf(const char *fmt, ...)
 void console_shellInit()
 {
     shell.read = console_getchar;
-    shell.write = console_putchar;
+    shell.write = console_output;
     shellInit(&shell);
 }
 
-#endif
