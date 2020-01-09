@@ -27,6 +27,7 @@
 #include "uartStdio.h"
 #include "easyflash.h"
 #include "shell.h"
+#include "common.h"
 
 #define S2C_ZCP_UART_DEV_NUM    (0)
 #define S2C_ZCP_DEV_NUM         (0)
@@ -35,6 +36,9 @@
 #define S2C_SEP_NUMS  (3)
 #define S2C_ADJ_NUMS  (3)
 #define S2C_TERM_NUMS (2)
+
+static char log_buf[128];
+
 static const uint8_t roadNums = S2C_ROAD_NUMS;
 static const uint8_t sepNums = S2C_SEP_NUMS;
 static const uint8_t adjNums = S2C_ADJ_NUMS;
@@ -233,12 +237,17 @@ static int on_serverconnect(SOCKET s, uint16_t id);
 
 static HashTable *_socket_id_table;
 
+/*compare pointer address*/
 static int hashintkeycmp(const void* a ,const void * b)
 {
-	if(*((uint16_t*)a) == *((uint16_t*)b))
-	{
-		return 0;
-	}
+	/*if(*((uint16_t*)a) == *((uint16_t*)b))*/
+	/*{*/
+		/*return 0;*/
+	/*}*/
+    if(a == b)
+    {
+        return 0;
+    }
 	else
 	{
 		return -1;
@@ -350,7 +359,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
     msg_register_cb(s,S2C_CAR_STATUS_CMD,on_carStatus);
     /*msg_register_cb(s,S2C_ALLOT_PARK_ACK,on_allotPack);*/
 
-    hashtable_add(_socket_id_table,&id,s);
+    hashtable_add(_socket_id_table,id,s);
 
 	return 1;
 }
@@ -360,7 +369,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
 static SOCKET getSocket(uint16_t id)
 {
     SOCKET s=NULL;
-    hashtable_get(_socket_id_table,&id,&s);
+    hashtable_get(_socket_id_table,id,&s);
     return s;
 }
 
@@ -1972,41 +1981,67 @@ void showStationLog()
 {
     uint8_t i,j;
     uint8_t size;
+    
+    char str[32];
+
+    strcpy(log_buf,"\r\ncurrent STATION status\r\n");
+
     /*
      * 显示站台队列
      */
     for(i=0;i<termNums;i++)
     {
-        log_i("T%d:",i);
+        
+        sprintf(str,"T%d:",i);
+        strcat(log_buf,str);
 
         for(j=0;j<stationInfo[i].parkNums;j++)
         {
-            elog_raw("%x",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
+            sprintf(str,"%2x,",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
+            strcat(log_buf,str);
         }
         
-        log_i("Q%d:",i);
+        sprintf(str,"    Q%d:",i);
+        strcat(log_buf,str);
+
         size = vector_size(stationInfo[i].carQueue);
         for(j=0;j<size;j++)
-            elog_raw("%x",stationInfo[i].carQueue[size-1-j].id);
+        {
+            sprintf(str,"%2x,",stationInfo[i].carQueue[size-1-j].id);
+            strcat(log_buf,str);
+        }
+        strcat(log_buf,"\r\n");
     }
+
+    log_i("%s",str);
 }
 
 void showRoadLog()
 {
+#if 1
     uint8_t i,j;
     uint8_t size;
+    char str[32];
     /*
      * 显示道路队列
      */
+    
+    strcpy(log_buf,"\r\ncurrent ROAD status\r\n");
     for(i=0;i<roadNums;i++)
     {
-        log_i("R%x%x%x:",roadInfo[i].roadID.byte[0],
+        sprintf(str,"R%x%x%x:",roadInfo[i].roadID.byte[0],
                 roadInfo[i].roadID.byte[1],
                 roadInfo[i].roadID.byte[2]);
+        strcat(log_buf,str);
+
         size = vector_size(roadInfo[i].carQueue);
         for(j=0;j<size;j++)
-            elog_raw("->%x(%d)",roadInfo[i].carQueue[size-1-j].id,
+        {
+            sprintf(str,"->%x(%d)",roadInfo[i].carQueue[size-1-j].id,
                     roadInfo[i].carQueue[size-1-j].pos);
+            strcat(log_buf,str);
+        }
+        strcat(log_buf,"\r\n");
     }
 
     /*
@@ -2014,12 +2049,20 @@ void showRoadLog()
      */
     for(i=0;i<adjNums;i++)
     {
-        log_i("Adj%d:",adjustZone[i].adjustNums);
+        sprintf(str,"Adj%d:",adjustZone[i].adjustNums);
+        strcat(log_buf,str);
         size = vector_size(adjustZone[i].carQueue);
         for(j=0;j<size;j++)
-            elog_raw("->%x(%d)",adjustZone[i].carQueue[size-1-j].id,
+        {
+            sprintf(str,"->%x(%d)",adjustZone[i].carQueue[size-1-j].id,
                     adjustZone[i].carQueue[size-1-j].pos);
+            strcat(log_buf,str);
+        }
+        strcat(log_buf,"\r\n");
     }
+
+    log_i("%s",log_buf);
+#endif
 }
 
 
@@ -2173,13 +2216,13 @@ static int showlog(uint8_t argc,uint8_t **argv)
 
         for(j=0;j<stationInfo[i].parkNums;j++)
         {
-            sb_printf("%x",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
+            sb_printf("%2x ",stationInfo[i].carStation[stationInfo[i].parkNums-1-j].id);
         }
         
-        sb_printf("\r\nQ%d:",i);
+        sb_printf("   Q%d:",i);
         size = vector_size(stationInfo[i].carQueue);
         for(j=0;j<size;j++)
-            sb_printf("%x",stationInfo[i].carQueue[size-1-j].id);
+            sb_printf("%2x ",stationInfo[i].carQueue[size-1-j].id);
     }
     /*showRoadLog();*/
     /*
@@ -2194,7 +2237,6 @@ static int showlog(uint8_t argc,uint8_t **argv)
         for(j=0;j<size;j++)
             sb_printf("->%x(%d)",roadInfo[i].carQueue[size-1-j].id,
                     roadInfo[i].carQueue[size-1-j].pos);
-        sb_puts("\r\n",2);
     }
 
     /*
@@ -2225,10 +2267,11 @@ static int delcar(uint8_t argc,uint8_t **argv)
     {
         id = strtoul(argv[1],NULL,16);
         
-        if(CC_OK == hashtable_remove(_socket_id_table,&id,&s))
+        if(CC_OK == hashtable_remove(_socket_id_table,id,&s))
         {
             if(s != NULL)
             {
+                fdOpenSession(Task_self());
                 /*release SOCKET */
                 fdClose(s);
             }

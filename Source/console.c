@@ -42,6 +42,7 @@
 #include <ti/ndk/inc/tools/console.h>
 #include "shell.h"
 #include "uartStdio.h"
+#include <stdio.h>
 
 extern char *VerStr;
 
@@ -406,7 +407,8 @@ static void console( SOCKET sCon, PSA pClient )
     else
     {
         ConPrintf("\n\nWelcome to the console program.\n");
-        ConPrintf("Enter '?' or 'help' for a list of commands.\n\n");
+        ConPrintf("Enter 'help' for a list of commands.\n\n");
+        ConPrintf("fsh>>");
         logon = 1;
     }
 
@@ -744,6 +746,7 @@ static void console_output(const char * chr, int32_t len)
 {
     if(hConsole != 0)
     {
+        fdOpenSession(TaskSelf());
         if(len < 0)
         {
             send(scon, chr, strlen(chr), 0);
@@ -782,4 +785,28 @@ void console_shellInit()
     shell.write = console_output;
     shellInit(&shell);
 }
+
+extern void ConCmdTest( int ntok, char *tok1, char *tok2 );
+
+static int test(int argc,char **argv)
+{
+    ConCmdTest(argc-1, argv[1], argv[2]);
+    return 0;
+}
+MSH_CMD_EXPORT(test, test net work status);
+
+extern void ConCmdPing( int ntok, char *tok1, char *tok2 );
+static int ping(int argc, char **argv)
+{
+    ConCmdPing(argc-1, argv[1], argv[2]);  
+    return 0;
+}
+MSH_CMD_EXPORT(ping, Test echo request);
+
+static int ipaddr(int argc, char **argv) 
+{
+    ConCmdIPAddr ( argc-1, argv[1], argv[2], argv[3], argv[4] );
+    return 0;
+}
+MSH_CMD_EXPORT(ipaddr, Configuration of IPAddress);
 

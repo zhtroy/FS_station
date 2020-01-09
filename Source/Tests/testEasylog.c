@@ -15,8 +15,6 @@
 #include <ti/sysbios/knl/Task.h>
 #include "shell.h"
 
-static uint32_t test=100;
-SHELL_EXPORT_VAR_INT(test,test,test variable);
 
 /* EasyLogger断言钩子方法 */
 static void elog_user_assert_hook(const char* ex, const char* func, size_t line) {
@@ -34,7 +32,6 @@ static void elog_user_assert_hook(const char* ex, const char* func, size_t line)
 }
 static void easylogInit(UArg arg0, UArg arg1)
 {
-    int32_t i = 0;
     if ((easyflash_init() == EF_NO_ERR)&&(elog_init() == ELOG_NO_ERR)) {
 
         /* set EasyLogger log format */

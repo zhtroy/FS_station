@@ -165,6 +165,7 @@ static void async_output(void *arg) {
     size_t get_log_size = 0;
     static char poll_get_buf[ELOG_LINE_BUF_SIZE - 4];
 
+    fdOpenSession(Task_self());
     while(true) {
         /* waiting log */
         Semaphore_pend(output_notice, BIOS_WAIT_FOREVER);
@@ -184,5 +185,6 @@ static void async_output(void *arg) {
             }
         }
     }
+    fdCloseSession(Task_self());
 }
 #endif
