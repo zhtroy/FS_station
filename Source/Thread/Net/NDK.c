@@ -448,7 +448,7 @@ Void NDKTask(UArg a0, UArg a1)
 
     // 静态 IP 配置,使用车辆ID当作地址
     ef_get_env_blob("device_id",&device_id,sizeof(device_id),NULL);
-    sprintf(LocalIPAddr,SUB_NET".%d", *(uint8_t*) &(device_id));
+    msg_id2ip(device_id,LocalIPAddr);
 
 
 	CI_IPNET NA;
@@ -544,16 +544,20 @@ Void NDKTask(UArg a0, UArg a1)
 
 #if 1
     // TCP Keep Idle(10 秒)
-    rc = 100;
+    rc = 10;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
     // TCP Keep Interval(1 秒)
-    rc = 10;
+    rc = 5;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPINTVL, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
     // TCP Max Keep Idle(5 秒)
-    rc = 50;
+    rc = 20;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPMAXIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
+
+    // socket 连接超时 (1 s)
+    rc = 1;
+    CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_SOCKTIMECONNECT, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 #endif
 
     // 使用当前配置启动 NDK 网络

@@ -344,21 +344,19 @@ NandStatus_t nand_write_bytes(uint32_t addr, uint8_t *buf, size_t size)
         // Read the new current page in the current block to its destination
         //tempPtr = (unsigned char *)(size >= pageSize) ? buf : ((unsigned char *)txData);
         bytesToCopy = (size >= pageSize) ? pageSize : size;
-#if 0
-        if (tempPtr != buf)
+
+        if (size < pageSize)
         {
+            bytesToCopy = size;
             // If the last copy was a partial page, copy byteCnt
             // bytes from memory buffer pointer to the dest
             status = NANDPageRead( &nandInfo, currBlock, currPage,txData, &eccData[0]);
-            /*
+
             if(status != NAND_STATUS_PASSED)
             {
                 return status;
             }
-            */
-            memcpy((void *)txData, (void *)buf, bytesToCopy);
         }
-#endif
 
         memcpy((void *)txData, (void *)buf, bytesToCopy);
 

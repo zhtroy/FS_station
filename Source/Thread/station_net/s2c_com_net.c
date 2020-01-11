@@ -2013,6 +2013,7 @@ void showStationLog()
         strcat(log_buf,"\r\n");
     }
 
+    log_buf[127] = 0;
     log_i("%s",log_buf);
 }
 
@@ -2060,7 +2061,7 @@ void showRoadLog()
         }
         strcat(log_buf,"\r\n");
     }
-
+    log_buf[127] = 0;
     log_i("%s",log_buf);
 #endif
 }
