@@ -33,6 +33,12 @@
 /* IAP section backup application section start address in flash */
 static uint32_t bak_app_start_addr = 0;
 
+/*
+ * change by chendong
+ */
+static uint32_t buff[512];
+
+
 /**
  * Flash IAP function initialize.
  *
@@ -198,7 +204,7 @@ EfErrCode ef_copy_spec_app_from_bak(uint32_t user_app_addr, size_t app_size,
     uint32_t app_cur_addr, bak_cur_addr;
     EfErrCode result = EF_NO_ERR;
     /* 32 words size buffer */
-    uint32_t buff[32];
+    /*uint32_t buff[32];*/
 
     /* cycle copy data */
     for (cur_size = 0; cur_size < app_size; cur_size += sizeof(buff)) {
@@ -250,7 +256,7 @@ EfErrCode ef_copy_bl_from_bak(uint32_t bl_addr, size_t bl_size) {
     uint32_t bl_cur_addr, bak_cur_addr;
     EfErrCode result = EF_NO_ERR;
     /* 32 words buffer */
-    uint32_t buff[32];
+    /*uint32_t buff[32];*/
 
     /* cycle copy data by 32bytes buffer */
     for (cur_size = 0; cur_size < bl_size; cur_size += sizeof(buff)) {

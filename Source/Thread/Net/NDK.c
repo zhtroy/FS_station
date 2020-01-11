@@ -49,7 +49,8 @@
 /*                                                                          */
 /****************************************************************************/
 // NDK 运行标志
-char NDKFlag;
+static char NDKFlag = 0;
+static unsigned int lastPHYstatus = 4;
 
 // MAC 地址
 unsigned char bMacAddr[8];
@@ -160,17 +161,19 @@ void EMAC_linkStatus(unsigned int phy, unsigned int linkStatus)
 {
 	sb_printf("\r\nLink Status: %s on PHY %d\n", LinkStr[linkStatus], phy);
 
-	if(!NDKFlag)
+	if(lastPHYstatus==0 && linkStatus!=0 && NDKFlag)
 	{
 		sb_puts("Link Status has changed!Ready to restart NDK Stack!\n", -2);
 
 		sb_puts("Stoping ......\n", -2);
-		NC_NetStop(0);
+		NC_NetStop(1);
+		NDKFlag = 0;
 		sb_puts("Starting ......\n", -2);
-		TaskNDKInit();
+//		TaskNDKInit();
 	}
 
-	NDKFlag = 0;
+	lastPHYstatus = linkStatus;
+
 }
 
 /****************************************************************************/
@@ -182,6 +185,7 @@ void NetworkOpen()
 {
     // 服务
     hTcp = DaemonNew(SOCK_STREAMNC, 0, 1000, dtask_tcp_echo, OS_TASKPRINORM, OS_TASKSTKNORM, 0, 3);
+
 
 #ifdef TEST_MSG_LOOPBACK
     msgtestloopback(g_sysParam.carID, 42);
@@ -205,9 +209,8 @@ void NetworkClose()
 
     DaemonFree(hTcp);
 
-#ifdef TEST_MSG_LOOPBACK
     msg_teardown();
-#endif
+
 }
 
 /****************************************************************************/
@@ -494,7 +497,7 @@ Void NDKTask(UArg a0, UArg a1)
 
     // 配置 HTTP 相关服务
     // 添加静态网页文件到 RAM EFS 文件系统
-//    AddWebFiles();
+    AddWebFiles();
 
     // HTTP 身份认证
 	CI_ACCT CA;
@@ -554,9 +557,10 @@ Void NDKTask(UArg a0, UArg a1)
 #endif
 
     // 使用当前配置启动 NDK 网络
-    NDKFlag = 1;
+
     do
     {
+        NDKFlag = 1;
         rc = NC_NetStart(hCfg, NetworkOpen, NetworkClose, NetworkIPAddr);
     } while(rc > 0);
 
@@ -564,7 +568,7 @@ Void NDKTask(UArg a0, UArg a1)
     sb_printf("NDK Task has been stop(Return Code %d)!\r\n", rc);
 
     // 移除 WEB 文件
-//    RemoveWebFiles();
+    RemoveWebFiles();
 
     // 删除配置
     CfgFree(hCfg);

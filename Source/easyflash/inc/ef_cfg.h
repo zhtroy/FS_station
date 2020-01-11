@@ -40,16 +40,16 @@
  * ENV version number defined by user.
  * Please change it when your firmware add a new ENV to default_env_set.
  */
-#define EF_ENV_VER_NUM            (2)
+#define EF_ENV_VER_NUM            (1)
 /* @note you must define it for a value, such as 0 */
  
-/* MCU Endian Configuration, default is Little Endian Order.*/
+/* MCU Endian Configuration, default is Little Endian Order.
 /* #define EF_BIG_ENDIAN  */         
 
 #endif /* EF_USING_ENV */
 
 /* using IAP function */
-/* #define EF_USING_IAP */
+#define EF_USING_IAP
 
 /* using save log function */
 #define EF_USING_LOG

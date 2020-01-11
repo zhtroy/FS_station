@@ -1052,7 +1052,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
         if(roadFind == 0)
         {
-            log_i("%x:road ID is Wrong-%x%x%x!",carSts.id,
+            log_d("%x:road ID is Wrong-%x%x%x!",carSts.id,
                     carSts.rfid.byte[0],
                     carSts.rfid.byte[1],
                     carSts.rfid.byte[2]);
@@ -2013,7 +2013,7 @@ void showStationLog()
         strcat(log_buf,"\r\n");
     }
 
-    log_i("%s",str);
+    log_i("%s",log_buf);
 }
 
 void showRoadLog()
@@ -2281,6 +2281,7 @@ static int delcar(uint8_t argc,uint8_t **argv)
         {
             sb_printf("can not find %x\r\n",id);
         }
+        removeCarProcess(id);
     }
 
     return 0;

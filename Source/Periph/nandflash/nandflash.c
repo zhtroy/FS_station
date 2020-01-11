@@ -10,7 +10,6 @@
 #include "nand_emifa2.h"
 #include "nand_gpmc.h"
 #include "soc_C6748.h"
-#include "uartStdio.h"
 #include "common.h"
 
 /* 全局变量 */
@@ -310,6 +309,17 @@ NandStatus_t nand_write_bytes(uint32_t addr, uint8_t *buf, size_t size)
         {
             return status;
         }
+
+        status = NANDPageRead( &nandInfo, currBlock, currPage,rxData, &eccData[0]);
+        if(status != NAND_STATUS_PASSED)
+        {
+            return status;
+        }
+        if(rxData[0] != txData[0] || rxData[NAND_DATA_BUFF_SIZE-1] != txData[NAND_DATA_BUFF_SIZE-1])
+        {
+            return NAND_STATUS_FAILED;
+        }
+
         buf  += bytesToCopy;
         size -= bytesToCopy;
         addr += bytesToCopy;
@@ -321,7 +331,7 @@ NandStatus_t nand_write_bytes(uint32_t addr, uint8_t *buf, size_t size)
     // Any leftover data (partial page) gets copied via the memory buffer
     while (size > 0)
     {
-        unsigned char *tempPtr = NULL;
+        //unsigned char *tempPtr = NULL;
         currPage += 1;
 
         // Check to see if curr page is at end of a block
@@ -332,9 +342,9 @@ NandStatus_t nand_write_bytes(uint32_t addr, uint8_t *buf, size_t size)
         }
 
         // Read the new current page in the current block to its destination
-        tempPtr = (unsigned char *)(size >= pageSize) ? buf : ((unsigned char *)txData);
+        //tempPtr = (unsigned char *)(size >= pageSize) ? buf : ((unsigned char *)txData);
         bytesToCopy = (size >= pageSize) ? pageSize : size;
-
+#if 0
         if (tempPtr != buf)
         {
             // If the last copy was a partial page, copy byteCnt
@@ -348,12 +358,27 @@ NandStatus_t nand_write_bytes(uint32_t addr, uint8_t *buf, size_t size)
             */
             memcpy((void *)txData, (void *)buf, bytesToCopy);
         }
+#endif
+
+        memcpy((void *)txData, (void *)buf, bytesToCopy);
 
         status = NANDPageWrite( &nandInfo, currBlock, currPage,
-                               tempPtr, &eccData[0]);
+                               txData, &eccData[0]);
+
         if(status != NAND_STATUS_PASSED)
         {
             return status;
+        }
+
+        status = NANDPageRead( &nandInfo, currBlock, currPage,rxData, &eccData[0]);
+        if(status != NAND_STATUS_PASSED)
+        {
+            return status;
+        }
+
+        if(txData[0] != rxData[0] || txData[NAND_DATA_BUFF_SIZE-1] != rxData[NAND_DATA_BUFF_SIZE-1])
+        {
+            return NAND_STATUS_FAILED;
         }
 
         size -= bytesToCopy;
