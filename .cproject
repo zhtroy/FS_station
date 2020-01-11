@@ -15,7 +15,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" errorParsers="org.eclipse.rtsc.xdctools.parsers.ErrorParser;com.ti.ccstudio.errorparser.CoffErrorParser;com.ti.ccstudio.errorparser.LinkErrorParser;com.ti.ccstudio.errorparser.AsmErrorParser" id="com.ti.ccstudio.buildDefinitions.C6000.Debug.729869481" name="Debug" parent="com.ti.ccstudio.buildDefinitions.C6000.Debug" postbuildStep="cmd /c ${CWD}\..\out\copy_genais.bat">
+				<configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" errorParsers="org.eclipse.rtsc.xdctools.parsers.ErrorParser;com.ti.ccstudio.errorparser.CoffErrorParser;com.ti.ccstudio.errorparser.LinkErrorParser;com.ti.ccstudio.errorparser.AsmErrorParser" id="com.ti.ccstudio.buildDefinitions.C6000.Debug.729869481" name="Debug" parent="com.ti.ccstudio.buildDefinitions.C6000.Debug" postbuildStep="cmd /c ${CWD}\..\out\copy_genrprc.bat" prebuildStep="cmd /c ${CWD}\..\out\pre_build_steps.bat">
 					<folderInfo id="com.ti.ccstudio.buildDefinitions.C6000.Debug.729869481." name="/" resourcePath="">
 						<toolChain id="com.ti.ccstudio.buildDefinitions.C6000_8.3.exe.DebugToolchain.2075868419" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.C6000_8.3.exe.linkerDebug.1617913919">
 							<option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.516293251" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
@@ -63,6 +63,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Sync}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${NDK_INSTALL_DIR}/packages/ti/ndk/inc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${NDK_INSTALL_DIR}/packages/ti/ndk/inc/tools&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Collections-C/src/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/easyflash/inc}&quot;"/>
@@ -72,6 +73,9 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Dependency/Include/StarterWare/NandLib}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Periph/nandflash}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/net_msg}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Net}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source/Thread/Net/Web}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Source}&quot;"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.GCC.968118243" name="Enable support for GCC extensions (DEPRECATED) (--gcc)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.GCC" value="true" valueType="boolean"/>
 								<option id="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DISPLAY_ERROR_NUMBER.2124570724" name="Emit diagnostic identifier numbers (--display_error_number, -pden)" superClass="com.ti.ccstudio.buildDefinitions.C6000_8.3.compilerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>

@@ -786,27 +786,4 @@ void console_shellInit()
     shellInit(&shell);
 }
 
-extern void ConCmdTest( int ntok, char *tok1, char *tok2 );
-
-static int test(int argc,char **argv)
-{
-    ConCmdTest(argc-1, argv[1], argv[2]);
-    return 0;
-}
-MSH_CMD_EXPORT(test, test net work status);
-
-extern void ConCmdPing( int ntok, char *tok1, char *tok2 );
-static int ping(int argc, char **argv)
-{
-    ConCmdPing(argc-1, argv[1], argv[2]);  
-    return 0;
-}
-MSH_CMD_EXPORT(ping, Test echo request);
-
-static int ipaddr(int argc, char **argv) 
-{
-    ConCmdIPAddr ( argc-1, argv[1], argv[2], argv[3], argv[4] );
-    return 0;
-}
-MSH_CMD_EXPORT(ipaddr, Configuration of IPAddress);
 
