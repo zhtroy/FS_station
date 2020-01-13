@@ -37,13 +37,13 @@ void AddWebFiles(void)
     void *pFxn;
 
     efs_createfile("index.html", index_SIZE, (unsigned char *)index);
-    efs_createfile("Image/TL-EVM6748.jpg", EVM6748_SIZE, (unsigned char *)EVM6748);
+    //efs_createfile("Image/TL-EVM6748.jpg", EVM6748_SIZE, (unsigned char *)EVM6748);
 
     pFxn = (void*)&CGINet;
     efs_createfile("net.cgi", 0, (UINT8*)pFxn);
 
-    pFxn = (void*)&ImageFile;
-    efs_createfile("image.cgi", 0, (UINT8*)pFxn);
+    //pFxn = (void*)&ImageFile;
+    //efs_createfile("image.cgi", 0, (UINT8*)pFxn);
 
     efs_createfile("protected/%R%", 4, (UINT8 *)&OurRealm );
 //    pFxn = (void*)&CGILED;
@@ -60,7 +60,7 @@ void AddWebFiles(void)
 void RemoveWebFiles(void)
 {
     efs_destroyfile("index.html");
-    efs_destroyfile("Image/TL-EVM6748.jpg");
+    //efs_destroyfile("Image/TL-EVM6748.jpg");
 
     efs_destroyfile("protected/%R%");
 //    efs_destroyfile("protected/led.cgi");

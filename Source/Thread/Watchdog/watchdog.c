@@ -28,7 +28,17 @@ static uint8_t enableWatchDog = 1;
 /****************************************************************************/
 void timerWatchDogInit(void)
 {
+    /* 失能异步输出方式（异步输出模块自带方法） */
+    elog_async_enabled(false);
+    /* 失能日志输出锁 */
+    elog_output_lock_enabled(false);
+    /* 失能 EasyLogger 的 Flash 插件自带同步锁（Flash 插件自带方法） */
+    elog_flash_lock_enabled(false);
+
+    log_i("reset by watchdog, log flushed");
+
     elog_flash_flush();
+
     // 配置 定时器 / 计数器 1 为 看门狗模式
     TimerConfigure(SOC_TMR_1_REGS, TMR_CFG_64BIT_WATCHDOG);
 
