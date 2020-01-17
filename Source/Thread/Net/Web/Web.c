@@ -24,13 +24,14 @@ static int ImageFile(SOCKET htmlSock, int ContentLength, char *pArgs);
 static int CGIFile( SOCKET htmlSock, int ContentLength, char *pArgs );
 int CGINet(SOCKET htmlSock, int ContentLength, char *pArgs);
 int web_iap_update(uint8_t type, void *pbuf, int32_t size);
+static int CGIGetStationStatus(SOCKET htmlSock, int ContentLength, char *pArgs );
 extern void timerWatchDogInit(void);
 /****************************************************************************/
 /*                                                                          */
 /*              添加 Web 文件到 EFS 文件系统                                */
 /*                                                                          */
 /****************************************************************************/
-static int OurRealm = 1;
+//static int OurRealm = 1;
 
 void AddWebFiles(void)
 {
@@ -45,9 +46,13 @@ void AddWebFiles(void)
     //pFxn = (void*)&ImageFile;
     //efs_createfile("image.cgi", 0, (UINT8*)pFxn);
 
-    efs_createfile("protected/%R%", 4, (UINT8 *)&OurRealm );
+    //efs_createfile("protected/%R%", 4, (UINT8 *)&OurRealm );
 //    pFxn = (void*)&CGILED;
 //    efs_createfile("protected/led.cgi", 0, (UINT8*)pFxn);
+
+    pFxn = (void*)&CGIGetStationStatus;
+    efs_createfile("protected/status.cgi", 0, (UINT8*)pFxn);
+
     pFxn = (void*)&CGIFile;
     efs_createfile("protected/upload.cgi", 0, (UINT8*)pFxn);
 }
@@ -62,8 +67,10 @@ void RemoveWebFiles(void)
     efs_destroyfile("index.html");
     //efs_destroyfile("Image/TL-EVM6748.jpg");
 
-    efs_destroyfile("protected/%R%");
-//    efs_destroyfile("protected/led.cgi");
+    //efs_destroyfile("protected/%R%");
+    efs_destroyfile("protected/upload.cgi");
+    efs_destroyfile("protected/status.cgi");
+    efs_destroyfile("protected/net.cgi");
 }
 
 // HTML 代码生成宏定义
@@ -171,7 +178,26 @@ ERROR:
     return(1);
 }
 */
+extern void webShowlog(char * htmlbuf,size_t buflen);
+static int CGIGetStationStatus(SOCKET htmlSock, int ContentLength, char *pArgs )
+{
+    char htmlbuf[MAX_RESPONSE_SIZE];
+    int len = 0;
+    int i,j,size;
+    httpSendStatusLine(htmlSock, HTTP_OK, CONTENT_TYPE_HTML);
+    html( CRLF );
 
+    // 发送 HTML 页面
+    html(pstr_HTML_START);
+    html(pstr_TABLE_START);
+
+    webShowlog(htmlbuf,MAX_RESPONSE_SIZE);
+
+    html(htmlbuf);
+
+    html(pstr_TABLE_END);
+    html(pstr_HTML_END);
+}
 /****************************************************************************/
 /*                                                                          */
 /*              文件上传                                                    */
@@ -202,48 +228,53 @@ static int CGIFile(SOCKET htmlSock, int ContentLength, char *pArgs )
 
     // 发送 HTML 页面
     html(pstr_HTML_START);
-    html("<h1>文件信息</h1>");
-    html(pstr_TABLE_START);
+    html("<p>Update status:</p>");
+    //bhtml(pstr_TABLE_START);
 
 	for(i = 0; i < numrecs; i++)
 	{
-		sprintf(htmlbuf, tablefmtd, "索引:", i + 1);
+#if 0
+		sprintf(htmlbuf, tablefmtd, "Index:", i + 1);
 		html(htmlbuf);
 
-		sprintf(htmlbuf, tablefmt, "名称:", recs[i].Name);
+		sprintf(htmlbuf, tablefmt, "Name:", recs[i].Name);
 		html(htmlbuf);
+#endif
 
 		if(recs[i].Filename)
 		{
 			if(!recs[i].Filename[0])
-			 sprintf(htmlbuf, tablefmt, "文件名:", "<i>NULL</i>");
+			 snprintf(htmlbuf, MAX_RESPONSE_SIZE, "<i>Receive %s(%d)</i><br>", "No File",recs[i].DataSize);
 			else
-			 sprintf(htmlbuf, tablefmt, "文件名:", recs[i].Filename);
+	         snprintf(htmlbuf, MAX_RESPONSE_SIZE, "<i>Receive %s(%d)</i><br>", recs[i].Filename,recs[i].DataSize);
 			html(htmlbuf);
 		}
 
+#if 0
 		if(recs[i].Type)
 		{
-			sprintf(htmlbuf, tablefmt, "类型:", recs[i].Type);
+			sprintf(htmlbuf, tablefmt, "Type:", recs[i].Type);
 			html(htmlbuf);
 		}
 
-		sprintf(htmlbuf, tablefmtd, "文件大小:", recs[i].DataSize);
+
+		sprintf(htmlbuf, tablefmtd, "<i> %s</i>:", recs[i].DataSize);
 		html(htmlbuf);
+#endif
 
         if(recs[i].Filename[0])
         {
             if(0 == strncmp(recs[i].Filename,"fs_boot.ais",strlen(recs[i].Filename)))
             {
-                sprintf(htmlbuf, tablefmt, "更新状态:", "Don't update Bootloader !!");
+                snprintf(htmlbuf, MAX_RESPONSE_SIZE,"<i>Don't update Bootloader !!</i>");
 #if 0
                 if(0 == web_iap_update(0,recs[i].Data,recs[i].DataSize))
                 {
-                    sprintf(htmlbuf, tablefmt, "更新状态:", "Bootloader update Success!!");
+                    sprintf(htmlbuf, tablefmt, "Status:", "Bootloader update Success!!");
                 }
                 else
                 {
-                    sprintf(htmlbuf, tablefmt, "更新状态:", "Bootloader update Failed!!");
+                    sprintf(htmlbuf, tablefmt, "Status:", "Bootloader update Failed!!");
                 }
 #endif
             }
@@ -251,33 +282,22 @@ static int CGIFile(SOCKET htmlSock, int ContentLength, char *pArgs )
             {
                 if(0 == web_iap_update(1,recs[i].Data,recs[i].DataSize))
                 {
-                    sprintf(htmlbuf, tablefmt, "更新状态:", "Station update Success!!");
+                    snprintf(htmlbuf, MAX_RESPONSE_SIZE,"<i>Station update Success!! !!<br>Reboot...</i>");
                     timerWatchDogInit();
                 }
                 else
                 {
-                    sprintf(htmlbuf, tablefmt, "更新状态:", "Station update Failed!!");
+                    snprintf(htmlbuf, MAX_RESPONSE_SIZE,"<i>Station update Failed!! !!</i>");
                 }
             }
             else
             {
-                sprintf(htmlbuf, tablefmt, "更新状态:", "Non-update file!!");
+                snprintf(htmlbuf, MAX_RESPONSE_SIZE,"<i>Non-update file!!!! !!</i>");
             }
             html(htmlbuf);
         }
-		/*
-		if(recs[i].DataSize < 512)
-		{
-			if(!recs[i].Data[0])
-				sprintf(htmlbuf, tablefmt, "文件大小:", "<i>NULL</i>");
-			else
-				sprintf(htmlbuf, tablefmt, "文件大小:", recs[i].Data);
-			html(htmlbuf);
-		}
-		*/
 	}
 
-	html(pstr_TABLE_END);
 	html(pstr_HTML_END);
 
 ERROR:

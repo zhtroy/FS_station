@@ -33,6 +33,10 @@
 	#file .section-title { border-color: #000000; }
 	#file h2 { background-color: #000000; }
 	#file h3 { color: #ff0000}
+	
+	#status .section-title { border-color: #000000; }
+	#status h2 { background-color: #000000; }
+	#status h3 { color: #ff0000}
 
 	a.largeButton { color: white; text-transform: uppercase; font-weight: 700; font-size: 14px; display: inline-block; padding: 10px 20px; border-bottom: 3px solid; }
 
@@ -68,6 +72,9 @@
 	li.file a { border-color: #38e395; }
 	li.file a.active { color: #38e395; }
 	
+	li.status a { border-color: #38e395; }
+	li.status a.active { color: #38e395; }
+	
 	li.net a { border-color: #e3387c; }
 	li.net a.active { color: #e3387c; }
 
@@ -100,7 +107,145 @@
 	.bottom-footer a { color: white; }
 	.bottom-footer .credits { text-align: right; }
 	</style>
-	
+	<script language="JavaScript"></script>
+	<script>
+	window.addEventListener("load", function () {
+
+		function createXHR()
+		{
+			var xhr;
+
+
+			try
+			{
+				xhr = new ActiveXObject("Msxml2.XMLHTTP");
+			}
+			catch (e)
+			{
+				try
+				{
+					xhr = new ActiveXObject("Microsoft.XMLHTTP");
+				}
+				catch(E)
+				{
+					xhr = false;
+				}
+			}
+
+			if (!xhr && typeof XMLHttpRequest != 'undefined')
+			{
+				xhr = new XMLHttpRequest();
+			}
+
+			return xhr;
+		}
+
+
+		function sender()
+		{
+			xhr = createXHR();
+			var FD  = new FormData(form);
+			document.getElementById("update_file_status").innerHTML = "";
+			if(xhr)
+			{
+				xhr.onreadystatechange=callbackFunction;
+			
+
+				//test.cgi后面跟个cur_time参数是为了防止Ajax页面缓存        
+				xhr.open("POST", "protected/upload.cgi");
+			
+				xhr.send(FD);
+			}
+			else
+			{
+				//XMLHttpRequest对象创建失败
+				alert("浏览器不支持，请更换浏览器！");
+			}
+		}
+		
+		function doSomething()
+		{
+			xhr = createXHR();
+			if(xhr)
+			{
+				xhr.onreadystatechange=callbackDosomething;
+			
+
+				//test.cgi后面跟个cur_time参数是为了防止Ajax页面缓存        
+				xhr.open("POST", "protected/status.cgi");
+			
+				xhr.send(null);
+			}
+			else
+			{
+				//XMLHttpRequest对象创建失败
+				alert("浏览器不支持，请更换浏览器！");
+			}
+		}
+		
+		function callbackDosomething()
+		{
+			if (xhr.readyState == 4)
+			{
+				if (xhr.status == 200)
+				{
+					var returnValue = xhr.responseText;
+
+					if(returnValue != null && returnValue.length > 0)
+					{
+						console.log(returnValue);
+						document.getElementById("station_status").innerHTML = returnValue;
+					}
+					else
+					{
+						alert("结果为空！");
+					}
+				}
+				else
+				{
+					alert("页面出现异常！");
+				}
+			}
+		}
+
+
+		function callbackFunction()
+		{
+			if (xhr.readyState == 4)
+			{
+				if (xhr.status == 200)
+				{
+					var returnValue = xhr.responseText;
+
+					if(returnValue != null && returnValue.length > 0)
+					{
+						document.getElementById("update_file_status").innerHTML = returnValue;
+					}
+					else
+					{
+						alert("结果为空！");
+					}
+				}
+				else
+				{
+					alert("页面出现异常！");
+				}
+			}
+		}	
+		
+		var form = document.getElementById("upload_form");
+		form.addEventListener("submit", function (event) {
+			event.preventDefault();
+			sender();
+		});
+		
+		var a = document.getElementById("status_a");
+		a.addEventListener("click", function (event) {
+			event.preventDefault();
+			doSomething();
+		});
+	})
+	</script>	
 </head>
 <body>
     <div class="responsive-navigation visible-sm visible-xs">
@@ -111,6 +256,7 @@
             <ul>
 	            <li class="file"><a href="#file">文件</a></li>
 				<li class="net"><a href="net.cgi" target="_black">网络</a></li>
+				<li class="status"><a href="#status" on_click="doSomething()">状态</a></li>
 				<li class="about"><a href="#about">关于</a></li>
             </ul>
         </div>
@@ -125,6 +271,7 @@
 	        <ul class="main-menu">
 	            <li class="file"><a href="#file">升级</a></li>
 				<li class="net"><a href="net.cgi" target="_black">网络</a></li>
+				<li class="status"><a id="status_a" href="#status" on_click="doSomething()">状态</a></li>
 				<li class="about"><a href="#about">关于</a></li>
 	        </ul>
 		</div>
@@ -143,24 +290,36 @@
 		</div>
 
 		<div class="container-fluid">
-
 			<div id="file" class="section-content">
 				<div class="row">
 					<div class="col-md-12">
 						<div class="section-title">
 							<h2>程序升级</h2>
 						</div>
-						<form name="ffile" method="POST" action="protected/upload.cgi" target="_black" ENCTYPE="multipart/form-data">
+						<form id="upload_form" name="ffile" ENCTYPE="multipart/form-data">
 						站台Application <input type="FILE" name="file1"><br>
-						站台Bootloader(保留)<input type="FILE" name="file2"><br>
-						<h3>升级完成后，板卡将会自动重启</h3><br>
-						<i>文件名必须是fs_station.bin</i><br>
-						<i>Application小于8MBytes，Bootloader小于128KBytes</i><br>
-						<br><input type="submit" value="update"><br><br><br><br>
+						<!-- 站台Bootloader(保留)<input type="FILE" name="file2"><br> -->
+						<br><input type="submit" value="submit">
+						<div style="color:#FF0000">
+						<p>加载的文件名必须为fs_control.bin,文件小于8MBytes,升级完成后，板卡将会自动重启 </p>
+						</div>
+						<div id="update_file_status"></div>
 						</form>
 					</div>
 				</div>
 			</div>
+			
+			<div id="status" class="section-content">
+				<div class="row">
+					<div class="col-md-12">
+						<div class="section-title">
+							<h2>状态</h2>
+						</div>
+					</div>
+				</div>
+				<p>站台状态:</p>
+				<div id="station_status"></div>
+			</div>	
 			
 			<div id="about" class="section-content">
 				<div class="row">

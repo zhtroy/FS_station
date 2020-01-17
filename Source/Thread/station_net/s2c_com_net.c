@@ -198,7 +198,7 @@ static criticalArea_t criticalArea[CRITICAL_AREA_NUMS] =
 };
 
 static collisionData_t collision_data;
-static roadInformation_t *roadInfo;
+roadInformation_t *roadInfo;
 static adjustZone_t *adjustZone;
 static separateZone_t *separateZone;
 static stationInformation_t *stationInfo;
@@ -287,6 +287,7 @@ static int on_intoStation(uint16_t id, void* pData, int size)
     parkReq.carId = id;   
     parkReq.type = S2C_INTO_STATION;
     memcpy(&parkReq.roadID,pData,sizeof(roadID_t));
+    elog_hexdump("into pData",16,pData,5);
     Mailbox_post(parkMbox,&parkReq,BIOS_NO_WAIT);
 
 	return 1;
@@ -1723,6 +1724,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
                     parkReq.roadID.byte[0],
                     parkReq.roadID.byte[1],
                     parkReq.roadID.byte[2]);
+            showRoadLog();
             continue;
         }
 
@@ -1962,7 +1964,6 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                         if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
                         {
                             log_i("Collision Stop %x,type %d",roadInfo[i].carQueue[j].id,collisionInfo.type);
-
                             stopRequest.collision = collisionInfo.type;
                             msgSendByid(collisionInfo.carID,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
                             isEnd = 0;
@@ -2202,7 +2203,41 @@ static void updateStation(carStatus_t *carSts)
     }
 }
 
+void webShowlog(char * htmlbuf,size_t buflen)
+{
+    int len = 0;
+    int i,j,size;
+    for(i=0;i<roadNums;i++)
+    {
+        len += snprintf(htmlbuf+len,buflen-len-1,"<tr><td>R%x%x%x:</td><td>",
+                roadInfo[i].roadID.byte[0],
+                roadInfo[i].roadID.byte[1],
+                roadInfo[i].roadID.byte[2]);
 
+        size = vector_size(roadInfo[i].carQueue);
+        if(size == 0)
+        {
+            len += snprintf(htmlbuf+len,buflen-len-1,"no car");
+        }
+        else
+        {
+            for(j=0;j<size;j++)
+            {
+                if(len < (buflen-1))
+                {
+                    len += snprintf(htmlbuf+len,buflen-len-1,"%x(%d) ",
+                            roadInfo[i].carQueue[size-1-j].id,
+                            roadInfo[i].carQueue[size-1-j].pos);
+                }
+            }
+        }
+
+        if(len < (buflen-1))
+        {
+            len += snprintf(htmlbuf+len,buflen-len-1,"</td></tr>\r\n");
+        }
+    }
+}
 /*Shell command*/
 static int showlog(uint8_t argc,uint8_t **argv)
 {

@@ -14,6 +14,8 @@
 /*                                                                          */
 /****************************************************************************/
 // C 语言函数库
+#define LOG_LVL ELOG_LVL_DEBUG
+#define LOG_TAG "ndk"
 #include <stdio.h>
 #include <string.h>
 
@@ -28,6 +30,7 @@
 
 // SYS/BIOS
 #include <ti/sysbios/knl/task.h>
+#include <ti/sysbios/knl/Clock.h>
 
 // 外设驱动库
 #include "common.h"
@@ -41,6 +44,9 @@
 #include "easyflash.h"
 #include "soc_C6748.h"
 #include "psc.h"
+#include "elog.h"
+
+#include <ti/ndk/nettools/sntp/sntp.h>
 
 #define FPGA_LAN8710_RST    (SOC_EMIFA_CS2_ADDR + (0x18<<1))
 /****************************************************************************/
@@ -77,6 +83,15 @@ unsigned char DHCP_OPTIONS[] = {DHCPOPT_SERVER_IDENTIFIER, DHCPOPT_ROUTER};
 
 // 句柄
 static HANDLE hTcp = 0;
+
+
+
+#define SIZE (sizeof(struct sockaddr_in))
+static unsigned char ntpServers[SIZE];
+
+
+
+
 
 /****************************************************************************/
 /*                                                                          */
@@ -161,21 +176,33 @@ void EMAC_linkStatus(unsigned int phy, unsigned int linkStatus)
 {
 	sb_printf("\r\nLink Status: %s on PHY %d\n", LinkStr[linkStatus], phy);
 
-	if(lastPHYstatus==0 && linkStatus!=0 && NDKFlag)
-	{
-		sb_puts("Link Status has changed!Ready to restart NDK Stack!\n", -2);
-
-		sb_puts("Stoping ......\n", -2);
-		NC_NetStop(1);
-		NDKFlag = 0;
-		sb_puts("Starting ......\n", -2);
-//		TaskNDKInit();
-	}
-
-	lastPHYstatus = linkStatus;
+//	if(lastPHYstatus==0 && linkStatus!=0 && NDKFlag)
+//	{
+//		sb_puts("Link Status has changed!Ready to restart NDK Stack!\n", -2);
+//
+//		sb_puts("Stoping ......\n", -2);
+//		NC_NetStop(1);
+//		NDKFlag = 0;
+//		sb_puts("Starting ......\n", -2);
+//	}
+//
+//	lastPHYstatus = linkStatus;
 
 }
 
+static uint32_t sync_time = 0;
+static uint32_t sync_tick = 0;
+uint32_t gettime(void)
+{
+    return (sync_time + (Clock_getTicks()/1000) - sync_tick);
+}
+
+static void settime(uint32_t newtime)
+{
+    sync_time = newtime;
+    sync_tick = (Clock_getTicks()/1000);
+    log_i("NetWork Setting Time:%d",sync_time);
+}
 /****************************************************************************/
 /*                                                                          */
 /*              NDK 打开                                                    */
@@ -183,8 +210,19 @@ void EMAC_linkStatus(unsigned int phy, unsigned int linkStatus)
 /****************************************************************************/
 void NetworkOpen()
 {
+    struct sockaddr_in  ntp_server_addr;
+    int currPos = 0;
     // 服务
     hTcp = DaemonNew(SOCK_STREAMNC, 0, 1000, dtask_tcp_echo, OS_TASKPRINORM, OS_TASKSTKNORM, 0, 3);
+    SNTP_start(gettime, settime, 2048);
+
+    ntp_server_addr.sin_family = AF_INET;
+    ntp_server_addr.sin_port = htons(123);
+    ntp_server_addr.sin_addr.s_addr = inet_addr("192.168.1.100");
+    memcpy((ntpServers + currPos), &ntp_server_addr, sizeof(struct sockaddr_in));
+    currPos += sizeof(struct sockaddr_in);
+
+    SNTP_setservers((struct sockaddr *)ntpServers, 1);
 
 
 #ifdef TEST_MSG_LOOPBACK
@@ -203,6 +241,7 @@ void NetworkClose()
 
     // 关闭控制台
     ConsoleClose();
+    SNTP_stop();
 
     // 删除任务
     TaskSetPri(TaskSelf(), NC_PRIORITY_LOW);
@@ -556,7 +595,7 @@ Void NDKTask(UArg a0, UArg a1)
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPMAXIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
     // socket 连接超时 (1 s)
-    rc = 1;
+    rc = 2;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_SOCKTIMECONNECT, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 #endif
 

@@ -45,6 +45,8 @@ encoding//Debug/Source/Periph/fpga_uart/xilinx_uartns550_v2_02_a/subdir_rules.mk
 encoding//Debug/Source/Periph/fpga_uart/xilinx_uartns550_v2_02_a/subdir_vars.mk=UTF-8
 encoding//Debug/Source/Periph/nandflash/subdir_rules.mk=UTF-8
 encoding//Debug/Source/Periph/nandflash/subdir_vars.mk=UTF-8
+encoding//Debug/Source/Periph/rtc/subdir_rules.mk=UTF-8
+encoding//Debug/Source/Periph/rtc/subdir_vars.mk=UTF-8
 encoding//Debug/Source/Periph/sja1000t/subdir_rules.mk=UTF-8
 encoding//Debug/Source/Periph/sja1000t/subdir_vars.mk=UTF-8
 encoding//Debug/Source/Periph/subdir_rules.mk=UTF-8

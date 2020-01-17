@@ -39,8 +39,8 @@
 extern "C" {
 #endif
 
-#define __FILENAME__ (strrchr("/" __FILE__, '/') + 1)
-
+//#define __FILENAME__ (strrchr("/" __FILE__, '/') + 1)
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 /* output log's level */
 #define ELOG_LVL_ASSERT                      0
 #define ELOG_LVL_ERROR                       1

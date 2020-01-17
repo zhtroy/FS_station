@@ -113,7 +113,7 @@ static void elog_flash(uint8_t argc, char **argv) {
             if (argc >= 3) {
                 elog_flash_output_recent(atol(argv[2]));
             }else {
-                elog_flash_output_all();
+                elog_flash_output_recent(5000);
             }
         } else if (!strcmp(argv[1], "clean")) {
             elog_flash_clean();

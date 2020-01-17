@@ -35,7 +35,7 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/BIOS.h>
 #include <xdc/runtime/System.h>
-#include "common.h"
+#include <time.h>
 static Semaphore_Handle output_lock;
 
 #ifdef ELOG_ASYNC_OUTPUT_ENABLE
@@ -132,8 +132,15 @@ static int32_t rt_snprintf(char *buf, size_t size, const char *fmt, ...)
  * @return current time
  */
 const char *elog_port_get_time(void) {
-    static char cur_system_time[16] = { 0 };
-    rt_snprintf(cur_system_time, 16, "tick:%010d", Clock_getTicks());
+    static char cur_system_time[20] = { 0 };
+    struct tm *ptm;
+    time_t now;
+    now = gettime();
+    ptm = gmtime(&now);
+    rt_snprintf(cur_system_time, 20, "%02d-%02d %02d:%02d:%02d.%03d", ptm->tm_mon + 1,
+            ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, Clock_getTicks() % 1000);
+    //rt_snprintf(cur_system_time, 16, "tick:%010d", Clock_getTicks());
+    //rt_snprintf(cur_system_time, 16, "tick:%010d", gettime());
     return cur_system_time;
 }
 
@@ -165,7 +172,6 @@ static void async_output(void *arg) {
     size_t get_log_size = 0;
     static char poll_get_buf[ELOG_LINE_BUF_SIZE - 4];
 
-    fdOpenSession(Task_self());
     while(true) {
         /* waiting log */
         Semaphore_pend(output_notice, BIOS_WAIT_FOREVER);
@@ -185,6 +191,5 @@ static void async_output(void *arg) {
             }
         }
     }
-    fdCloseSession(Task_self());
 }
 #endif
