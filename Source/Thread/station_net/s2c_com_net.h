@@ -37,15 +37,20 @@
 #define S2C_REQUEST_ID_CMD      (0x02)
 #define S2C_DOOR_CONTROL_CMD    (0x03)
 #define S2C_LEAVE_STATION_CMD   (0x04)
+#define EVENT_V2C_PRE_ADJUST_REQUEST (0x05)
 #define S2C_CAR_STATUS_CMD      (0x40)
 #define S2C_ALLOT_PARK_ACK      (0X41)
 #define S2C_REQUEST_STOP        (0x50)
+
 
 #define S2C_ALLOT_PARK_CMD      (0x20)
 #define S2C_INTO_STATION_ACK    (0x61)
 #define S2C_REQUEST_ID_ACK      (0x62)
 #define S2C_DOOR_CONTROL_ACK    (0x63)
 #define S2C_LEAVE_STATION_ACK   (0x64)
+#define EVENT_V2C_PRE_ADJUST_ACK            (0x65)      /*预调整区响应*/
+
+#define PRE_ADJUST_DELAY_SEC (10)       /*预调整区延时间隔(s)*/
 
 
 #define S2C_RAIL_LENGTH         (2810)
@@ -228,8 +233,27 @@ typedef struct{
 typedef struct{
     uint8_t collision;
 }stopRequest_t;
+
+typedef struct{
+    uint8_t goal_point[12];
+    float run_time;
+    uint16_t car_id;
+    uint32_t receive_moment;
+}preAdjustReq_t;
+
+typedef struct{
+    float except_time;
+    uint32_t except_moment;
+}preAdjustAck_t;
+
+typedef struct{
+    preAdjustReq_t preAdjust_req;
+    preAdjustAck_t preAdjust_ack;
+}preAdjustInfo_t;
+
 #pragma pack()
 void S2CTaskInit();
+
 
 #endif
 

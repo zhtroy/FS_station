@@ -209,6 +209,7 @@ static Mailbox_Handle parkMbox;
 static Mailbox_Handle doorMbox;
 static Mailbox_Handle ridMbox;
 static Mailbox_Handle collisionMbox;
+static Mailbox_Handle preAdjustMbox;
 
 static uint8_t stationStatus = STATION_NOT_READY;
 static uint8_t stationCarNums = 0;
@@ -232,6 +233,8 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
 static void showRoadLog();
 static void showStationLog();
 static int on_serverconnect(SOCKET s, uint16_t id);
+static void S2CpreAdjustTask(UArg arg0, UArg arg1);
+extern uint32_t gettime(void);
 
 #define SERVER_MAX_LISTHEN_NUMS (10)
 
@@ -349,6 +352,21 @@ static int on_carStatus(uint16_t id, void* pData, int size)
     return 1;
 }
 
+static int on_pre_adjust_request(uint16_t id, void* pData, int size)
+{
+    preAdjustReq_t pre_adjust_req;
+
+
+    memcpy(&pre_adjust_req,pData,size);
+
+    pre_adjust_req.car_id = id;
+    pre_adjust_req.receive_moment = gettime();
+
+    log_i("Receive %x(%.1f) preAdjust request",pre_adjust_req.car_id,pre_adjust_req.run_time);
+    Mailbox_post(preAdjustMbox,&pre_adjust_req,BIOS_NO_WAIT);
+    return 1;
+}
+
 static int on_serverconnect(SOCKET s, uint16_t id) 
 {
 	log_d("SERVER: client connected: socket 0x%x id %x",(UINT32)s,id);
@@ -358,6 +376,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
 	msg_register_cb(s,S2C_DOOR_CONTROL_CMD,on_doorControl);
     msg_register_cb(s,S2C_LEAVE_STATION_CMD,on_leaveStation);
     msg_register_cb(s,S2C_CAR_STATUS_CMD,on_carStatus);
+    msg_register_cb(s,EVENT_V2C_PRE_ADJUST_REQUEST,on_pre_adjust_request);
     /*msg_register_cb(s,S2C_ALLOT_PARK_ACK,on_allotPack);*/
 
     hashtable_add(_socket_id_table,id,s);
@@ -401,6 +420,8 @@ static void messageInit()
     doorMbox = Mailbox_create (sizeof (doorCtrl_t),S2C_MBOX_DEPTH, NULL, NULL);
     ridMbox = Mailbox_create (sizeof (rid_t),S2C_MBOX_DEPTH, NULL, NULL);
     collisionMbox = Mailbox_create (sizeof (collisionData_t),S2C_MBOX_DEPTH, NULL, NULL);
+
+    preAdjustMbox = Mailbox_create (sizeof (preAdjustReq_t),S2C_MBOX_DEPTH, NULL, NULL);
 }
 
 static void taskStartUp(UArg arg0, UArg arg1)
@@ -455,6 +476,13 @@ static void taskStartUp(UArg arg0, UArg arg1)
 
     taskParams.instance->name = "s2cStopTask";
     task = Task_create((Task_FuncPtr)S2CStationStopRequestTask, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
+
+    taskParams.instance->name = "S2CpreAdjustTask";
+    task = Task_create((Task_FuncPtr)S2CpreAdjustTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
@@ -1335,6 +1363,43 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
         if(isShowRoad == 1)
             showRoadLog();
+    }
+}
+
+static void S2CpreAdjustTask(UArg arg0, UArg arg1)
+{
+    preAdjustInfo_t preAdjust_info;
+    float goal_moment = 0;
+    float last_except_delay_moment = 0;
+    while(1)
+    {
+        Mailbox_pend(preAdjustMbox,&preAdjust_info.preAdjust_req,BIOS_WAIT_FOREVER);
+        last_except_delay_moment = preAdjust_info.preAdjust_ack.except_moment + PRE_ADJUST_DELAY_SEC;
+        goal_moment = preAdjust_info.preAdjust_req.receive_moment + preAdjust_info.preAdjust_req.run_time;
+        if(goal_moment >= last_except_delay_moment)
+        {
+            /*
+             * 到达时刻 > 预期延迟时间
+             */
+            preAdjust_info.preAdjust_ack.except_moment = goal_moment;
+            preAdjust_info.preAdjust_ack.except_time = preAdjust_info.preAdjust_req.run_time;
+        }
+        else
+        {
+            preAdjust_info.preAdjust_ack.except_moment = last_except_delay_moment;
+            preAdjust_info.preAdjust_ack.except_time = last_except_delay_moment - preAdjust_info.preAdjust_req.receive_moment;
+        }
+
+        msgSendByid(preAdjust_info.preAdjust_req.car_id,
+                EVENT_V2C_PRE_ADJUST_ACK,
+                &preAdjust_info.preAdjust_ack.except_time,
+                sizeof(float));
+
+        log_i("preAdjust ack %x run time(%.1f),except time:(%.1f)",
+                preAdjust_info.preAdjust_req.car_id,
+                preAdjust_info.preAdjust_req.run_time,
+                preAdjust_info.preAdjust_ack.except_time
+                );
     }
 }
 

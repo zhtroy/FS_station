@@ -199,7 +199,7 @@ uint32_t gettime(void)
 
 static void settime(uint32_t newtime)
 {
-    sync_time = newtime;
+    sync_time = newtime+(8*60*60);
     sync_tick = (Clock_getTicks()/1000);
     log_i("NetWork Setting Time:%d",sync_time);
 }

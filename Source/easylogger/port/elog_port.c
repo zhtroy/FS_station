@@ -43,7 +43,7 @@ static Semaphore_Handle output_notice;
 
 static void async_output(void *arg);
 #endif
-
+extern uint32_t gettime(void);
 /**
  * EasyLogger port initialize
  *
@@ -136,7 +136,7 @@ const char *elog_port_get_time(void) {
     struct tm *ptm;
     time_t now;
     now = gettime();
-    ptm = gmtime(&now);
+    ptm = localtime(&now);
     rt_snprintf(cur_system_time, 20, "%02d-%02d %02d:%02d:%02d.%03d", ptm->tm_mon + 1,
             ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, Clock_getTicks() % 1000);
     //rt_snprintf(cur_system_time, 16, "tick:%010d", Clock_getTicks());
