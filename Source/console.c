@@ -282,11 +282,6 @@ SOCKET ConsoleOpen( PSA pClient )
         /* close the pipe. */
         send( fd2, StrBusy, strlen(StrBusy), 0 );
         fdClose( fd2 );
-
-        /*
-         * kick last connection
-         */
-        fdClose( scon);
     }
     else
     {

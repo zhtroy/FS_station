@@ -37,7 +37,7 @@
 #define S2C_ADJ_NUMS  (3)
 #define S2C_TERM_NUMS (2)
 
-static char log_buf[128];
+static char log_buf[256];
 
 static const uint8_t roadNums = S2C_ROAD_NUMS;
 static const uint8_t sepNums = S2C_SEP_NUMS;
@@ -1366,16 +1366,32 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     }
 }
 
+static uint32_t pre_adjust_delay = 15;
+SHELL_EXPORT_VAR_INT(adj_delay,pre_adjust_delay,pre-Adjust Delay(defalut 15s));
+
 static void S2CpreAdjustTask(UArg arg0, UArg arg1)
 {
     preAdjustInfo_t preAdjust_info;
-    float goal_moment = 0;
-    float last_except_delay_moment = 0;
+    uint32_t goal_moment = 0;
+    uint32_t last_except_delay_moment = 0;
+    uint32_t a,b,c,d;
     while(1)
     {
         Mailbox_pend(preAdjustMbox,&preAdjust_info.preAdjust_req,BIOS_WAIT_FOREVER);
-        last_except_delay_moment = preAdjust_info.preAdjust_ack.except_moment + PRE_ADJUST_DELAY_SEC;
-        goal_moment = preAdjust_info.preAdjust_req.receive_moment + preAdjust_info.preAdjust_req.run_time;
+        a = preAdjust_info.preAdjust_ack.except_moment;
+        b = pre_adjust_delay;
+        last_except_delay_moment = a+b;
+        //last_except_delay_moment = (float)preAdjust_info.preAdjust_ack.except_moment + (float)pre_adjust_delay;
+        c = preAdjust_info.preAdjust_req.receive_moment;
+        d = (uint32_t)preAdjust_info.preAdjust_req.run_time;
+        goal_moment = c + d;
+        //goal_moment = (float)preAdjust_info.preAdjust_req.receive_moment + preAdjust_info.preAdjust_req.run_time;
+        log_w("last except moment(%d,%d,%d)",a,
+                                                    b,
+                                                    last_except_delay_moment);
+        log_w("current run moment(%d,%d,%d)",c,
+                                            d,
+                                            goal_moment);
         if(goal_moment >= last_except_delay_moment)
         {
             /*
@@ -1386,6 +1402,7 @@ static void S2CpreAdjustTask(UArg arg0, UArg arg1)
         }
         else
         {
+
             preAdjust_info.preAdjust_ack.except_moment = last_except_delay_moment;
             preAdjust_info.preAdjust_ack.except_time = last_except_delay_moment - preAdjust_info.preAdjust_req.receive_moment;
         }
@@ -1395,7 +1412,7 @@ static void S2CpreAdjustTask(UArg arg0, UArg arg1)
                 &preAdjust_info.preAdjust_ack.except_time,
                 sizeof(float));
 
-        log_i("preAdjust ack %x run time(%.1f),except time:(%.1f)",
+        log_w("preAdjust ack %x run time(%.1f),except time:(%.1f)",
                 preAdjust_info.preAdjust_req.car_id,
                 preAdjust_info.preAdjust_req.run_time,
                 preAdjust_info.preAdjust_ack.except_time
@@ -2079,7 +2096,7 @@ void showStationLog()
         strcat(log_buf,"\r\n");
     }
 
-    log_buf[127] = 0;
+    log_buf[255] = 0;
     log_i("%s",log_buf);
 }
 
@@ -2127,7 +2144,7 @@ void showRoadLog()
         }
         strcat(log_buf,"\r\n");
     }
-    log_buf[127] = 0;
+    log_buf[255] = 0;
     log_i("%s",log_buf);
 #endif
 }
