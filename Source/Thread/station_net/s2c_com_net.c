@@ -15,7 +15,7 @@
 #include <ti/sysbios/knl/Mailbox.h>
 #include <ti/sysbios/knl/Clock.h>
 #include <xdc/std.h>
-#include "station_net\s2c_com_net.h"
+#include "station_net/s2c_com_net.h"
 #include "Message/Message.h"
 #include <string.h>
 #include <stdlib.h>
@@ -403,6 +403,51 @@ static void messageInit()
     collisionMbox = Mailbox_create (sizeof (collisionData_t),S2C_MBOX_DEPTH, NULL, NULL);
 }
 
+static void connected_check(xdc_UArg arg)
+{
+    uint8_t i,j;
+    uint8_t size;
+    
+    collisionData_t info;
+    /*
+     * 显示道路队列
+     */
+    
+    for(i=0;i<roadNums;i++)
+    {
+        size = vector_size(roadInfo[i].carQueue);
+        for(j=0;j<size;j++)
+        {
+            if(roadInfo[i].carQueue[j].heart == CAR_HEART_ACTIVED)
+                roadInfo[i].carQueue[j].heart = CAR_HEART_FAILED;
+            else
+            {
+                log_e("%x don't connect with station",roadInfo[i].carQueue[j].id);
+                if(collisionMbox != NULL)
+                {
+                    info.carID = roadInfo[i].carQueue[j].id;
+                    info.type = CONNECT_COLLISION_TYPE;
+                    Mailbox_post(collisionMbox,&info,BIOS_NO_WAIT);
+                }
+            }
+        }
+    }
+}
+
+
+static void initTimer()
+{
+	Clock_Params clockParams;
+
+
+	Clock_Params_init(&clockParams);
+	clockParams.period = CONNECTED_CHECK_SLOT;     
+	clockParams.startFlag = TRUE;//Period timer
+
+	clock_rfid_heart = Clock_create(connected_check, CONNECTED_CHECK_SLOT, &clockParams, NULL);
+}
+
+
 static void taskStartUp(UArg arg0, UArg arg1)
 {
 
@@ -420,6 +465,8 @@ static void taskStartUp(UArg arg0, UArg arg1)
     ef_get_env_blob("device_id",&device_id,sizeof(device_id),NULL);
     ef_get_env_blob("device_port",&port,sizeof(device_id),NULL);
     msgServerInit(device_id,port);
+
+    initTimer();
 
     Task_Params_init(&taskParams);
     taskParams.priority = 5;
@@ -1089,6 +1136,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         carQ.isBSection = carIsSecB;
         carQ.carMode = carSts.carMode;
         carQ.rail = carSts.rail;
+        carQ.heart = CAR_HEART_ACTIVED;
         memcpy(&carQ.roadID,&carSts.rfid.byte[1],sizeof(roadID_t));
 
         /*
@@ -1120,6 +1168,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         /*
          * 碰撞风险检测
          */
+#if 0
         if(S2CCriticalAreaDetect(&carSts))
         {
             /*关键区域碰撞风险*/
@@ -1146,6 +1195,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
                 Mailbox_post(collisionMbox,&collision_data,BIOS_NO_WAIT);
             }
         }
+#endif
 
         /*
          * --------------------- 路段队列处理   ------------------------------
@@ -1457,6 +1507,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
         carQ.mode = 0;
         carQ.rpm = 0;
         carQ.rail = rid.rail;
+        carQ.heart = CAR_HEART_ACTIVED;
         memcpy(&carQ.roadID,&rid.rfid.byte[1],sizeof(roadID_t));
         /*
          * 确定车辆所属路线
@@ -1732,6 +1783,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
         carQ.mode = 0;
         carQ.rpm = 0;
         carQ.pos = 0;
+        carQ.heart = CAR_HEART_ACTIVED;
         /*
          * 查找车辆
          */
@@ -1965,15 +2017,15 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                         {
                             log_i("Collision Stop %x,type %d",roadInfo[i].carQueue[j].id,collisionInfo.type);
                             stopRequest.collision = collisionInfo.type;
-                            msgSendByid(collisionInfo.carID,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
+                            msgSendByid(roadInfo[i].carQueue[j].id,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
                             isEnd = 0;
                         }
                     }
                 }
                 retryNums ++;
             }
-            Task_sleep(100);
-        }while(retryNums < 5 && isEnd == 0);
+            Task_sleep(500);
+        }while(retryNums < 10 && isEnd == 0);
     }
 }
 

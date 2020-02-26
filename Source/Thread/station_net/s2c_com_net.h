@@ -94,8 +94,15 @@
 #define STATION_COLLISION_TYPE  (1)
 #define ADJUST_COLLISION_TYPE   (2)
 #define NORMAL_COLLISION_TYPE   (3)
+#define CONNECT_COLLISION_TYPE  (4)
 
 #define BSECTION_DIFF           (160)
+
+#define CAR_HEART_NONE          (0)
+#define CAR_HEART_ACTIVED       (1)
+#define CAR_HEART_FAILED        (2)
+
+#define CONNECTED_CHECK_SLOT  (2000)
 #pragma pack(1)
 typedef struct
 {
@@ -157,6 +164,7 @@ typedef struct{
     uint8_t carMode;
     uint8_t rail;
     roadID_t roadID;
+    uint8_t heart;
 }carQueue_t;
 
 typedef struct{
