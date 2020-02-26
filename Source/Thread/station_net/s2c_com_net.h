@@ -39,11 +39,10 @@
 #define S2C_LEAVE_STATION_CMD   (0x04)
 #define EVENT_V2C_PRE_ADJUST_REQUEST (0x05)
 #define S2C_CAR_STATUS_CMD      (0x40)
-#define S2C_ALLOT_PARK_ACK      (0X41)
-#define S2C_REQUEST_STOP        (0x50)
+#define S2C_ALLOT_PARK_ACK      (0X42)
+#define S2C_REQUEST_STOP        (0x21)
 
-
-#define S2C_ALLOT_PARK_CMD      (0x20)
+#define S2C_ALLOT_PARK_CMD      (0x22)
 #define S2C_INTO_STATION_ACK    (0x61)
 #define S2C_REQUEST_ID_ACK      (0x62)
 #define S2C_DOOR_CONTROL_ACK    (0x63)
@@ -99,8 +98,15 @@
 #define STATION_COLLISION_TYPE  (1)
 #define ADJUST_COLLISION_TYPE   (2)
 #define NORMAL_COLLISION_TYPE   (3)
+#define CONNECT_COLLISION_TYPE  (4)
 
 #define BSECTION_DIFF           (160)
+
+#define CAR_HEART_NONE          (0)
+#define CAR_HEART_ACTIVED       (1)
+#define CAR_HEART_FAILED        (2)
+
+#define CONNECTED_CHECK_SLOT  (2000)
 #pragma pack(1)
 typedef struct
 {
@@ -162,6 +168,7 @@ typedef struct{
     uint8_t carMode;
     uint8_t rail;
     roadID_t roadID;
+    uint8_t heart;
 }carQueue_t;
 
 typedef struct{
