@@ -582,16 +582,16 @@ Void NDKTask(UArg a0, UArg a1)
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_SOCKUDPRXLIMIT, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
 #if 1
-    // TCP Keep Idle(10 秒)
-    rc = 10;
+    // TCP Keep Idle(2 秒)
+    rc = 20;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
-    // TCP Keep Interval(1 秒)
+    // TCP Keep Interval(0.5秒)
     rc = 5;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPINTVL, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
-    // TCP Max Keep Idle(5 秒)
-    rc = 20;
+    // TCP Max Keep Idle(3 秒)
+    rc = 30;
     CfgAddEntry(hCfg, CFGTAG_IP, CFGITEM_IP_TCPKEEPMAXIDLE, CFG_ADDMODE_UNIQUE, sizeof(uint), (UINT8 *)&rc, 0);
 
     // socket 连接超时 (1 s)
