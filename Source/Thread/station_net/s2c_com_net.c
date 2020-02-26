@@ -1662,7 +1662,8 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                     }
 
                 }
-                else
+
+                if(frontCar.state == 0)
                 {
                     /*
                      * 调整区无前车，返回主道上的车辆

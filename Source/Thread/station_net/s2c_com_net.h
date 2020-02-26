@@ -38,10 +38,10 @@
 #define S2C_DOOR_CONTROL_CMD    (0x03)
 #define S2C_LEAVE_STATION_CMD   (0x04)
 #define S2C_CAR_STATUS_CMD      (0x40)
-#define S2C_ALLOT_PARK_ACK      (0X41)
-#define S2C_REQUEST_STOP        (0x50)
+#define S2C_ALLOT_PARK_ACK      (0X42)
+#define S2C_REQUEST_STOP        (0x21)
 
-#define S2C_ALLOT_PARK_CMD      (0x20)
+#define S2C_ALLOT_PARK_CMD      (0x22)
 #define S2C_INTO_STATION_ACK    (0x61)
 #define S2C_REQUEST_ID_ACK      (0x62)
 #define S2C_DOOR_CONTROL_ACK    (0x63)
