@@ -488,7 +488,7 @@ static void taskStartUp(UArg arg0, UArg arg1)
     ef_get_env_blob("device_port",&port,sizeof(device_id),NULL);
     msgServerInit(device_id,port);
 
-    initTimer();
+//    initTimer();
 
     Task_Params_init(&taskParams);
     taskParams.priority = 5;
