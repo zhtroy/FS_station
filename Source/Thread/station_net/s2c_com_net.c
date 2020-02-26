@@ -210,6 +210,7 @@ static Mailbox_Handle doorMbox;
 static Mailbox_Handle ridMbox;
 static Mailbox_Handle collisionMbox;
 static Mailbox_Handle preAdjustMbox;
+static Clock_Handle clockConnectHeart;
 
 static uint8_t stationStatus = STATION_NOT_READY;
 static uint8_t stationCarNums = 0;
@@ -465,7 +466,7 @@ static void initTimer()
 	clockParams.period = CONNECTED_CHECK_SLOT;     
 	clockParams.startFlag = TRUE;//Period timer
 
-	clock_rfid_heart = Clock_create(connected_check, CONNECTED_CHECK_SLOT, &clockParams, NULL);
+	clockConnectHeart = Clock_create(connected_check, CONNECTED_CHECK_SLOT, &clockParams, NULL);
 }
 
 
