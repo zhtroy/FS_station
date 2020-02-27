@@ -1490,12 +1490,19 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
     {
         index = findCarByID(carID,road->carQueue);
 
+
         if(index < 0)
         {
+
             if(road->isRing == 0)
                 index = S2CFindCarByPosition(road->carQueue,dist);
             else
                 index = S2CRingFindCarByPosition(road->carQueue,dist);
+            log_i("find car by pos %x(%d)",dist,index);
+        }
+        else
+        {
+            log_i("find car by id %x(%d)",road->carQueue[index].id,index);
         }
 
         if(index == 0)
@@ -1518,7 +1525,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
                 *frontCar = road->carQueue[size-1].id;
                 frontCarDist = road->carQueue[size-1].pos;
                 found = 1;
-
+                log_i("front car %x(%d)",road->carQueue[index-1].id,index-1);
             }
 
         }
@@ -1527,6 +1534,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
             *frontCar = road->carQueue[index-1].id;
             frontCarDist = road->carQueue[index-1].pos;
             found = 1;
+            log_i("front car %x(%d)",road->carQueue[index-1].id,index-1);
         }
     }
 
@@ -1547,6 +1555,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
 
         if(distDiff > (S2C_MAX_FRONT_CAR_DISTANCE))
         {
+            log_i("front car is too far");
             return 0;
         }
         else
@@ -1706,7 +1715,9 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                  */
                 //adjustZoneNums = getAdjustZoneNums(rid.rfid);
                 //adjustZonePtr = getAdjustZone(adjustZoneNums);
+                frontCar.state=0;
                 size = vector_size(adjustZonePtr->carQueue);
+
                 if(size > 1)
                 {
                     /*
@@ -1724,12 +1735,14 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                         if(index == 0)
                         {
                             frontCar.state = 0;
+                            log_i("no front car in adjust zone");
                         }
                         else
                         {
                             frontCar.state = 1;
                             frontCar.carID[0] = adjustZonePtr->carQueue[index-1].id;
                             frontCar.carID[1] = 0;
+                            log_i("front car %x(%d)in adjust zone",adjustZonePtr->carQueue[index-1].id,index-1);
 
                             /*查找另外一条轨道上的前车*/
                             for(i=(index-2);i>=0;i--)
@@ -1738,6 +1751,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                                 if(memcmp(&adjustZonePtr->carQueue[index-1].roadID,&adjustZonePtr->carQueue[i].roadID,sizeof(roadID_t)))
                                 {
                                     frontCar.carID[1] = adjustZonePtr->carQueue[i].id;
+                                    log_i("front car %x(%d)in other road",adjustZonePtr->carQueue[i].id,i);
                                     break;
                                 }
                             }
@@ -1745,11 +1759,12 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                     }
 
                 }
-                else
+                if(frontCar.state == 0)
                 {
                     /*
                      * 调整区无前车，返回主道上的车辆
                      */
+                    log_i("find front car from main road");
                     for(i=0;i<roadNums;i++)
                     {
                         if(0 == memcmp(&adjustZonePtr->leftRoadID,&roadInfo[i].roadID,sizeof(roadID_t)))
@@ -1761,6 +1776,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                     frontCar.state = getFrontCar(roadAdjust,rid.carId,dist,&tmp);
                     frontCar.carID[0] = tmp;
                     frontCar.carID[1] = 0;
+                    log_i("front car %x from main road",tmp);
                 }
             }
             else
@@ -1768,6 +1784,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                 frontCar.state = getFrontCar(roadFind,rid.carId,dist,&tmp);
                 frontCar.carID[0] = tmp;
                 frontCar.carID[1] = 0;
+                log_i("front car %x",tmp);
             }
 
             if(frontCar.state == 0)
