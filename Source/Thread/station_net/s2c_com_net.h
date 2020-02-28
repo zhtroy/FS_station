@@ -258,6 +258,20 @@ typedef struct{
     preAdjustAck_t preAdjust_ack;
 }preAdjustInfo_t;
 
+typedef struct{
+    int32_t connect_time[3];
+    uint32_t connect_nums;
+    uint32_t packet_numsSum;
+    uint32_t packet_numsAdd;
+    //uint32_t packet_speedAve;
+    uint32_t packet_speedMax;
+    uint32_t position_speedMax;
+    uint32_t packet_speedMin;
+    uint32_t position_speedMin;
+    uint32_t position_current;
+    uint32_t stats_nums;
+    uint8_t not_firstStats;
+}statsPacket_t;
 #pragma pack()
 void S2CTaskInit();
 

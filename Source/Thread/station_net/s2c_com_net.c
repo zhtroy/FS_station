@@ -240,6 +240,7 @@ extern uint32_t gettime(void);
 #define SERVER_MAX_LISTHEN_NUMS (10)
 
 static HashTable *_socket_id_table;
+static HashTable *_socket_id_stats;
 
 /*compare pointer address*/
 static int hashintkeycmp(const void* a ,const void * b)
@@ -276,9 +277,16 @@ static void msgServerInit(uint16_t myid, uint16_t port)
         log_e("SOCKET-ID table create failed!");
 	}
 
+	if(hashtable_new_conf(&htc, &_socket_id_stats) != CC_OK)
+	{
+        log_e("SOCKET-ID Statistics create failed!");
+	}
+
+
 	msg_server_conf_t sconf;
 	msg_serverconf_init(&sconf);
 	sconf.on_newclient = on_serverconnect;
+    sconf.on_delclient = on_serverdisconnect;
 	msg_listen(port,10,&sconf);
 	log_d("SERVER: listening on : id %x port %d",myid, port);
 }
@@ -346,9 +354,27 @@ static int on_doorControl(uint16_t id, void* pData, int size)
 static int on_carStatus(uint16_t id, void* pData, int size)
 {
     carStatus_t carSts;
+    statsPacket_t *stats;
     log_d("Receive %x car status",id);
     carSts.id = id;
     memcpy(&carSts.rfid,pData,sizeof(rfid_t)+9);
+    if(CC_OK == hashtable_get(_socket_id_stats,id,&stats))
+    {
+        if(stats != NULL)
+        {
+            stats->packet_numsAdd++;
+            //stats->packet_numsSum++;
+            stats->position_current = carSts.dist;
+        }
+        else
+        {
+            log_e("_socket_id_stats get pointer NULL");
+        }
+    }
+    else
+    {
+        log_e("_socket_id_stats hash table get error");
+    }
     Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
     return 1;
 }
@@ -370,7 +396,9 @@ static int on_pre_adjust_request(uint16_t id, void* pData, int size)
 
 static int on_serverconnect(SOCKET s, uint16_t id) 
 {
-	log_d("SERVER: client connected: socket 0x%x id %x",(UINT32)s,id);
+    statsPacket_t *stats;
+    uint32_t timestamp;
+	log_i("SERVER: client connected: socket 0x%x id %x",(UINT32)s,id);
 
 	msg_register_cb(s,S2C_INTO_STATION_CMD,on_intoStation);
 	msg_register_cb(s,S2C_REQUEST_ID_CMD,on_requestID);
@@ -382,9 +410,41 @@ static int on_serverconnect(SOCKET s, uint16_t id)
 
     hashtable_add(_socket_id_table,id,s);
 
+    timestamp = gettime();
+    if(CC_ERR_KEY_NOT_FOUND == hashtable_get(_socket_id_stats,id,&stats))
+    {
+        stats = malloc(sizeof(statsPacket_t));
+        if(stats != NULL)
+        {
+            memset(stats,0,sizeof(statsPacket_t));
+            stats->connect_time[0] = timestamp;
+            stats->packet_speedMin = 0xffffffff;
+            hashtable_add(_socket_id_stats,id,stats);
+        }
+        else
+        {
+            log_e("stats malloc failed");
+        }
+    }
+    else
+    {
+        /*统计连接次数，以及最近3次的连接时间*/
+        stats->connect_nums++;
+        stats->connect_time[2] = stats.connect_time[1];
+        stats->connect_time[1] = stats.connect_time[0];
+        stats->connect_time[0] = timestamp;
+    }
+
 	return 1;
 }
 
+static int on_serverdisconnect(SOCKET s, uint16_t id)
+{
+    log_i("SERVER: client disconnected: socket 0x%x id %x",(UINT32)s,id);
+
+    hashtable_remove(_socket_id_table,id,s);
+    return 1;
+}
 
 
 static SOCKET getSocket(uint16_t id)
@@ -469,6 +529,75 @@ static void initTimer()
 	clockConnectHeart = Clock_create(connected_check, CONNECTED_CHECK_SLOT, &clockParams, NULL);
 }
 
+#define STATISTICS_SLOT_TIME (5000)
+static void packetStatistics(const void *key)
+{
+    statsPacket_t *stats;
+    hashtable_get(_socket_id_stats,key,&stats);
+
+    if(stats->not_firstStats)
+    {
+        if(stats->packet_numsAdd > stats->packet_speedMax)
+        {
+            stats->packet_speedMax = stats->packet_numsAdd;
+            stats->position_speedMax = stats->position_current;
+        }
+
+        if(stats->packet_numsAdd < stats->packet_speedMin)
+        {
+            stats->packet_speedMin = stats->packet_numsAdd;
+            stats->position_speedMax = stats->position_current;
+        }   
+        stats->packet_numsSum += stats->packet_numsAdd;
+        stats->stats_nums++;
+        
+        log_i("%x min(%d at %d),max(%d at %d),ave(%d),all(%d),nums(%d),slot(%dms)",
+            key,
+            stats->packet_speedMin,stats->position_speedMin,
+            stats->packet_speedMax,stats->position_speedMax,
+            stats->packet_numsSum / stats->stats_nums,
+            stats->packet_numsSum,
+            stats->stats_nums,
+            STATISTICS_SLOT_TIME);
+    }
+    else
+    {
+        stats->not_firstStats = 1;
+    }
+    
+    stats->packet_numsAdd = 0;
+
+}
+
+static void taskStatsPacket(UArg arg0, UArg arg1)
+{
+    while(true)
+    {
+        Task_sleep(STATISTICS_SLOT_TIME);
+        hashtable_foreach_key(_socket_id_stats,packetStatistics);
+    }
+}
+
+static void showPacketStats(const void *key)
+{
+    statsPacket_t *stats;
+    hashtable_get(_socket_id_stats,key,&stats);
+    sb_printf("%x min(%d at %d),max(%d at %d),ave(%d),all(%d),nums(%d),slot(%dms)\n",
+        key,
+        stats->packet_speedMin,stats->position_speedMin,
+        stats->packet_speedMax,stats->position_speedMax,
+        stats->packet_numsSum / stats->stats_nums,
+        stats->packet_numsSum,
+        stats->stats_nums,
+        STATISTICS_SLOT_TIME);
+}
+
+static void psts()
+{
+    hashtable_foreach_key(_socket_id_stats,showPacketStats);
+}
+MSH_CMD_EXPORT(psts, show packets statitics);
+
 
 static void taskStartUp(UArg arg0, UArg arg1)
 {
@@ -536,6 +665,12 @@ static void taskStartUp(UArg arg0, UArg arg1)
         BIOS_exit(0);
     }
 
+    taskParams.instance->name = "StatsPacket";
+    task = Task_create((Task_FuncPtr)taskStatsPacket, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
 
 #if 0
     taskParams.priority = 4;
@@ -2447,6 +2582,7 @@ static int delcar(uint8_t argc,uint8_t **argv)
 {
     uint16_t id;
     SOCKET s;
+    statsPacket_t * stats;
     if(argc < 2)
     {
         sb_puts("Please input car id\r\n",-1);
@@ -2454,6 +2590,14 @@ static int delcar(uint8_t argc,uint8_t **argv)
     else
     {
         id = strtoul(argv[1],NULL,16);
+
+        if(CC_OK == hashtable_remove(_socket_id_stats,id,&stats))
+        {
+            if(stats != NULL)
+            {
+                free(stats);
+            }
+        }
         
         if(CC_OK == hashtable_remove(_socket_id_table,id,&s))
         {
