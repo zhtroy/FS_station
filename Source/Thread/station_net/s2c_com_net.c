@@ -28,6 +28,7 @@
 #include "easyflash.h"
 #include "shell.h"
 #include "common.h"
+#include <time.h>
 
 #define S2C_ZCP_UART_DEV_NUM    (0)
 #define S2C_ZCP_DEV_NUM         (0)
@@ -234,6 +235,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
 static void showRoadLog();
 static void showStationLog();
 static int on_serverconnect(SOCKET s, uint16_t id);
+static int on_serverdisconnect(SOCKET s, uint16_t id);
 static void S2CpreAdjustTask(UArg arg0, UArg arg1);
 extern uint32_t gettime(void);
 
@@ -430,8 +432,8 @@ static int on_serverconnect(SOCKET s, uint16_t id)
     {
         /*统计连接次数，以及最近3次的连接时间*/
         stats->connect_nums++;
-        stats->connect_time[2] = stats.connect_time[1];
-        stats->connect_time[1] = stats.connect_time[0];
+        stats->connect_time[2] = stats->connect_time[1];
+        stats->connect_time[1] = stats->connect_time[0];
         stats->connect_time[0] = timestamp;
     }
 
@@ -440,9 +442,13 @@ static int on_serverconnect(SOCKET s, uint16_t id)
 
 static int on_serverdisconnect(SOCKET s, uint16_t id)
 {
+    SOCKET scon;
     log_i("SERVER: client disconnected: socket 0x%x id %x",(UINT32)s,id);
 
-    hashtable_remove(_socket_id_table,id,s);
+    if(CC_OK != hashtable_remove(_socket_id_table,id,&scon))
+    {
+       log_e("_socket_id_table remove failed");
+    }
     return 1;
 }
 
@@ -535,37 +541,42 @@ static void packetStatistics(const void *key)
     statsPacket_t *stats;
     hashtable_get(_socket_id_stats,key,&stats);
 
-    if(stats->not_firstStats)
+    if(stats != NULL)
     {
-        if(stats->packet_numsAdd > stats->packet_speedMax)
+        if(stats->not_firstStats)
         {
-            stats->packet_speedMax = stats->packet_numsAdd;
-            stats->position_speedMax = stats->position_current;
-        }
+            if(stats->packet_numsAdd > stats->packet_speedMax)
+            {
+                stats->packet_speedMax = stats->packet_numsAdd;
+                stats->position_speedMax = stats->position_current;
+            }
 
-        if(stats->packet_numsAdd < stats->packet_speedMin)
+            if(stats->packet_numsAdd < stats->packet_speedMin)
+            {
+                stats->packet_speedMin = stats->packet_numsAdd;
+                stats->position_speedMin = stats->position_current;
+            }
+            stats->packet_numsSum += stats->packet_numsAdd;
+            stats->stats_nums++;
+
+            log_i("%x cur(%d,%d),min(%d,%d),max(%d,%d),ave(%d),all(%d),nums(%d),con(%d),slot(%dms)",
+                key,
+                stats->packet_numsAdd,stats->position_current,
+                stats->packet_speedMin,stats->position_speedMin,
+                stats->packet_speedMax,stats->position_speedMax,
+                stats->packet_numsSum / stats->stats_nums,
+                stats->packet_numsSum,
+                stats->stats_nums,
+                stats->connect_nums,
+                STATISTICS_SLOT_TIME);
+        }
+        else
         {
-            stats->packet_speedMin = stats->packet_numsAdd;
-            stats->position_speedMax = stats->position_current;
-        }   
-        stats->packet_numsSum += stats->packet_numsAdd;
-        stats->stats_nums++;
+            stats->not_firstStats = 1;
+        }
         
-        log_i("%x min(%d at %d),max(%d at %d),ave(%d),all(%d),nums(%d),slot(%dms)",
-            key,
-            stats->packet_speedMin,stats->position_speedMin,
-            stats->packet_speedMax,stats->position_speedMax,
-            stats->packet_numsSum / stats->stats_nums,
-            stats->packet_numsSum,
-            stats->stats_nums,
-            STATISTICS_SLOT_TIME);
+        stats->packet_numsAdd = 0;
     }
-    else
-    {
-        stats->not_firstStats = 1;
-    }
-    
-    stats->packet_numsAdd = 0;
 
 }
 
@@ -574,6 +585,7 @@ static void taskStatsPacket(UArg arg0, UArg arg1)
     while(true)
     {
         Task_sleep(STATISTICS_SLOT_TIME);
+        log_i("----------------Packet Statistics-----------");
         hashtable_foreach_key(_socket_id_stats,packetStatistics);
     }
 }
@@ -582,19 +594,58 @@ static void showPacketStats(const void *key)
 {
     statsPacket_t *stats;
     hashtable_get(_socket_id_stats,key,&stats);
-    sb_printf("%x min(%d at %d),max(%d at %d),ave(%d),all(%d),nums(%d),slot(%dms)\n",
-        key,
-        stats->packet_speedMin,stats->position_speedMin,
-        stats->packet_speedMax,stats->position_speedMax,
-        stats->packet_numsSum / stats->stats_nums,
-        stats->packet_numsSum,
-        stats->stats_nums,
-        STATISTICS_SLOT_TIME);
+    if(stats != NULL)
+    {
+        sb_printf("%x cur(%d,%d),min(%d,%d),max(%d,%d),ave(%d),all(%d),nums(%d),con(%d),slot(%dms)\n",
+            key,
+            stats->packet_numsAdd,stats->position_current,
+            stats->packet_speedMin,stats->position_speedMin,
+            stats->packet_speedMax,stats->position_speedMax,
+            stats->packet_numsSum / stats->stats_nums,
+            stats->packet_numsSum,
+            stats->stats_nums,
+            stats->connect_nums,
+            STATISTICS_SLOT_TIME);
+    }
 }
 
-static void psts()
+static void showConnect(const void *key)
 {
-    hashtable_foreach_key(_socket_id_stats,showPacketStats);
+    statsPacket_t *stats;
+    int8_t i;
+    struct tm *ptm;
+    time_t now;
+    hashtable_get(_socket_id_stats,key,&stats);
+    if(stats != NULL)
+    {
+        sb_printf("%x ",key);
+        for(i=0;i<3;i++)
+        {
+            now = stats->connect_time[i];
+            if(now != 0)
+            {
+                ptm = localtime(&now);
+                sb_printf("[%02d-%02d %02d:%02d:%02d] ", ptm->tm_mon + 1,
+                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+            }
+        }
+        sb_printf("\n");
+    }
+}
+
+static void psts(uint8_t argc,uint8_t **argv)
+{
+    if(argc == 1)
+    {
+        hashtable_foreach_key(_socket_id_stats,showPacketStats);
+    }
+    else if(argc == 2)
+    {
+        if(0 == strncmp("-t",argv[1],2))
+        {
+            hashtable_foreach_key(_socket_id_stats,showConnect);
+        }
+    }
 }
 MSH_CMD_EXPORT(psts, show packets statitics);
 
