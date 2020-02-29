@@ -367,6 +367,7 @@ static int on_carStatus(uint16_t id, void* pData, int size)
             stats->packet_numsAdd++;
             //stats->packet_numsSum++;
             stats->position_current = carSts.dist;
+            stats->heart_status = CAR_HEART_ACTIVED;
         }
         else
         {
@@ -435,6 +436,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
         stats->connect_time[2] = stats->connect_time[1];
         stats->connect_time[1] = stats->connect_time[0];
         stats->connect_time[0] = timestamp;
+        stats->heart_status = CAR_HEART_NONE;
     }
 
 	return 1;
@@ -464,7 +466,15 @@ static int msgSendByid(uint16_t id, int type, const void *pData, int len)
 {
     SOCKET s=NULL;
     s = getSocket(id);
-    return msg_send(s, type, pData, len);
+    if(s != NULL)
+    {
+        return msg_send(s, type, pData, len);
+    }
+    else
+    {
+        log_e("%x get invalid socket",id);
+        return -1;
+    }
 }
 
 
@@ -490,39 +500,73 @@ static void messageInit()
 
     preAdjustMbox = Mailbox_create (sizeof (preAdjustReq_t),S2C_MBOX_DEPTH, NULL, NULL);
 }
-
-static void connected_check(xdc_UArg arg)
+static void heart_check(const void *key)
 {
-    uint8_t i,j;
-    uint8_t size;
-    
     collisionData_t info;
-    /*
-     * 显示道路队列
-     */
-    
-    for(i=0;i<roadNums;i++)
+    statsPacket_t *stats;
+    hashtable_get(_socket_id_stats,key,&stats);
+
+    if(stats != NULL)
     {
-        size = vector_size(roadInfo[i].carQueue);
-        for(j=0;j<size;j++)
+        if(stats->heart_status == CAR_HEART_FAILED)
         {
-            if(roadInfo[i].carQueue[j].heart == CAR_HEART_ACTIVED)
-                roadInfo[i].carQueue[j].heart = CAR_HEART_FAILED;
-            else
+            log_e("%x heart timeout\n",key);
+            if(collisionMbox != NULL)
             {
-                log_e("%x don't connect with station",roadInfo[i].carQueue[j].id);
-                if(collisionMbox != NULL)
-                {
-                    info.carID = roadInfo[i].carQueue[j].id;
-                    info.type = CONNECT_COLLISION_TYPE;
-                    Mailbox_post(collisionMbox,&info,BIOS_NO_WAIT);
-                }
+                info.carID = key;
+                info.type = CONNECT_COLLISION_TYPE;
+                Mailbox_post(collisionMbox,&info,BIOS_NO_WAIT);
+                stats->heart_status = CAR_HEART_NONE;
             }
+        }
+        else if(stats->heart_status == CAR_HEART_ACTIVED)
+        {
+            stats->heart_status = CAR_HEART_FAILED;
         }
     }
 }
 
+static void connected_check(xdc_UArg arg)
+{
+//    uint8_t i,j;
+//    uint8_t size;
+    
+    ///collisionData_t info;
+    /*
+     * 显示道路队列
+     */
+    
+//    for(i=0;i<roadNums;i++)
+//    {
+//        size = vector_size(roadInfo[i].carQueue);
+//        for(j=0;j<size;j++)
+//        {
+//            if(roadInfo[i].carQueue[j].heart == CAR_HEART_ACTIVED)
+//                roadInfo[i].carQueue[j].heart = CAR_HEART_FAILED;
+//            else
+//            {
+//                log_e("%x don't connect with station",roadInfo[i].carQueue[j].id);
+//                if(collisionMbox != NULL)
+//                {
+//                    info.carID = roadInfo[i].carQueue[j].id;
+//                    info.type = CONNECT_COLLISION_TYPE;
+//                    Mailbox_post(collisionMbox,&info,BIOS_NO_WAIT);
+//                }
+//            }
+//        }
+//    }
+//    hashtable_foreach_key(_socket_id_stats,heart_check);
+    log_i("con");
+}
 
+static void taskConnectCheck(UArg arg0, UArg arg1)
+{
+    while(true)
+    {
+        Task_sleep(CONNECTED_CHECK_SLOT);
+        hashtable_foreach_key(_socket_id_stats,heart_check);
+    }
+}
 static void initTimer()
 {
 	Clock_Params clockParams;
@@ -718,6 +762,14 @@ static void taskStartUp(UArg arg0, UArg arg1)
 
     taskParams.instance->name = "StatsPacket";
     task = Task_create((Task_FuncPtr)taskStatsPacket, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
+
+
+    taskParams.instance->name = "connetCheck";
+    task = Task_create((Task_FuncPtr)taskConnectCheck, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
@@ -2266,6 +2318,7 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
     {
         Mailbox_pend(collisionMbox,&collisionInfo,BIOS_WAIT_FOREVER);
         retryNums = 0;
+        sb_printf("collision stop\n");
         do
         {
             isEnd = 1;
@@ -2294,6 +2347,7 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
             }
             else
             {
+                sb_printf("collision stop retry %d\n",retryNums);
                 for(i=0;i<roadNums;i++)
                 {
                     size = vector_size(roadInfo[i].carQueue);
@@ -2302,16 +2356,19 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                         if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
                         {
                             log_i("Collision Stop %x,type %d",roadInfo[i].carQueue[j].id,collisionInfo.type);
+//                            sb_printf("Collision Stop %x,type %d\n",roadInfo[i].carQueue[j].id,collisionInfo.type);
+
                             stopRequest.collision = collisionInfo.type;
                             msgSendByid(roadInfo[i].carQueue[j].id,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
                             isEnd = 0;
+                            Task_sleep(50);
                         }
                     }
                 }
                 retryNums ++;
             }
             Task_sleep(500);
-        }while(retryNums < 10 && isEnd == 0);
+        }while(retryNums < 5 && isEnd == 0);
     }
 }
 
