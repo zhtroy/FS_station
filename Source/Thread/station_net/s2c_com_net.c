@@ -1227,7 +1227,7 @@ uint8_t S2CCarCollisionDetect(carStatus_t *carSts,roadInformation_t *roadFind)
     }
 
     /*道路内无前车*/
-    if(0 == getFrontCar(roadFind,carSts->id,carSts->dist,&carQptr))
+    if(0 == getFrontCar(roadFind,carSts->id,carSts->dist,carQptr))
     {
         return 0;
     }
@@ -2023,7 +2023,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                             break;
                         }
                     }
-                    frontCar.state = getFrontCar(roadAdjust,rid.carId,dist,&carQptr);
+                    frontCar.state = getFrontCar(roadAdjust,rid.carId,dist,carQptr);
                     frontCar.rfid[0] = carQptr->rfid;
                     frontCar.dist[0] = carQptr->pos;
                     frontCar.carID[0] = carQptr->id;
@@ -2033,7 +2033,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             }
             else
             {
-                frontCar.state = getFrontCar(roadFind,rid.carId,dist,&carQptr);
+                frontCar.state = getFrontCar(roadFind,rid.carId,dist,carQptr);
                 frontCar.rfid[0] = carQptr->rfid;
                 frontCar.dist[0] = carQptr->pos;
                 frontCar.carID[0] = carQptr->id;
