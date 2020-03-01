@@ -231,7 +231,7 @@ static void removeCarProcess(uint16_t carID);
 static void updateStation(carStatus_t *carSts);
 static void S2CStationStopRequestTask(UArg arg0, UArg arg1);
 static uint8_t getRoadSection(rfid_t rfid);
-static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,carQueue_t *frontCar);
+static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,carQueue_t **frontCar);
 static void showRoadLog();
 static void showStationLog();
 static int on_serverconnect(SOCKET s, uint16_t id);
@@ -1227,7 +1227,7 @@ uint8_t S2CCarCollisionDetect(carStatus_t *carSts,roadInformation_t *roadFind)
     }
 
     /*道路内无前车*/
-    if(0 == getFrontCar(roadFind,carSts->id,carSts->dist,carQptr))
+    if(0 == getFrontCar(roadFind,carSts->id,carSts->dist,&carQptr))
     {
         return 0;
     }
@@ -1713,7 +1713,7 @@ static void S2CpreAdjustTask(UArg arg0, UArg arg1)
     }
 }
 
-static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,carQueue_t *frontCar)
+static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,carQueue_t **frontCar)
 {
     volatile uint8_t size;
     int8_t index;
@@ -1764,7 +1764,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
                 /*
                  * 环形轨道，取最后一个车
                  */
-                frontCar = &(road->carQueue[size-1]);
+                *frontCar = &(road->carQueue[size-1]);
                 frontCarDist = road->carQueue[size-1].pos;
                 found = 1;
                 log_i("front car %x(%d)",road->carQueue[size-1].id,size-1);
@@ -1773,7 +1773,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
         }
         else
         {
-            frontCar = &(road->carQueue[index-1]);
+            *frontCar = &(road->carQueue[index-1]);
             frontCarDist = road->carQueue[index-1].pos;
             found = 1;
             log_i("front car %x(%d)",road->carQueue[index-1].id,index-1);
@@ -2023,7 +2023,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
                             break;
                         }
                     }
-                    frontCar.state = getFrontCar(roadAdjust,rid.carId,dist,carQptr);
+                    frontCar.state = getFrontCar(roadAdjust,rid.carId,dist,&carQptr);
                     frontCar.rfid[0] = carQptr->rfid;
                     frontCar.dist[0] = carQptr->pos;
                     frontCar.carID[0] = carQptr->id;
@@ -2033,7 +2033,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             }
             else
             {
-                frontCar.state = getFrontCar(roadFind,rid.carId,dist,carQptr);
+                frontCar.state = getFrontCar(roadFind,rid.carId,dist,&carQptr);
                 frontCar.rfid[0] = carQptr->rfid;
                 frontCar.dist[0] = carQptr->pos;
                 frontCar.carID[0] = carQptr->id;
