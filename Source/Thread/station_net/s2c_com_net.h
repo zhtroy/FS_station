@@ -168,6 +168,7 @@ typedef struct{
     uint8_t carMode;
     uint8_t rail;
     roadID_t roadID;
+    rfid_t rfid;
     uint8_t heart;
 }carQueue_t;
 
@@ -224,6 +225,8 @@ typedef struct{
 typedef struct{
     uint8_t state;
     uint16_t carID[2];
+    rfid_t rfid[2];
+    uint32_t dist[2];
     roadID_t roadID;
 }frontCar_t;
 
