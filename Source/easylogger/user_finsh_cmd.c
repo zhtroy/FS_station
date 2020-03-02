@@ -133,3 +133,70 @@ static void elog_flash(uint8_t argc, char **argv) {
     }
 }
 MSH_CMD_EXPORT(elog_flash, EasyLogger <read> <clean> <flush> flash log);
+
+#define LOG_BUF_SIZE (1024)
+#define RETAIN_SIZE (64)
+
+static char buf[LOG_BUF_SIZE+RETAIN_SIZE+1];
+static void elog_find(uint8_t argc, char **argv){
+    
+    if (argc >= 2) {
+        size_t log_total_size = ef_log_get_used_size();
+        size_t index = log_total_size;
+        uint8_t first_read = 0;
+        char *res;
+        size_t res_len;
+        /*set "\0" for string end*/
+        buf[LOG_BUF_SIZE+RETAIN_SIZE] = '\0';
+        while(true) {
+
+            /*Get retain log for next search*/
+            if(first_read) {
+                memcpy(&buf[LOG_BUF_SIZE],buf,RETAIN_SIZE);
+            } else {
+                memset(&buf[LOG_BUF_SIZE],' ',RETAIN_SIZE);
+                first_read = 1;
+            }
+                
+            if(index > LOG_BUF_SIZE) {
+                index -= LOG_BUF_SIZE;
+                ef_log_read(index,buf,LOG_BUF_SIZE);
+            
+                res = strstr(buf,argv[1]);
+                if(res != NULL) {
+                    res_len = strlen(res);
+                    sb_printf("keyword<%s>:%d,total:%d\n",argv[1],index+LOG_BUF_SIZE+RETAIN_SIZE-res_len,log_total_size);
+                    return;
+                }
+            } else {
+            
+                ef_log_read(0,&buf[LOG_BUF_SIZE-index],index+4-(index%4));
+                
+                res = strstr(&buf[LOG_BUF_SIZE-index],argv[1]);
+                if(res != NULL) {
+                    res_len = strlen(res);
+                    sb_printf("keyword<%s>:%d,total:%d\n",argv[1],index-res_len,log_total_size);
+                } else {
+                    sb_printf("cannot find keyword:%s\n",argv[1]);
+                }
+                return;
+            }
+        }
+                    
+        
+    } else {
+        sb_printf("Please input elog_find {keyword}. keyword cannot include backspace\n");
+    }
+}
+MSH_CMD_EXPORT(elog_find, EasyLogger find keyword from flash log);
+
+static void elog_read(uint8_t argc, char **argv){
+        if (argc == 2) {
+            elog_flash_output_recent(atol(argv[1]));
+        } else if (argc == 3)) {
+            elog_flash_output(atol(argv[1]),atol(argv[2]));
+        } else {
+            sb_printf("Please input [elog_read <position> <length>] or [elog_read <length>]\n")
+        }
+}
+MSH_CMD_EXPORT(elog_read, EasyLogger read from flash log);
