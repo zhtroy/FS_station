@@ -11,6 +11,7 @@
 #include <string.h>
 #include "common.h"
 #include <stdlib.h>
+#include <ti/sysbios/knl/Task.h>
 
 void setenv(uint8_t argc, char **argv) {
     uint8_t i;
@@ -136,6 +137,8 @@ MSH_CMD_EXPORT(elog_flash, EasyLogger <read> <clean> <flush> flash log);
 
 #define LOG_BUF_SIZE (1024)
 #define RETAIN_SIZE (64)
+#define FIND_BEFORE_SIZE (1000)
+#define FIND_AFTER_SIZE (1000)
 
 static char buf[LOG_BUF_SIZE+RETAIN_SIZE+1];
 static void elog_find(uint8_t argc, char **argv){
@@ -143,20 +146,15 @@ static void elog_find(uint8_t argc, char **argv){
     if (argc >= 2) {
         size_t log_total_size = ef_log_get_used_size();
         size_t index = log_total_size;
-        uint8_t first_read = 0;
         char *res;
-        size_t res_len;
+        size_t res_len,res_pos;
         /*set "\0" for string end*/
+        memset(buf," ",LOG_BUF_SIZE+RETAIN_SIZE);
         buf[LOG_BUF_SIZE+RETAIN_SIZE] = '\0';
         while(true) {
 
             /*Get retain log for next search*/
-            if(first_read) {
-                memcpy(&buf[LOG_BUF_SIZE],buf,RETAIN_SIZE);
-            } else {
-                memset(&buf[LOG_BUF_SIZE],' ',RETAIN_SIZE);
-                first_read = 1;
-            }
+            memcpy(&buf[LOG_BUF_SIZE],buf,RETAIN_SIZE);
                 
             if(index > LOG_BUF_SIZE) {
                 index -= LOG_BUF_SIZE;
@@ -165,8 +163,8 @@ static void elog_find(uint8_t argc, char **argv){
                 res = strstr(buf,argv[1]);
                 if(res != NULL) {
                     res_len = strlen(res);
-                    sb_printf("keyword<%s>:%d,total:%d\n",argv[1],index+LOG_BUF_SIZE+RETAIN_SIZE-res_len,log_total_size);
-                    return;
+                    res_pos = index+LOG_BUF_SIZE+RETAIN_SIZE-res_len;
+                    break;;
                 }
             } else {
             
@@ -175,17 +173,29 @@ static void elog_find(uint8_t argc, char **argv){
                 res = strstr(&buf[LOG_BUF_SIZE-index],argv[1]);
                 if(res != NULL) {
                     res_len = strlen(res);
-                    sb_printf("keyword<%s>:%d,total:%d\n",argv[1],index-res_len,log_total_size);
+                    res_pos = index+RETAIN_SIZE-res_len;
+                    break;
                 } else {
                     sb_printf("cannot find keyword:%s\n",argv[1]);
+                    return;
                 }
-                return;
             }
+            Task_sleep(1);
         }
-                    
+
+        sb_printf("keyword<%s>:%d,total:%d\n",argv[1],res_pos,log_total_size);
+        if(res_pos > FIND_BEFORE_SIZE)
+        {
+        	if(log_total_size> res_pos+FIND_AFTER_SIZE+ 4)
+            	elog_flash_output(res_pos-FIND_BEFORE_SIZE,FIND_AFTER_SIZE+FIND_BEFORE_SIZE);
+        	else
+            	elog_flash_output(res_pos-FIND_BEFORE_SIZE,log_total_size - res_pos - 4 + FIND_BEFORE_SIZE );
+        }
+        else
+            elog_flash_output(0,FIND_AFTER_SIZE);
         
     } else {
-        sb_printf("Please input elog_find {keyword}. keyword cannot include backspace\n");
+        sb_printf("Please input elog_find {keyword}. keyword cannot include blankspace\n");
     }
 }
 MSH_CMD_EXPORT(elog_find, EasyLogger find keyword from flash log);
@@ -193,10 +203,10 @@ MSH_CMD_EXPORT(elog_find, EasyLogger find keyword from flash log);
 static void elog_read(uint8_t argc, char **argv){
         if (argc == 2) {
             elog_flash_output_recent(atol(argv[1]));
-        } else if (argc == 3)) {
+        } else if (argc == 3) {
             elog_flash_output(atol(argv[1]),atol(argv[2]));
         } else {
-            sb_printf("Please input [elog_read <position> <length>] or [elog_read <length>]\n")
+            sb_printf("Please input [elog_read <position> <length>] or [elog_read <length>]\n");
         }
 }
 MSH_CMD_EXPORT(elog_read, EasyLogger read from flash log);
