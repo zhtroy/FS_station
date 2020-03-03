@@ -72,6 +72,7 @@ static void UART1InitSem()
     /* 初始化接收信用量 */
     Semaphore_Params_init(&semParams);
     semParams.mode = Semaphore_Mode_BINARY;
+    semParams.instance->name = "uartRX";
     rxSem = Semaphore_create(0, &semParams, NULL);
 }
 

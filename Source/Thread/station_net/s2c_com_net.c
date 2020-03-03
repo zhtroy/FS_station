@@ -490,15 +490,25 @@ static int msgSendByid(uint16_t id, int type, const void *pData, int len)
 *****************************************************************************/
 static void messageInit()
 {
+    Mailbox_Params mboxParams;
+    Mailbox_Params_init(&mboxParams);
+    mboxParams.instance->name = "carStatus";
+    carStatusMbox = Mailbox_create (sizeof (carStatus_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
 
-    carStatusMbox = Mailbox_create (sizeof (carStatus_t),S2C_MBOX_DEPTH, NULL, NULL);
-    parkMbox = Mailbox_create (sizeof (parkRequest_t),S2C_MBOX_DEPTH, NULL, NULL);
+    mboxParams.instance->name = "park";
+    parkMbox = Mailbox_create (sizeof (parkRequest_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
 
-    doorMbox = Mailbox_create (sizeof (doorCtrl_t),S2C_MBOX_DEPTH, NULL, NULL);
-    ridMbox = Mailbox_create (sizeof (rid_t),S2C_MBOX_DEPTH, NULL, NULL);
-    collisionMbox = Mailbox_create (sizeof (collisionData_t),S2C_MBOX_DEPTH, NULL, NULL);
+    mboxParams.instance->name = "door";
+    doorMbox = Mailbox_create (sizeof (doorCtrl_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
 
-    preAdjustMbox = Mailbox_create (sizeof (preAdjustReq_t),S2C_MBOX_DEPTH, NULL, NULL);
+    mboxParams.instance->name = "rid";
+    ridMbox = Mailbox_create (sizeof (rid_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
+
+    mboxParams.instance->name = "collision";
+    collisionMbox = Mailbox_create (sizeof (collisionData_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
+
+    mboxParams.instance->name = "preAdjust";
+    preAdjustMbox = Mailbox_create (sizeof (preAdjustReq_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
 }
 static void heart_check(const void *key)
 {
@@ -718,42 +728,42 @@ static void taskStartUp(UArg arg0, UArg arg1)
     taskParams.priority = 5;
     taskParams.stackSize = 4096;
 
-    taskParams.instance->name = "s2cCarStatus";
+    taskParams.instance->name = "carStatus";
     task = Task_create((Task_FuncPtr)S2CCarStatusProcTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-    taskParams.instance->name = "s2cRequestID";
+    taskParams.instance->name = "requestID";
     task = Task_create((Task_FuncPtr)S2CRequestIDTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-    taskParams.instance->name = "s2cRequestPark";
+    taskParams.instance->name = "requestPark";
     task = Task_create((Task_FuncPtr)S2CRequestParkTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-    taskParams.instance->name = "s2cDoorCtrl";
+    taskParams.instance->name = "doorCtrl";
     task = Task_create((Task_FuncPtr)S2CDoorCtrlTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-    taskParams.instance->name = "s2cStopTask";
+    taskParams.instance->name = "StopReq";
     task = Task_create((Task_FuncPtr)S2CStationStopRequestTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
     }
 
-    taskParams.instance->name = "S2CpreAdjustTask";
+    taskParams.instance->name = "preAdjustReq";
     task = Task_create((Task_FuncPtr)S2CpreAdjustTask, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
@@ -767,7 +777,6 @@ static void taskStartUp(UArg arg0, UArg arg1)
         BIOS_exit(0);
     }
 
-#if 0
 
     taskParams.instance->name = "connetCheck";
     task = Task_create((Task_FuncPtr)taskConnectCheck, &taskParams, NULL);
@@ -776,7 +785,7 @@ static void taskStartUp(UArg arg0, UArg arg1)
         BIOS_exit(0);
     }
 
-
+#if 0
     taskParams.priority = 4;
     task = Task_create((Task_FuncPtr)S2CLogTask, &taskParams, NULL);
     if (task == NULL) {
@@ -1439,7 +1448,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         /*
          * 碰撞风险检测
          */
-#if 0
+#if 1
         if(S2CCriticalAreaDetect(&carSts))
         {
             /*关键区域碰撞风险*/
