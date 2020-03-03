@@ -1749,11 +1749,11 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
                 index = S2CFindCarByPosition(road->carQueue,dist);
             else
                 index = S2CRingFindCarByPosition(road->carQueue,dist);
-            log_i("find car by pos %x(%d)",dist,index);
+//            log_i("find car by pos %x(%d)",dist,index);
         }
         else
         {
-            log_i("find car by id %x(%d)",road->carQueue[index].id,index);
+//            log_i("find car by id %x(%d)",road->carQueue[index].id,index);
         }
 
         if(index == 0)
@@ -1776,7 +1776,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
                 *frontCar = &(road->carQueue[size-1]);
                 frontCarDist = road->carQueue[size-1].pos;
                 found = 1;
-                log_i("front car %x(%d)",road->carQueue[size-1].id,size-1);
+//                log_i("front car %x(%d)",road->carQueue[size-1].id,size-1);
             }
 
         }
@@ -1785,7 +1785,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
             *frontCar = &(road->carQueue[index-1]);
             frontCarDist = road->carQueue[index-1].pos;
             found = 1;
-            log_i("front car %x(%d)",road->carQueue[index-1].id,index-1);
+//            log_i("front car %x(%d)",road->carQueue[index-1].id,index-1);
         }
     }
 
@@ -1806,7 +1806,7 @@ static uint8_t getFrontCar(roadInformation_t *road,uint16_t carID,uint32_t dist,
 
         if(distDiff > (S2C_MAX_FRONT_CAR_DISTANCE))
         {
-            log_i("front car is too far");
+//            log_i("front car is too far");
             return 0;
         }
         else
