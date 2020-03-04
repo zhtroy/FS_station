@@ -106,7 +106,7 @@
 #define CAR_HEART_ACTIVED       (1)
 #define CAR_HEART_FAILED        (2)
 
-#define CONNECTED_CHECK_SLOT  (2000)
+#define CONNECTED_CHECK_SLOT  (4000)
 #pragma pack(1)
 typedef struct
 {
