@@ -357,17 +357,24 @@ static int on_carStatus(uint16_t id, void* pData, int size)
 {
     carStatus_t carSts;
     statsPacket_t *stats;
+    roadID_t rid;
+
     log_d("Receive %x car status",id);
     carSts.id = id;
     memcpy(&carSts.rfid,pData,sizeof(rfid_t)+9);
     if(CC_OK == hashtable_get(_socket_id_stats,id,&stats))
     {
-        if(stats != NULL)
+        memset(&rid,0,sizeof(roadID_t));
+        if(stats != NULL )
         {
-            stats->packet_numsAdd++;
-            //stats->packet_numsSum++;
-            stats->position_current = carSts.dist;
-            stats->heart_status = CAR_HEART_ACTIVED;
+            /*道路信息不全为0*/
+            if(memcmp(&carSts.rfid.byte[1],&rid,sizeof(roadID_t)))
+            {
+                stats->packet_numsAdd++;
+                //stats->packet_numsSum++;
+                stats->position_current = carSts.dist;
+                stats->heart_status = CAR_HEART_ACTIVED;
+            }
         }
         else
         {
