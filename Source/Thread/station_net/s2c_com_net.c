@@ -458,6 +458,17 @@ static int on_serverdisconnect(SOCKET s, uint16_t id)
     {
        log_e("_socket_id_table remove failed");
     }
+
+    uint32_t timestamp = gettime();
+    statsPacket_t *stats;
+    if(CC_OK == hashtable_get(_socket_id_stats,id,&stats))
+    {
+        /*统计断连时间*/
+        stats->disconnect_time[2] = stats->disconnect_time[1];
+        stats->disconnect_time[1] = stats->disconnect_time[0];
+        stats->disconnect_time[0] = timestamp;
+    }
+
     return 1;
 }
 

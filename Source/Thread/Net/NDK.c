@@ -197,9 +197,11 @@ uint32_t gettime(void)
     return (sync_time + (Clock_getTicks()/1000) - sync_tick);
 }
 
+#define TIME_1970_TO_1900 (2208988800)
+#define TIME_ZONE_BEIJING (28800)
 static void settime(uint32_t newtime)
 {
-    sync_time = newtime+(8*60*60);
+    sync_time = newtime + TIME_1970_TO_1900 + TIME_ZONE_BEIJING;
     sync_tick = (Clock_getTicks()/1000);
     log_i("NetWork Setting Time:%d",sync_time);
 }

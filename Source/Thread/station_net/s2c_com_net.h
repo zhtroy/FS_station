@@ -263,6 +263,7 @@ typedef struct{
 
 typedef struct{
     int32_t connect_time[3];
+    int32_t disconnect_time[3];
     uint32_t connect_nums;
     uint32_t packet_numsSum;
     uint32_t packet_numsAdd;
