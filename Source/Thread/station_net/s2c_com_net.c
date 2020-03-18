@@ -384,6 +384,11 @@ static int on_carStatus(uint16_t id, void* pData, int size)
                     {
                         stats->packet_slotMax = slot;
                     }
+
+                    if(slot < stats->packet_slotMin)
+                    {
+                        stats->packet_slotMin = slot;
+                    }
                 }
                 stats->packet_ticks = ticks;
             }
@@ -441,6 +446,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
             memset(stats,0,sizeof(statsPacket_t));
             stats->connect_time[0] = timestamp;
             stats->packet_speedMin = 0xffffffff;
+            stats->packet_slotMin = 0xffffffff;
             hashtable_add(_socket_id_stats,id,stats);
         }
         else
@@ -456,6 +462,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
         stats->connect_time[1] = stats->connect_time[0];
         stats->connect_time[0] = timestamp;
         stats->packet_slotMax = 0;
+        stats->packet_slotMin = 0xffffffff;
         stats->packet_ticks = 0;
         stats->heart_status = CAR_HEART_NONE;
     }
@@ -645,7 +652,7 @@ static void packetStatistics(const void *key)
             stats->packet_numsSum += stats->packet_numsAdd;
             stats->stats_nums++;
 
-            log_i("%x cur(%d,%d),min(%d,%d),max(%d,%d),ave(%d),all(%d),nums(%d),con(%d),slot(%dms)",
+            log_i("%x cur(%d,%d),min(%d,%d),max(%d,%d),ave(%d),all(%d),nums(%d),con(%d),slot(%d,%d)",
                 key,
                 stats->packet_numsAdd,stats->position_current,
                 stats->packet_speedMin,stats->position_speedMin,
@@ -654,6 +661,7 @@ static void packetStatistics(const void *key)
                 stats->packet_numsSum,
                 stats->stats_nums,
                 stats->connect_nums,
+                stats->packet_slotMin,
                 stats->packet_slotMax);
         }
         else
