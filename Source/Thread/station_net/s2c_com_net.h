@@ -273,6 +273,8 @@ typedef struct{
     uint32_t packet_speedMin;
     uint32_t position_speedMin;
     uint32_t position_current;
+    uint32_t packet_slotMax;
+    uint32_t packet_ticks;
     uint32_t stats_nums;
     uint8_t not_firstStats;
     uint8_t heart_status;

@@ -358,6 +358,7 @@ static int on_carStatus(uint16_t id, void* pData, int size)
     carStatus_t carSts;
     statsPacket_t *stats;
     roadID_t rid;
+    uint32_t ticks,slot;
 
     log_d("Receive %x car status",id);
     carSts.id = id;
@@ -374,6 +375,17 @@ static int on_carStatus(uint16_t id, void* pData, int size)
                 //stats->packet_numsSum++;
                 stats->position_current = carSts.dist;
                 stats->heart_status = CAR_HEART_ACTIVED;
+
+                ticks = Clock_getTicks();
+                if(stats->packet_ticks != 0)
+                {
+                    slot = ticks - stats->packet_ticks;
+                    if(slot > stats->packet_slotMax)
+                    {
+                        stats->packet_slotMax = slot;
+                    }
+                }
+                stats->packet_ticks = ticks;
             }
         }
         else
@@ -443,6 +455,8 @@ static int on_serverconnect(SOCKET s, uint16_t id)
         stats->connect_time[2] = stats->connect_time[1];
         stats->connect_time[1] = stats->connect_time[0];
         stats->connect_time[0] = timestamp;
+        stats->packet_slotMax = 0;
+        stats->packet_ticks = 0;
         stats->heart_status = CAR_HEART_NONE;
     }
 
@@ -640,7 +654,7 @@ static void packetStatistics(const void *key)
                 stats->packet_numsSum,
                 stats->stats_nums,
                 stats->connect_nums,
-                STATISTICS_SLOT_TIME);
+                stats->packet_slotMax);
         }
         else
         {
