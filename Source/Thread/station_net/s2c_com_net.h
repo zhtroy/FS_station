@@ -275,6 +275,7 @@ typedef struct{
     uint32_t position_current;
     uint32_t packet_slotMax;
     uint32_t packet_slotMin;
+    uint32_t packet_slot[6];
     uint32_t packet_ticks;
     uint32_t stats_nums;
     uint8_t not_firstStats;
@@ -282,7 +283,15 @@ typedef struct{
 }statsPacket_t;
 #pragma pack()
 void S2CTaskInit();
-
+enum SLOT_TYPE
+{
+      SLOT_0_200MS,
+      SLOT_200_400MS,
+      SLOT_400_600MS,
+      SLOT_600_800MS,
+      SLOT_800_1000MS,
+      SLOT_1000_XXXXMS
+};
 
 #endif
 

@@ -389,7 +389,33 @@ static int on_carStatus(uint16_t id, void* pData, int size)
                     {
                         stats->packet_slotMin = slot;
                     }
+
+                    if(slot < 200)
+                    {
+                        stats->packet_slot[SLOT_0_200MS] += 1;
+                    }
+                    else if(slot < 400)
+                    {
+                        stats->packet_slot[SLOT_200_400MS] += 1;
+                    }
+                    else if(slot < 600)
+                    {
+                        stats->packet_slot[SLOT_400_600MS] += 1;
+                    }
+                    else if(slot < 800)
+                    {
+                        stats->packet_slot[SLOT_600_800MS] += 1;
+                    }
+                    else if(slot < 1000)
+                    {
+                        stats->packet_slot[SLOT_800_1000MS] += 1;
+                    }
+                    else
+                    {
+                        stats->packet_slot[SLOT_1000_XXXXMS] += 1;
+                    }
                 }
+
                 stats->packet_ticks = ticks;
             }
         }
@@ -461,6 +487,7 @@ static int on_serverconnect(SOCKET s, uint16_t id)
         stats->connect_time[2] = stats->connect_time[1];
         stats->connect_time[1] = stats->connect_time[0];
         stats->connect_time[0] = timestamp;
+        memset(stats->packet_slot,0,sizeof(stats->packet_slot));
         stats->packet_slotMax = 0;
         stats->packet_slotMin = 0xffffffff;
         stats->packet_ticks = 0;
@@ -727,6 +754,21 @@ static void showConnect(const void *key)
     }
 }
 
+static void showSlot(const void *key)
+{
+    statsPacket_t *stats;
+    hashtable_get(_socket_id_stats,key,&stats);
+    if(stats != NULL)
+    {
+        sb_printf("%8d %8d %8d %8d %8d %8d\n",
+                stats->packet_slot[SLOT_0_200MS],
+                stats->packet_slot[SLOT_200_400MS],
+                stats->packet_slot[SLOT_400_600MS],
+                stats->packet_slot[SLOT_600_800MS],
+                stats->packet_slot[SLOT_800_1000MS],
+                stats->packet_slot[SLOT_1000_XXXXMS]);
+    }
+}
 static void psts(uint8_t argc,uint8_t **argv)
 {
     if(argc == 1)
@@ -738,6 +780,12 @@ static void psts(uint8_t argc,uint8_t **argv)
         if(0 == strncmp("-t",argv[1],2))
         {
             hashtable_foreach_key(_socket_id_stats,showConnect);
+        }
+
+        if(0 == strncmp("-s",argv[1],2))
+        {
+            sb_printf("  0~200  200~400 400~600 600~800 800~1000 >1000 \n");
+            hashtable_foreach_key(_socket_id_stats,showSlot);
         }
     }
 }
