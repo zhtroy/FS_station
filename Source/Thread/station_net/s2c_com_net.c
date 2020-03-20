@@ -301,6 +301,7 @@ static int on_intoStation(uint16_t id, void* pData, int size)
     log_d("Receive %x into station request",id);
     parkReq.carId = id;   
     parkReq.type = S2C_INTO_STATION;
+    parkReq.source = SOURCE_WIFI;
     memcpy(&parkReq.roadID,pData,sizeof(roadID_t));
     elog_hexdump("into pData",16,pData,5);
     Mailbox_post(parkMbox,&parkReq,BIOS_NO_WAIT);
@@ -316,6 +317,7 @@ static int on_requestID(uint16_t id, void* pData, int size)
 
     log_d("Receive %x front-id request",id);
     rid.carId = id;
+    rid.source = SOURCE_WIFI;
     memcpy(&rid.rfid,pData,sizeof(rfid_t)+7);
     
     /*请求ID先POST到状态处理任务，进行排队*/
@@ -765,7 +767,8 @@ static void showSlot(const void *key)
     hashtable_get(_socket_id_stats,key,&stats);
     if(stats != NULL)
     {
-        sb_printf("%8d %8d %8d %8d %8d %8d %8d\n",
+        sb_printf("%x %8d %8d %8d %8d %8d %8d %8d\n",
+                key,
                 stats->packet_slot[SLOT_0_200MS],
                 stats->packet_slot[SLOT_200_300MS],
                 stats->packet_slot[SLOT_300_400MS],
@@ -790,7 +793,7 @@ static void psts(uint8_t argc,uint8_t **argv)
 
         if(0 == strncmp("-s",argv[1],2))
         {
-            sb_printf("   0~200  200~300  300~400  400~600  600~800  800~1000    >1000 \n");
+            sb_printf("  ID   0~200  200~300  300~400  400~600  600~800  800~1000    >1000 \n");
             hashtable_foreach_key(_socket_id_stats,showSlot);
         }
     }
@@ -812,6 +815,7 @@ void S2C_zcpRecv(UArg arg0, UArg arg1)
     int32_t timestamp;
     rid_t rid;
     carStatus_t carSts;
+    parkRequest_t parkReq;
     while(1)
     {
         ZCPRecvPacket(&s2cInst, &recvPacket, &timestamp, BIOS_WAIT_FOREVER);
@@ -840,7 +844,13 @@ void S2C_zcpRecv(UArg arg0, UArg arg1)
             Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
             break;
-
+        case S2C_INTO_STATION_CMD:
+            parkReq.carId = recvPacket.addr;
+            parkReq.type = S2C_INTO_STATION;
+            parkReq.source = SOURCE_ZIGBEE;
+            memcpy(&parkReq.roadID,recvPacket.data,sizeof(roadID_t));
+            Mailbox_post(parkMbox,&parkReq,BIOS_NO_WAIT);
+            break;
         default:
             break;
         }
@@ -2275,6 +2285,7 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
     uint8_t tN;
     uint8_t stationFlag = 0;
     intoStationAck_t intoStationAck;
+    ZCPUserPacket_t sendPacket;
     while(1)
     {
         Mailbox_pend(parkMbox,&parkReq,BIOS_WAIT_FOREVER);
@@ -2381,17 +2392,36 @@ void S2CRequestParkTask(UArg arg0, UArg arg1)
             }
         }
 
-        intoStationAck.status = 1;
-        intoStationAck.rfid[0] = 0;
-        memcpy(&intoStationAck.rfid[1],&stationFind->roadID,sizeof(roadID_t)+2);
-        intoStationAck.rfid[8] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
-        intoStationAck.rfid[9] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
-        intoStationAck.rfid[10] = (stationFind->park[carQ.pid].trigger) & 0xff;
-        intoStationAck.rfid[11] = 0;
-        
-        msgSendByid(parkReq.carId,S2C_INTO_STATION_ACK,&intoStationAck,sizeof(intoStationAck_t));
 
-        log_i("Park:%x -> T%d.P%d-%x",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
+        
+        if(parkReq.source == SOURCE_WIFI)
+        {
+            intoStationAck.status = 1;
+            intoStationAck.rfid[0] = 0;
+            memcpy(&intoStationAck.rfid[1],&stationFind->roadID,sizeof(roadID_t)+2);
+            intoStationAck.rfid[8] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
+            intoStationAck.rfid[9] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
+            intoStationAck.rfid[10] = (stationFind->park[carQ.pid].trigger) & 0xff;
+            intoStationAck.rfid[11] = 0;
+            msgSendByid(parkReq.carId,S2C_INTO_STATION_ACK,&intoStationAck,sizeof(intoStationAck_t));
+            log_i("Park:%x -> T%d.P%d-%x(WIFI)",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
+        }
+        else
+        {
+            memset(sendPacket.data,0,13);
+            sendPacket.data[0] = 1;
+            memcpy(&sendPacket.data[2],&stationFind->roadID,sizeof(roadID_t)+2);
+            sendPacket.data[9] = (stationFind->park[carQ.pid].trigger >> 16) & 0xff;
+            sendPacket.data[10] = (stationFind->park[carQ.pid].trigger >> 8) & 0xff;
+            sendPacket.data[11] = (stationFind->park[carQ.pid].trigger) & 0xff;
+            sendPacket.addr = parkReq.carId;
+            sendPacket.type = S2C_INTO_STATION_ACK;
+            sendPacket.len = 13;
+            ZCPSendPacket(&s2cInst, &sendPacket, NULL,BIOS_NO_WAIT);
+            log_i("Park:%x -> T%d.P%d-%x(ZIGBEE)",carQ.id,tN,carQ.pid,stationFind->park[carQ.pid].trigger);
+        }
+
+
 
         showStationLog();
     }

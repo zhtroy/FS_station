@@ -23,7 +23,7 @@
 
 #define CAR_MODE_REMOVE (0xff)
 
-#define STATION_ID (0x5001)
+#define STATION_ID (0x6080)
 /*
  * 1.站台路线
  * 2.调整点数量
@@ -106,7 +106,7 @@
 #define CAR_HEART_ACTIVED       (1)
 #define CAR_HEART_FAILED        (2)
 
-#define CONNECTED_CHECK_SLOT  (4000)
+#define CONNECTED_CHECK_SLOT  (8000)
 
 #define SOURCE_WIFI   (0)
 #define SOURCE_ZIGBEE (1)
@@ -133,6 +133,7 @@ typedef struct{
     uint16_t carId;
     uint8_t type;
     roadID_t roadID;
+    uint8_t source;
 }parkRequest_t;
 
 typedef struct{
