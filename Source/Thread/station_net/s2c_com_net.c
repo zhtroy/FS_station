@@ -1373,6 +1373,11 @@ uint8_t S2CCarCollisionDetect(carStatus_t *carSts,roadInformation_t *roadFind)
     isBSection = getBSection(carSts->rfid);
     if(SECTION_NORMAL == roadSection)
     {
+        if(areaType == EREA_SEPERATE && carQptr->areaType != EREA_SEPERATE &&
+                carSts->rail != carQptr->rail)
+        {
+            return 0;
+        }
         /*环形轨道负值纠正*/
         if(roadFind->isRing && dist_diff < 0)
             dist_diff = dist_diff + S2C_RAIL_LENGTH;
@@ -1390,7 +1395,6 @@ uint8_t S2CCarCollisionDetect(carStatus_t *carSts,roadInformation_t *roadFind)
                     frontCarInfo.id,frontCarInfo.pos);
             return NORMAL_COLLISION_TYPE;
         }
-
         else
             return 0;
     }
