@@ -107,6 +107,9 @@
 #define CAR_HEART_FAILED        (2)
 
 #define CONNECTED_CHECK_SLOT  (4000)
+
+#define SOURCE_WIFI   (0)
+#define SOURCE_ZIGBEE (1)
 #pragma pack(1)
 typedef struct
 {
@@ -139,6 +142,7 @@ typedef struct{
     uint8_t rail;
     uint8_t carMode;
     uint32_t timeStamp;
+    uint8_t source;     //0:wifi 1:zigbee
 }rid_t;
 
 typedef struct{
@@ -275,7 +279,7 @@ typedef struct{
     uint32_t position_current;
     uint32_t packet_slotMax;
     uint32_t packet_slotMin;
-    uint32_t packet_slot[6];
+    uint32_t packet_slot[7];
     uint32_t packet_ticks;
     uint32_t stats_nums;
     uint8_t not_firstStats;
@@ -286,7 +290,8 @@ void S2CTaskInit();
 enum SLOT_TYPE
 {
       SLOT_0_200MS,
-      SLOT_200_400MS,
+      SLOT_200_300MS,
+      SLOT_300_400MS,
       SLOT_400_600MS,
       SLOT_600_800MS,
       SLOT_800_1000MS,

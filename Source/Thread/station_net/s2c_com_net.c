@@ -29,6 +29,7 @@
 #include "shell.h"
 #include "common.h"
 #include <time.h>
+#include "ZCP/zcp_driver.h"
 
 #define S2C_ZCP_UART_DEV_NUM    (0)
 #define S2C_ZCP_DEV_NUM         (0)
@@ -204,7 +205,7 @@ static adjustZone_t *adjustZone;
 static separateZone_t *separateZone;
 static stationInformation_t *stationInfo;
 
-
+static ZCPInstance_t s2cInst;
 static Mailbox_Handle carStatusMbox;
 static Mailbox_Handle parkMbox;
 static Mailbox_Handle doorMbox;
@@ -390,23 +391,27 @@ static int on_carStatus(uint16_t id, void* pData, int size)
                         stats->packet_slotMin = slot;
                     }
 
-                    if(slot < 200)
+                    if(slot <= 200)
                     {
                         stats->packet_slot[SLOT_0_200MS] += 1;
                     }
-                    else if(slot < 400)
+                    else if(slot <= 300)
                     {
-                        stats->packet_slot[SLOT_200_400MS] += 1;
+                        stats->packet_slot[SLOT_200_300MS] += 1;
                     }
-                    else if(slot < 600)
+                    else if(slot <= 400)
+                    {
+                        stats->packet_slot[SLOT_300_400MS] += 1;
+                    }
+                    else if(slot <= 600)
                     {
                         stats->packet_slot[SLOT_400_600MS] += 1;
                     }
-                    else if(slot < 800)
+                    else if(slot <= 800)
                     {
                         stats->packet_slot[SLOT_600_800MS] += 1;
                     }
-                    else if(slot < 1000)
+                    else if(slot <= 1000)
                     {
                         stats->packet_slot[SLOT_800_1000MS] += 1;
                     }
@@ -760,9 +765,10 @@ static void showSlot(const void *key)
     hashtable_get(_socket_id_stats,key,&stats);
     if(stats != NULL)
     {
-        sb_printf("%8d %8d %8d %8d %8d %8d\n",
+        sb_printf("%8d %8d %8d %8d %8d %8d %8d\n",
                 stats->packet_slot[SLOT_0_200MS],
-                stats->packet_slot[SLOT_200_400MS],
+                stats->packet_slot[SLOT_200_300MS],
+                stats->packet_slot[SLOT_300_400MS],
                 stats->packet_slot[SLOT_400_600MS],
                 stats->packet_slot[SLOT_600_800MS],
                 stats->packet_slot[SLOT_800_1000MS],
@@ -784,13 +790,63 @@ static void psts(uint8_t argc,uint8_t **argv)
 
         if(0 == strncmp("-s",argv[1],2))
         {
-            sb_printf("  0~200  200~400 400~600 600~800 800~1000 >1000 \n");
+            sb_printf("   0~200  200~300  300~400  400~600  600~800  800~1000    >1000 \n");
             hashtable_foreach_key(_socket_id_stats,showSlot);
         }
     }
 }
 MSH_CMD_EXPORT(psts, show packets statitics);
 
+/*****************************************************************************
+ * 函数名称: void S2C_zcpRecv(UArg arg0, UArg arg1)
+ * 函数说明: zigbee接收任务
+ * 输入参数:
+ *      arg0~arg1:任务参数
+ * 输出参数: 无
+ * 返 回 值: 无
+ * 备注:
+*****************************************************************************/
+void S2C_zcpRecv(UArg arg0, UArg arg1)
+{
+    ZCPUserPacket_t recvPacket;
+    int32_t timestamp;
+    rid_t rid;
+    carStatus_t carSts;
+    while(1)
+    {
+        ZCPRecvPacket(&s2cInst, &recvPacket, &timestamp, BIOS_WAIT_FOREVER);
+
+        if((recvPacket.addr & 0x6000) != 0x6000)
+            continue;
+
+        switch(recvPacket.type)
+        {
+
+        case S2C_REQUEST_ID_CMD:
+
+            rid.carId = recvPacket.addr;
+            rid.source = SOURCE_ZIGBEE;
+            memcpy(&rid.rfid,recvPacket.data,sizeof(rfid_t)+7);
+
+            /*请求ID先POST到状态处理任务，进行排队*/
+            carSts.id = recvPacket.addr;
+            carSts.rfid = rid.rfid;
+            carSts.dist = rid.dist;
+            carSts.rpm = 0;
+            carSts.mode = CAR_MODE_RUN;
+            carSts.rail = rid.rail;
+            carSts.carMode = rid.carMode;
+
+            Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
+            Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
+            break;
+
+        default:
+            break;
+        }
+
+    }
+}
 
 static void taskStartUp(UArg arg0, UArg arg1)
 {
@@ -801,6 +857,7 @@ static void taskStartUp(UArg arg0, UArg arg1)
     uint16_t device_id;
     uint16_t port;
 
+    ZCPInit(&s2cInst,S2C_ZCP_DEV_NUM,S2C_ZCP_UART_DEV_NUM,STATION_ID);
 
     stationDataInit();
 
@@ -868,6 +925,13 @@ static void taskStartUp(UArg arg0, UArg arg1)
 
     taskParams.instance->name = "connetCheck";
     task = Task_create((Task_FuncPtr)taskConnectCheck, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
+
+    taskParams.instance->name = "zcpRecv";
+    task = Task_create((Task_FuncPtr)S2C_zcpRecv, &taskParams, NULL);
     if (task == NULL) {
         System_printf("Task_create() failed!\n");
         BIOS_exit(0);
@@ -1935,6 +1999,7 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
     uint16_t tmp;
     carQueue_t *carQptr;
     uint8_t *str;
+    ZCPUserPacket_t sendPacket;
     while(1)
     {
         Mailbox_pend(ridMbox,&rid,BIOS_WAIT_FOREVER);
@@ -2172,8 +2237,20 @@ void S2CRequestIDTask(UArg arg0, UArg arg1)
             }
         }
 
-        
-        msgSendByid(rid.carId,S2C_REQUEST_ID_ACK,&frontCar,sizeof(frontCar_t));
+        if(rid.source == SOURCE_WIFI)
+        {
+            log_i("send ack by wifi");
+            msgSendByid(rid.carId,S2C_REQUEST_ID_ACK,&frontCar,sizeof(frontCar_t));
+        }
+        else
+        {
+            log_i("send ack by zigbee");
+            sendPacket.addr = rid.carId;
+            memcpy(sendPacket.data,&frontCar,sizeof(frontCar_t));
+            sendPacket.len = sizeof(frontCar_t);
+            sendPacket.type = S2C_REQUEST_ID_ACK;
+            ZCPSendPacket(&s2cInst,&sendPacket,NULL,BIOS_NO_WAIT);
+        }
     }
 }
 

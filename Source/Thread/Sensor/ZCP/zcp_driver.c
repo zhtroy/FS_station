@@ -9,6 +9,7 @@
 #include <xdc/std.h>
 #include <assert.h>
 #include "zcp_driver.h"
+#include "elog.h"
 
 
 static ZCPCfgTable_t ZCPCfgTable[MAX_ZCP_DEVIVE_NUMS];
