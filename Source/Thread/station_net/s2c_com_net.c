@@ -212,6 +212,8 @@ static Mailbox_Handle doorMbox;
 static Mailbox_Handle ridMbox;
 static Mailbox_Handle collisionMbox;
 static Mailbox_Handle preAdjustMbox;
+static Mailbox_Handle carInfoMbox;
+
 static Clock_Handle clockConnectHeart;
 
 static uint8_t stationStatus = STATION_NOT_READY;
@@ -239,6 +241,7 @@ static int on_serverconnect(SOCKET s, uint16_t id);
 static int on_serverdisconnect(SOCKET s, uint16_t id);
 static void S2CpreAdjustTask(UArg arg0, UArg arg1);
 extern uint32_t gettime(void);
+static void carInfoTask(UArg arg0, UArg arg1);
 
 #define SERVER_MAX_LISTHEN_NUMS (10)
 
@@ -454,6 +457,18 @@ static int on_pre_adjust_request(uint16_t id, void* pData, int size)
     return 1;
 }
 
+static int on_car_info_request(uint16_t id, void* pData, int size)
+{
+    carInfoReq_t carInfo_req;
+
+    memcpy(&carInfo_req,pData,size);
+
+    carInfo_req.car_id = id;
+
+    Mailbox_post(carInfoMbox,&carInfo_req,BIOS_NO_WAIT);
+    return 1;
+}
+
 static int on_serverconnect(SOCKET s, uint16_t id) 
 {
     statsPacket_t *stats;
@@ -466,6 +481,8 @@ static int on_serverconnect(SOCKET s, uint16_t id)
     msg_register_cb(s,S2C_LEAVE_STATION_CMD,on_leaveStation);
     msg_register_cb(s,S2C_CAR_STATUS_CMD,on_carStatus);
     msg_register_cb(s,EVENT_V2C_PRE_ADJUST_REQUEST,on_pre_adjust_request);
+    msg_register_cb(s,EVENT_V2C_CAR_INFO_REQUEST,on_car_info_request);
+
     /*msg_register_cb(s,S2C_ALLOT_PARK_ACK,on_allotPack);*/
 
     hashtable_add(_socket_id_table,id,s);
@@ -582,6 +599,9 @@ static void messageInit()
 
     mboxParams.instance->name = "preAdjust";
     preAdjustMbox = Mailbox_create (sizeof (preAdjustReq_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
+
+    mboxParams.instance->name = "carInfo";
+    carInfoMbox = Mailbox_create (sizeof (carInfoReq_t),S2C_MBOX_DEPTH, &mboxParams, NULL);
 }
 static void heart_check(const void *key)
 {
@@ -947,6 +967,12 @@ static void taskStartUp(UArg arg0, UArg arg1)
         BIOS_exit(0);
     }
 
+    taskParams.instance->name = "carInfo";
+    task = Task_create((Task_FuncPtr)carInfoTask, &taskParams, NULL);
+    if (task == NULL) {
+        System_printf("Task_create() failed!\n");
+        BIOS_exit(0);
+    }
 #if 0
     taskParams.priority = 4;
     task = Task_create((Task_FuncPtr)S2CLogTask, &taskParams, NULL);
@@ -1885,6 +1911,42 @@ static void S2CpreAdjustTask(UArg arg0, UArg arg1)
                 preAdjust_info.preAdjust_req.run_time,
                 preAdjust_info.preAdjust_ack.except_time
                 );
+    }
+}
+
+static void carInfoTask(UArg arg0, UArg arg1)
+{
+    carInfoReq_t carInfo_req;
+    carInfoAck_t carInfo_ack;
+    uint8_t i;
+    int8_t index;
+    while(1)
+    {
+        Mailbox_pend(carInfoMbox,&carInfo_req,BIOS_WAIT_FOREVER);
+
+        carInfo_ack.id = 0;
+
+        for(i=0;i<roadNums;i++)
+        {
+            index = findCarByID(carInfo_req.front_car,roadInfo[i].carQueue);
+            if(index >= 0)
+            {
+                /*
+                 * 找到车辆
+                 */
+                carInfo_ack.id = carInfo_req.front_car;
+                carInfo_ack.dist = roadInfo[i].carQueue[index].pos;
+                carInfo_ack.rfid = roadInfo[i].carQueue[index].rfid;
+                carInfo_ack.status = roadInfo[i].carQueue[index].carMode;
+                break;
+            }
+        }
+
+        carInfo_ack.delta_dist = 160;
+        msgSendByid(carInfo_req.car_id,EVENT_V2C_CAR_INFO_ACK,&carInfo_ack,sizeof(carInfoAck_t));
+        log_i("%x car-info ack %x(%d)",carInfo_req.car_id,
+                carInfo_ack.id,
+                carInfo_ack.dist);
     }
 }
 

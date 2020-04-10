@@ -38,6 +38,8 @@
 #define S2C_DOOR_CONTROL_CMD    (0x03)
 #define S2C_LEAVE_STATION_CMD   (0x04)
 #define EVENT_V2C_PRE_ADJUST_REQUEST (0x05)
+#define EVENT_V2C_CAR_INFO_REQUEST          (0x06)     /*车辆信息请求*/
+
 #define S2C_CAR_STATUS_CMD      (0x40)
 #define S2C_ALLOT_PARK_ACK      (0X42)
 #define S2C_REQUEST_STOP        (0x21)
@@ -48,6 +50,8 @@
 #define S2C_DOOR_CONTROL_ACK    (0x63)
 #define S2C_LEAVE_STATION_ACK   (0x64)
 #define EVENT_V2C_PRE_ADJUST_ACK            (0x65)      /*预调整区响应*/
+#define EVENT_V2C_CAR_INFO_ACK              (0x66)     /*车辆信息响应*/
+
 
 #define PRE_ADJUST_DELAY_SEC (10)       /*预调整区延时间隔(s)*/
 
@@ -265,6 +269,19 @@ typedef struct{
     preAdjustReq_t preAdjust_req;
     preAdjustAck_t preAdjust_ack;
 }preAdjustInfo_t;
+
+typedef struct{
+    uint16_t front_car;
+    uint16_t car_id;
+}carInfoReq_t;
+
+typedef struct{
+    uint16_t id;
+    rfid_t rfid;
+    uint32_t dist;
+    uint32_t delta_dist;
+    uint8_t status;
+}carInfoAck_t;
 
 typedef struct{
     int32_t connect_time[3];
