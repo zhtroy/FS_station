@@ -93,8 +93,8 @@
 #define SECTION_NORMAL          (0x00)
 
 #define MIN_DISTANCE_STATION    (36)
-#define MIN_DISTANCE_ADJUST     (60)
-#define MIN_DISTANCE_NORMAL     (70)
+#define MIN_DISTANCE_ADJUST     (45)
+#define MIN_DISTANCE_NORMAL     (45)
 
 #define CRITICAL_AREA_NUMS         (3)
 
