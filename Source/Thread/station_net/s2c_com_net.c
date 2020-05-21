@@ -682,7 +682,7 @@ static void initTimer()
 	clockConnectHeart = Clock_create(connected_check, CONNECTED_CHECK_SLOT, &clockParams, NULL);
 }
 
-#define STATISTICS_SLOT_TIME (5000)
+#define STATISTICS_SLOT_TIME (10000)
 static void packetStatistics(const void *key)
 {
     statsPacket_t *stats;

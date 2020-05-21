@@ -96,7 +96,7 @@
 /* @note you must define it for a value if you used ENV */
 
 /* saved log area size */
-#define LOG_AREA_SIZE              (100*EF_ERASE_MIN_SIZE)
+#define LOG_AREA_SIZE              (1000*EF_ERASE_MIN_SIZE)
 /* @note you must define it for a value if you used log */
 
 /* print debug information of flash */
