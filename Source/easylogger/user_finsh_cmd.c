@@ -142,10 +142,15 @@ MSH_CMD_EXPORT(elog_flash, EasyLogger <read> <clean> <flush> flash log);
 
 static char buf[LOG_BUF_SIZE+RETAIN_SIZE+1];
 static void elog_find(uint8_t argc, char **argv){
-    
+    size_t index;
     if (argc >= 2) {
         size_t log_total_size = ef_log_get_used_size();
-        size_t index = log_total_size;
+
+        if(argc == 3)
+            index = atoi(argv[2]);
+        else
+            index = log_total_size;
+
         char *res;
         size_t res_len,res_pos;
         /*set "\0" for string end*/
@@ -195,7 +200,7 @@ static void elog_find(uint8_t argc, char **argv){
             elog_flash_output(0,FIND_AFTER_SIZE);
         
     } else {
-        sb_printf("Please input elog_find {keyword}. keyword cannot include blankspace\n");
+        sb_printf("Please input elog_find {keyword} [start_point]. keyword cannot include blankspace\n");
     }
 }
 MSH_CMD_EXPORT(elog_find, EasyLogger find keyword from flash log);

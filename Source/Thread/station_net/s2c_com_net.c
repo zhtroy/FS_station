@@ -2608,7 +2608,7 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
         do
         {
             isEnd = 1;
-            if(collisionInfo.type == STATION_COLLISION_TYPE)
+            if(collisionInfo.type != CONNECT_COLLISION_TYPE)
             {
                 for(i=0;i<roadNums;i++)
                 {
@@ -2631,7 +2631,7 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
                 }
 
             }
-            else
+            else/*心跳超时，停止所有车辆*/
             {
                 sb_printf("collision stop retry %d\n",retryNums);
                 for(i=0;i<roadNums;i++)
