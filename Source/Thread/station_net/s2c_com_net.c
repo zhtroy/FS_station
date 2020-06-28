@@ -1549,8 +1549,11 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
 
         /*
          * 更新站点车辆
+         * 1.处于停车状态；
+         * 2.其它模式下，车辆速度为零；
          */
-        if(carSts.mode == CAR_MODE_PARK)
+        if(carSts.mode == CAR_MODE_PARK ||
+                (carSts.carMode != AUTO_MODE && carSts.rpm == 0))
         {
             updateStation(&carSts);
         }
@@ -1860,8 +1863,8 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
     }
 }
 
-static uint32_t pre_adjust_delay = 15;
-SHELL_EXPORT_VAR_INT(adj_delay,pre_adjust_delay,pre-Adjust Delay(defalut 15s));
+static uint32_t pre_adjust_delay = 5;
+SHELL_EXPORT_VAR_INT(adj_delay,pre_adjust_delay,pre-Adjust Delay(defalut 5s));
 
 static void S2CpreAdjustTask(UArg arg0, UArg arg1)
 {
