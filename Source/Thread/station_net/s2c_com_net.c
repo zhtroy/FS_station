@@ -156,22 +156,22 @@ static const stationInformation_t constStationInfo[S2C_TERM_NUMS] = {
 static const park_t constParkInfo[S2C_TERM_NUMS][3] = {
         {
                 {
-                        0x00000564,
-                        0x00000590,
+                        0x0000056D,
+                        0x00000595,
                 },
                 {
-                        0x0000053C,
-                        0x00000564,
+                        0x00000545,
+                        0x0000056D,
                 },
                 {
-                        0x00000514,
-                        0x0000053C,
+                        0x0000051D,
+                        0x00000545,
                 },
         },
         {
                 {
-                        0x0000051E,
-                        0x00000546,
+                        0x00000527,
+                        0x0000054F,
                 },
                 {
                         0x00000000,
