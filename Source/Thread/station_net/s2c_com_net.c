@@ -189,13 +189,13 @@ static criticalArea_t criticalArea[CRITICAL_AREA_NUMS] =
 {
         /*起始位置,结束位置,车辆ID,车辆位置*/
         {
-                220,227,0,0
+                2200,2270,0,0
         },
         {
-                163,170,0,0
+                1630,1700,0,0
         },
         {
-                20,27,0,0
+                200,270,0,0
         }
 };
 
@@ -1362,10 +1362,12 @@ void S2CLevaveStationProcess(carStatus_t *carSts)
 uint8_t S2CCriticalAreaDetect(carStatus_t *carSts)
 {
     uint8_t i;
+#if 0
     if(carSts->carMode != AUTO_MODE)
     {
         return 0;
     }
+#endif
     /*关键区*/
     for(i=0;i<CRITICAL_AREA_NUMS;i++)
     {
