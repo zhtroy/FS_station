@@ -11,12 +11,6 @@
 #if ZIGBEE_WIFI==1
 #include "common.h"
 
-#define T1_PLATFORM_NUMS (3)
-#define T2_PLATFORM_NUMS (5)
-
-#define T1_PARKS    (1)
-#define T2_PARKS    (2)
-
 #define CAR_MODE_RUN (1)
 #define CAR_MODE_PARK (0)
 #define CAR_MODE_ERROR (2)
@@ -29,9 +23,6 @@
  * 2.调整点数量
  * 3.分离点数量（1个分离区有两个分离点）
  */
-#define S2C_ROUTE_NUMS  (2)
-#define S2C_ADJ_NUMS    (3)
-#define S2C_SEQ_NUMS    (6)
 
 #define S2C_INTO_STATION_CMD    (0x01)
 #define S2C_REQUEST_ID_CMD      (0x02)
@@ -114,6 +105,11 @@
 
 #define SOURCE_WIFI   (0)
 #define SOURCE_ZIGBEE (1)
+
+#define OUT_STATION_OK          (1)
+#define OUT_STATION_WAIT        (0)
+
+#define DEFAULT_RPM         (100)
 #pragma pack(1)
 typedef struct
 {
@@ -183,6 +179,7 @@ typedef struct{
 
 typedef struct{
     uint8_t isRing;
+    uint32_t maxDist;
     roadID_t roadID;
     int32_t sectionB;
     carQueue_t *carQueue;
@@ -210,6 +207,13 @@ typedef struct{
 }park_t;
 
 typedef struct{
+    uint8_t active;
+    roadID_t main_road;
+    uint32_t start_point;
+    uint32_t end_point;
+}outStationInformation_t;
+
+typedef struct{
     roadID_t roadID;
     uint8_t roadType;
     uint8_t roadArea;
@@ -217,6 +221,7 @@ typedef struct{
     park_t *park;
     carQueue_t * carQueue;
     carQueue_t * carStation;
+    outStationInformation_t outInfo;
 }stationInformation_t;
 
 typedef struct{
@@ -303,6 +308,15 @@ typedef struct{
     uint8_t not_firstStats;
     uint8_t heart_status;
 }statsPacket_t;
+
+typedef struct{
+    rfid_t rfid;
+    uint16_t id;
+}outStationRequest_t;
+
+typedef struct{
+    uint8_t status;
+}outStationAck_t;
 #pragma pack()
 void S2CTaskInit();
 enum SLOT_TYPE
