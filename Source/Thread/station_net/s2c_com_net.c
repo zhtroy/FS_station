@@ -270,12 +270,14 @@ static criticalArea_t criticalArea[CRITICAL_AREA_NUMS] =
 {
         /*起始位置,结束位置,车辆ID,车辆位置*/
         {
+                {1,0,0,0,0},{1,1,0,0,0},
                 2200,2270,0,0
         },
-        {
+        {       {1,1,0,0,0},{1,1,1,0,0},
                 1630,1700,0,0
         },
         {
+                {1,0,0,0,0},{1,2,0,0,0},
                 200,270,0,0
         }
 };
@@ -1437,19 +1439,32 @@ uint8_t S2CCriticalAreaDetect(carStatus_t *carSts)
     {
         if(carSts->dist >= criticalArea[i].start && carSts->dist <= criticalArea[i].end)
         {
-            /*关键区域存在一辆以上车辆*/
-            if(criticalArea[i].carID != 0 && criticalArea[i].carID != carSts->id)
+            if((0 == memcmp(&criticalArea[i].left_road,&carSts->rfid.byte[1],sizeof(roadID_t))) ||
+                    (0 == memcmp(&criticalArea[i].right_road,&carSts->rfid.byte[1],sizeof(roadID_t))))
             {
-                log_i("Critical Area collision detected:%x(%d),%x(%d)",
-                        carSts->id,carSts->dist,
-                        criticalArea[i].carID,criticalArea[i].carPos);
-                return 1;
+                /*关键区域存在一辆以上车辆*/
+                if(criticalArea[i].carID != 0 && criticalArea[i].carID != carSts->id)
+                {
+                    log_i("Critical Area collision detected:%x(%d),%x(%d)",
+                            carSts->id,carSts->dist,
+                            criticalArea[i].carID,criticalArea[i].carPos);
+                    return 1;
+                }
+                else
+                {
+                    /*更新关键区域车辆信息*/
+                    criticalArea[i].carID = carSts->id;
+                    criticalArea[i].carPos = carSts->dist;
+                }
             }
             else
             {
-                /*更新关键区域车辆信息*/
-                criticalArea[i].carID = carSts->id;
-                criticalArea[i].carPos = carSts->dist;
+                /*车辆已经移出该区域，清除车辆*/
+                if(criticalArea[i].carID == carSts->id)
+                {
+                    criticalArea[i].carID = 0;
+                    criticalArea[i].carPos = 0;
+                }
             }
 
         }

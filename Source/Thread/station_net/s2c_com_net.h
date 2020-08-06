@@ -225,6 +225,8 @@ typedef struct{
 }stationInformation_t;
 
 typedef struct{
+    roadID_t left_road;
+    roadID_t right_road;
     uint32_t start;
     uint32_t end;
     uint16_t carID;
