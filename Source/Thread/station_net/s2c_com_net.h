@@ -323,13 +323,13 @@ typedef struct{
 void S2CTaskInit();
 enum SLOT_TYPE
 {
-      SLOT_0_200MS,
-      SLOT_200_300MS,
-      SLOT_300_400MS,
-      SLOT_400_600MS,
-      SLOT_600_800MS,
-      SLOT_800_1000MS,
-      SLOT_1000_XXXXMS
+      SLOT_0_100MS,
+      SLOT_100_125MS,
+      SLOT_125_150MS,
+      SLOT_150_175MS,
+      SLOT_175_200MS,
+      SLOT_200_250MS,
+      SLOT_250_XXXXMS
 };
 
 #endif

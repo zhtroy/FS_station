@@ -81,7 +81,7 @@ static const roadInformation_t constRoadInfo[] = {
         },
         {
                 //1:环形轨道,0:普通轨道
-                0x01,3120,
+                0x01,3100,
                 //道路编号
                 0x02,0x00,0x00,0x00,0x00,
                 //B段偏移
@@ -190,7 +190,7 @@ static const stationInformation_t constStationInfo[] = {
                 0x00000000,
                 0x00000000,
                 0x00000000,
-                {0,{1,0,0,0,0,},138,170}
+                {0,{1,0,0,0,0,},1380,1700}
         },
         {
                 /*站台111*/
@@ -201,7 +201,7 @@ static const stationInformation_t constStationInfo[] = {
                 0x00000000,
                 0x00000000,
                 0x00000000,
-                {0,{1,0,0,0,0,},138,170}
+                {0,{1,0,0,0,0,},1380,1700}
         },
         {
                 /*站台210*/
@@ -212,7 +212,7 @@ static const stationInformation_t constStationInfo[] = {
                 0x00000000,
                 0x00000000,
                 0x00000000,
-                {1,{2,0,0,0,0,},100,140}
+                {1,{2,0,0,0,0,},1100,1490}
         },
 };
 
@@ -271,14 +271,14 @@ static criticalArea_t criticalArea[CRITICAL_AREA_NUMS] =
         /*起始位置,结束位置,车辆ID,车辆位置*/
         {
                 {1,0,0,0,0},{1,1,0,0,0},
-                2200,2270,0,0
+                2220,2260,0,0
         },
         {       {1,1,0,0,0},{1,1,1,0,0},
-                1630,1700,0,0
+                1680,1720,0,0
         },
         {
                 {1,0,0,0,0},{1,2,0,0,0},
-                200,270,0,0
+                230,270,0,0
         }
 };
 
@@ -463,7 +463,7 @@ static int on_carStatus(uint16_t id, void* pData, int size)
         if(stats != NULL )
         {
             /*道路信息不全为0*/
-            if(memcmp(&carSts.rfid.byte[1],&rid,sizeof(roadID_t)))
+            //if(memcmp(&carSts.rfid.byte[1],&rid,sizeof(roadID_t)))
             {
                 stats->packet_numsAdd++;
                 //stats->packet_numsSum++;
@@ -484,33 +484,33 @@ static int on_carStatus(uint16_t id, void* pData, int size)
                         stats->packet_slotMin = slot;
                     }
 
-                    if(slot <= 200)
+                    if(slot <= 100)
                     {
-                        stats->packet_slot[SLOT_0_200MS] += 1;
+                        stats->packet_slot[SLOT_0_100MS] += 1;
                     }
-                    else if(slot <= 300)
+                    else if(slot <= 125)
                     {
-                        stats->packet_slot[SLOT_200_300MS] += 1;
+                        stats->packet_slot[SLOT_100_125MS] += 1;
                     }
-                    else if(slot <= 400)
+                    else if(slot <= 150)
                     {
-                        stats->packet_slot[SLOT_300_400MS] += 1;
+                        stats->packet_slot[SLOT_125_150MS] += 1;
                     }
-                    else if(slot <= 600)
+                    else if(slot <= 175)
                     {
-                        stats->packet_slot[SLOT_400_600MS] += 1;
+                        stats->packet_slot[SLOT_150_175MS] += 1;
                     }
-                    else if(slot <= 800)
+                    else if(slot <= 200)
                     {
-                        stats->packet_slot[SLOT_600_800MS] += 1;
+                        stats->packet_slot[SLOT_175_200MS] += 1;
                     }
-                    else if(slot <= 1000)
+                    else if(slot <= 250)
                     {
-                        stats->packet_slot[SLOT_800_1000MS] += 1;
+                        stats->packet_slot[SLOT_200_250MS] += 1;
                     }
                     else
                     {
-                        stats->packet_slot[SLOT_1000_XXXXMS] += 1;
+                        stats->packet_slot[SLOT_250_XXXXMS] += 1;
                     }
                 }
 
@@ -837,13 +837,13 @@ static void showSlot(const void *key)
     {
         sb_printf("%x %8d %8d %8d %8d %8d %8d %8d\n",
                 key,
-                stats->packet_slot[SLOT_0_200MS],
-                stats->packet_slot[SLOT_200_300MS],
-                stats->packet_slot[SLOT_300_400MS],
-                stats->packet_slot[SLOT_400_600MS],
-                stats->packet_slot[SLOT_600_800MS],
-                stats->packet_slot[SLOT_800_1000MS],
-                stats->packet_slot[SLOT_1000_XXXXMS]);
+                stats->packet_slot[SLOT_0_100MS],
+                stats->packet_slot[SLOT_100_125MS],
+                stats->packet_slot[SLOT_125_150MS],
+                stats->packet_slot[SLOT_150_175MS],
+                stats->packet_slot[SLOT_175_200MS],
+                stats->packet_slot[SLOT_200_250MS],
+                stats->packet_slot[SLOT_250_XXXXMS]);
     }
 }
 static void psts(uint8_t argc,uint8_t **argv)
@@ -861,7 +861,7 @@ static void psts(uint8_t argc,uint8_t **argv)
 
         if(0 == strncmp("-s",argv[1],2))
         {
-            sb_printf("  ID   0~200  200~300  300~400  400~600  600~800  800~1000    >1000 \n");
+            sb_printf("  ID   0~100  100~125  125~150  150~175  175~200  200~250     >250 \n");
             hashtable_foreach_key(_socket_id_stats,showSlot);
         }
     }
@@ -2673,6 +2673,22 @@ void S2CDoorCtrlTask(UArg arg0, UArg arg1)
     }
 }
 
+static int8_t findRoadByid(uint16_t id,roadInformation_t **proad)
+{
+    int i;
+    int8_t index;
+    for(i=0;i<road_number;i++)
+    {
+        index = findCarByID(id,roadInfo[i].carQueue);
+        if(index >= 0)
+        {
+            *proad = &roadInfo[i];
+            return index;
+        }
+    }
+    *proad = NULL;
+    return -1;
+}
 
 static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
 {
@@ -2683,54 +2699,54 @@ static void S2CStationStopRequestTask(UArg arg0, UArg arg1)
     uint8_t retryNums;
     uint8_t isEnd;
     stopRequest_t stopRequest;
+    roadInformation_t *road;
     while(1)
     {
         Mailbox_pend(collisionMbox,&collisionInfo,BIOS_WAIT_FOREVER);
+        index = findRoadByid(collisionInfo.carID,&road);
+
+        if(index < 0)
+            continue;
+
         retryNums = 0;
-        sb_printf("collision stop\n");
         do
         {
             isEnd = 1;
             if(collisionInfo.type != CONNECT_COLLISION_TYPE)
             {
-                for(i=0;i<road_number;i++)
-                {
-                    index = findCarByID(collisionInfo.carID,roadInfo[i].carQueue);
-                    if(index > 0)
-                    {
-                        if(roadInfo[i].carQueue[index].carMode != STOP_MODE)
-                        {
-                            log_i("Collision Stop %x,type %d",collisionInfo.carID,collisionInfo.type);
-                            
-                            stopRequest.collision = collisionInfo.type;
-                            msgSendByid(collisionInfo.carID,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
 
-                            Task_sleep(100);
-                            isEnd = 0;
-                            retryNums ++;
-                        }
-                        break;
-                    }
+                if(road->carQueue[index].carMode != STOP_MODE)
+                {
+                    log_i("Collision Stop %x,type %d",collisionInfo.carID,collisionInfo.type);
+
+                    stopRequest.collision = collisionInfo.type;
+                    msgSendByid(collisionInfo.carID,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
+
+                    Task_sleep(100);
+                    isEnd = 0;
+                    retryNums ++;
                 }
+                break;
 
             }
             else/*心跳超时，停止所有车辆*/
             {
-                sb_printf("collision stop retry %d\n",retryNums);
                 for(i=0;i<road_number;i++)
                 {
-                    size = vector_size(roadInfo[i].carQueue);
-                    for(j=0;j<size;j++)
+                    if(roadInfo[i].roadID.byte[0] == road->roadID.byte[0])
                     {
-                        if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
+                        size = vector_size(roadInfo[i].carQueue);
+                        for(j=0;j<size;j++)
                         {
-                            log_i("Collision Stop %x,type %d",roadInfo[i].carQueue[j].id,collisionInfo.type);
-//                            sb_printf("Collision Stop %x,type %d\n",roadInfo[i].carQueue[j].id,collisionInfo.type);
+                            if(roadInfo[i].carQueue[j].carMode != STOP_MODE)
+                            {
+                                log_i("Collision Stop %x,type %d",roadInfo[i].carQueue[j].id,collisionInfo.type);
 
-                            stopRequest.collision = collisionInfo.type;
-                            msgSendByid(roadInfo[i].carQueue[j].id,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
-                            isEnd = 0;
-                            Task_sleep(50);
+                                stopRequest.collision = collisionInfo.type;
+                                msgSendByid(roadInfo[i].carQueue[j].id,S2C_REQUEST_STOP,&stopRequest,sizeof(stopRequest_t));
+                                isEnd = 0;
+                                Task_sleep(50);
+                            }
                         }
                     }
                 }
