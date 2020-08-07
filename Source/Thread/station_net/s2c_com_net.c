@@ -92,7 +92,7 @@ static const roadInformation_t constRoadInfo[] = {
                 //1:环形轨道,0:普通轨道
                 0x00,1600,
                 //道路编号
-                0x02,0x10,0x00,0x00,0x00,
+                0x02,0x01,0x00,0x00,0x00,
                 //B段偏移
                 0x00000000,
                 0x00000000,
@@ -1713,7 +1713,7 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
             }
             if(roadSep == 0)
             {
-                log_i("%x is out of Seperate Zone");
+                log_i("%x(%d) is out of Seperate Zone",carSts.id,carSts.dist);
                 continue;
             }
 
