@@ -2028,9 +2028,9 @@ static void carInfoTask(UArg arg0, UArg arg1)
 
         carInfo_ack.delta_dist = 160;
         msgSendByid(carInfo_req.car_id,EVENT_V2C_CAR_INFO_ACK,&carInfo_ack,sizeof(carInfoAck_t));
-        log_i("%x car-info ack %x(%d)",carInfo_req.car_id,
-                carInfo_ack.id,
-                carInfo_ack.dist);
+//        log_i("%x car-info ack %x(%d)",carInfo_req.car_id,
+//                carInfo_ack.id,
+//                carInfo_ack.dist);
     }
 }
 
