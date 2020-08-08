@@ -2791,7 +2791,7 @@ static roadInformation_t * findRoadByRoadID(roadID_t *roadID)
 static uint8_t checkOutZone(carQueue_t * queue,uint32_t start_point,uint32_t end_point)
 {
     uint32_t size;
-    uint8_t ret = 0;
+    uint8_t ret = OUT_STATION_OK;
     uint32_t i;
     size = vector_size(queue);
 
@@ -2799,11 +2799,11 @@ static uint8_t checkOutZone(carQueue_t * queue,uint32_t start_point,uint32_t end
     {
         for(i=0;i<size;i++)
         {
-            /*出发监测区内无静止车辆*/
+            /*出发监测区内有非静止车辆*/
             if(queue[i].rpm != 0 &&
-                    (queue[i].pos < start_point || queue[i].pos > end_point))
+                    (queue[i].pos >= start_point && queue[i].pos <= end_point))
             {
-                ret = 1;
+                ret = OUT_STATION_WAIT;
             }
         }
     }
