@@ -215,3 +215,55 @@ static void elog_read(uint8_t argc, char **argv){
         }
 }
 MSH_CMD_EXPORT(elog_read, EasyLogger read from flash log);
+
+
+void delenv(uint8_t argc, char **argv)
+{
+     if(argc<2)
+    {
+         sb_printf("Input: delenv varname\n");
+    }
+    else
+    {
+        ef_del_env(argv[1]);
+    }
+}
+MSH_CMD_EXPORT_EX(delenv, delete an envrionment variable., .ex delenv temp);
+
+
+void setenvshort(uint8_t argc,char **argv)
+{
+    if(argc<3)
+    {
+         sb_printf("Input: setenvint varname varvalue");
+    }
+    else
+    {
+        uint16_t value = atoi(argv[2]);
+        ef_set_env_blob(argv[1], &value, sizeof(value));
+    }
+}
+MSH_CMD_EXPORT_EX(setenvshort, Set an envrionment variable integer., .ex setenvshort temp 1000);
+
+void getenvshort(uint8_t argc,char **argv)
+{
+    if(argc<2)
+    {
+         sb_printf("Input: getenvint varname\n");
+    }
+    else
+    {
+        int read_len = 0;
+        uint16_t value;
+        ef_get_env_blob(argv[1], &value, sizeof(value), &read_len);
+        if(read_len>0)
+        {
+            sb_printf("%s = %d\n",argv[1],value);
+        }
+        else
+        {
+            sb_printf("no such env %s\n",argv[1]);
+        }
+    }
+}
+MSH_CMD_EXPORT_EX(getenvshort, Set an envrionment variable integer., .ex getenvshort temp);

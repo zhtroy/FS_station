@@ -40,7 +40,7 @@
  * ENV version number defined by user.
  * Please change it when your firmware add a new ENV to default_env_set.
  */
-#define EF_ENV_VER_NUM            (1)
+#define EF_ENV_VER_NUM            (3)
 /* @note you must define it for a value, such as 0 */
  
 /* MCU Endian Configuration, default is Little Endian Order.
