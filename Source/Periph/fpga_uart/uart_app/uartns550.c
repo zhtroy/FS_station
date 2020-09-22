@@ -20,7 +20,7 @@ uartCfgTable_t uartCfgTable[] = {
      /*设备1资源配置*/
     {
          /*设备号,设备基地址ַ,设备驱动时钟<Hz>*/
-         1,(SOC_EMIFA_CS2_ADDR+0x400),80000000,
+         1,(SOC_EMIFA_CS2_ADDR+0x220),80000000,
          /*波特率,数据长度,校验位,ֹͣ停止位*/
          {115200,XUN_FORMAT_8_BITS,XUN_FORMAT_NO_PARITY,XUN_FORMAT_1_STOP_BIT},
          /*设备OPTIONS*/
@@ -32,7 +32,7 @@ uartCfgTable_t uartCfgTable[] = {
      /*设备2资源配置*/
     {
          /*设备号,设备基地址ַ,设备驱动时钟<Hz>*/
-         2,(SOC_EMIFA_CS2_ADDR+0x600),80000000,
+         2,(SOC_EMIFA_CS2_ADDR+0x240),80000000,
          /*波特率,数据长度,校验位,ֹͣ停止位*/
          {115200,XUN_FORMAT_8_BITS,XUN_FORMAT_ODD_PARITY,XUN_FORMAT_1_STOP_BIT},
          /*设备OPTIONS*/
@@ -44,7 +44,7 @@ uartCfgTable_t uartCfgTable[] = {
      /*设备3资源配置*/
     {
          /*设备号,设备基地址ַ,设备驱动时钟<Hz>*/
-         3,(SOC_EMIFA_CS2_ADDR+0x800),80000000,
+         3,(SOC_EMIFA_CS2_ADDR+0x260),80000000,
          /*波特率,数据长度,校验位,ֹͣ停止位*/
          {115200,XUN_FORMAT_8_BITS,XUN_FORMAT_NO_PARITY,XUN_FORMAT_1_STOP_BIT},
          /*设备OPTIONS*/
@@ -56,7 +56,7 @@ uartCfgTable_t uartCfgTable[] = {
     /*设备4资源配置*/
     {
          /*设备号,设备基地址ַ,设备驱动时钟<Hz>*/
-         4,(SOC_EMIFA_CS2_ADDR+0xA00),80000000,
+         4,(SOC_EMIFA_CS2_ADDR+0x280),80000000,
          /*波特率,数据长度,校验位,ֹͣ停止位*/
          {115200,XUN_FORMAT_8_BITS,XUN_FORMAT_NO_PARITY,XUN_FORMAT_1_STOP_BIT},
          /*设备OPTIONS*/
@@ -68,7 +68,7 @@ uartCfgTable_t uartCfgTable[] = {
      /*设备5资源配置*/
     {
          /*设备号,设备基地址ַ,设备驱动时钟<Hz>*/
-         5,(SOC_EMIFA_CS2_ADDR+0xC00),80000000,
+         5,(SOC_EMIFA_CS2_ADDR+0x2A0),80000000,
          /*波特率,数据长度,校验位,ֹͣ停止位*/
          {115200,XUN_FORMAT_8_BITS,XUN_FORMAT_NO_PARITY,XUN_FORMAT_1_STOP_BIT},
          /*设备OPTIONS*/

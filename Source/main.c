@@ -79,8 +79,9 @@ void PeriphInit()
     UartNs550HardIntMaskAll();
     UartNs550HardIntEnable ();
 
-    CanHardIntMaskAll();
-    CanHardIntEnable ();
+    /*未使用CAN，暂时关闭*/
+    CanHardIntUnMaskAll();
+    CanHardIntDisable();
     CanTableInit();
     TTLInit();
 
