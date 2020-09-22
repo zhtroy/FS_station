@@ -354,7 +354,7 @@ static void msgServerInit(uint16_t myid, uint16_t port)
 
 	hashtable_conf_init(&htc);
 
-	htc.hash        = GENERAL_HASH;
+	htc.hash        = POINTER_HASH;
 	htc.key_length  = sizeof(uint16_t);   //evt is int
 	htc.key_compare = hashintkeycmp;
 
