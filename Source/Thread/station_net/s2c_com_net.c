@@ -142,7 +142,7 @@ static const adjustZone_t constAdjustZone[] = {
                 3,
                 0x02,0x00,0x00,0x00,0x00,
                 0x02,0x01,0x00,0x00,0x00,
-                0x0000062F,
+                0x00000616,
                 0x0000067C,
                 0,
         },
