@@ -3202,4 +3202,29 @@ static int delcar(uint8_t argc,uint8_t **argv)
 }
 MSH_CMD_EXPORT(delcar, remove car from station);
 
+static int showcar(uint8_t argc,uint8_t **argv)
+{
+    uint8_t i,j;
+    uint8_t size;
+
+    sb_printf("id   pos   rpm   status rail mode\r\n");
+    for(i=0;i<road_number;i++)
+    {
+        size = vector_size(roadInfo[i].carQueue);
+
+        for(j=0;j<size;j++)
+            sb_printf("%x %5d %5d    %d    %d   %d\r\n",
+                    roadInfo[i].carQueue[size-1-j].id,
+                    roadInfo[i].carQueue[size-1-j].pos,
+                    roadInfo[i].carQueue[size-1-j].rpm,
+                    roadInfo[i].carQueue[size-1-j].mode,
+                    roadInfo[i].carQueue[size-1-j].rail,
+                    roadInfo[i].carQueue[size-1-j].carMode
+                    );
+    }
+
+
+    return 0;
+}
+MSH_CMD_EXPORT(showcar,show car status);
 #endif
