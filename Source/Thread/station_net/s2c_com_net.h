@@ -126,6 +126,7 @@ typedef struct{
     uint8_t  mode;
     uint8_t  rail;
     uint8_t carMode;
+    uint8_t offRail;    //0:在轨,1:下轨
     uint32_t timeStamp;
 }carStatus_t;
 

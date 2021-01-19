@@ -456,7 +456,7 @@ static int on_carStatus(uint16_t id, void* pData, int size)
 
     log_d("Receive %x car status",id);
     carSts.id = id;
-    memcpy(&carSts.rfid,pData,sizeof(rfid_t)+9);
+    memcpy(&carSts.rfid,pData,sizeof(rfid_t)+10);
     if(CC_OK == hashtable_get(_socket_id_stats,id,&stats))
     {
         memset(&rid,0,sizeof(roadID_t));
@@ -908,6 +908,7 @@ void S2C_zcpRecv(UArg arg0, UArg arg1)
             carSts.mode = CAR_MODE_RUN;
             carSts.rail = rid.rail;
             carSts.carMode = rid.carMode;
+            carSts.offRail = 0;
 
             Mailbox_post(carStatusMbox,&carSts,BIOS_NO_WAIT);
             Mailbox_post(ridMbox,&rid,BIOS_NO_WAIT);
@@ -1621,10 +1622,10 @@ void S2CCarStatusProcTask(UArg arg0, UArg arg1)
         /*
          * 车辆处于待删除模式
          */
-        if(carSts.mode == CAR_MODE_REMOVE)
+        if(carSts.mode == CAR_MODE_REMOVE || carSts.offRail == 1)
         {
             removeCarProcess(carSts.id);
-            showRoadLog();
+            //showRoadLog();
             continue;
         }
 
